@@ -1,5 +1,9 @@
 #!/bin/bash
 
+#
+# Focus: Do not use spaces in paths and filenames, unexpected consequences may occur
+#
+
 # wallpaper configuration file
 conf="$(dirname $0)/configs/wallpaper.conf"
 
