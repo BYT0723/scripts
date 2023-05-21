@@ -109,7 +109,7 @@ print_cpu() {
     # local cpu_percent=$(printf "%2.0f" $(iostat -c 1 2 | awk 'NR==9 {print $1}'))
 
     # colorscheme
-    if [ $cpu_val -ge 6.0 ]; then
+    if [ $(echo "$cpu_val > 6.0" | bc) -eq 1 ]; then
         printf "\x08^c$black^^b$red^"
     else
         printf "\x08^c$white^^b$black^"
@@ -143,14 +143,14 @@ function update_weather() {
 }
 
 print_weather() {
-    if [ -f $weather_path ]; then
-        local date=$(cat $weather_path | awk -F '?' '{print $2}')
-        if [[ $date == "" ]]; then
-            update_weather &
-        fi
-    else
+    if [ ! -f $weather_path ] || [ "$(cat $weather_path | awk -F '?' '{print $2}')" == "" ]; then
         update_weather &
+        return
     fi
+
+    printf "\x09^c$blue^^b$grey^"
+    printf "$(cat $weather_path | awk -F '?' '{print $1}')"
+
     # 计算两次请求时间间隔
     # 如果时间间隔超过$weather_update_duration秒,则更新天气状态
     local duration=$(($(date +%s) - $(date -d "$date" +%s)))
@@ -158,8 +158,6 @@ print_weather() {
         update_weather &
     fi
 
-    printf "\x09^c$blue^^b$grey^"
-    printf "$(cat $weather_path | awk -F '?' '{print $1}')"
 }
 
 # Music Player Daemon
