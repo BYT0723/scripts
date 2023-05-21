@@ -49,19 +49,12 @@ set_wallpaper() {
     fi
 
     # kill existing xwinwrap
-    if [ -n $(pgrep xwinwrap) ]; then
+    if [[ -n $(pgrep xwinwrap) ]]; then
         killall xwinwrap
     fi
 
     # sleep for a short time to prevent killing the new xwinwrap
     sleep 0.3
-
-    # no-osc 关闭进度条等
-    # loop-file 循环播放
-    # panscan 裁剪图像比例
-    # no-keepaspect 强制拉伸为屏幕大小
-    # no-input-default-bindings 关闭键位响应
-    # input-conf 指定键位配置
 
     # get file suffix
     Type=$(echo "${1#*.}")
@@ -130,16 +123,16 @@ next_wallpaper() {
         fi
 
         # The number of files in random_video_dir
-        len=$(find $dir -type f -maxdepth $(getConfig random_depth) -regextype posix-extended -regex ".*\.(mp4|avi|mkv)" |
-            wc -l)
+        targets=($(find $dir -type f -maxdepth $(getConfig random_depth) -regextype posix-extended -regex ".*\.(mp4|avi|mkv)"))
+
+        len=${#targets[*]}
 
         if [ $len == 0 ]; then
             error "No target wallpaper found in "$dir
             return
         fi
         # Randomly get a video wallpaper
-        filename=$(find $dir -type f -maxdepth $(getConfig random_depth) -regextype posix-extended -regex ".*\.(mp4|avi|mkv)" |
-            awk 'NR=='$(($RANDOM % $len + 1))' {print $0}')
+        filename=${targets[$(($RANDOM % $len + 1))]}
 
         nohup xwinwrap -ov -fs -- mpv -wid WID "$filename" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) >/dev/null 2>&1 &
         ;;
@@ -151,15 +144,16 @@ next_wallpaper() {
             return
         fi
         # The number of files in random_video_dir
-        len=$(find $dir -type f -maxdepth $(getConfig random_depth) -regextype posix-extended -regex ".*\.(jpeg|jpg|png)" |
-            wc -l)
+        targets=($(find $dir -type f -maxdepth $(getConfig random_depth) -regextype posix-extended -regex ".*\.(jpeg|jpg|png)"))
+
+        len=${#targets[*]}
+
         if [ $len == 0 ]; then
             error "No target wallpaper found in "$dir
             return
         fi
         # Randomly get a video wallpaper
-        filename=$(find $dir -type f -maxdepth $(getConfig random_depth) -regextype posix-extended -regex ".*\.(jpeg|jpg|png)" |
-            awk 'NR=='$(($RANDOM % $len + 1))' {print $0}')
+        filename=${targets[$(($RANDOM % $len + 1))]}
 
         feh --bg-scale --no-fehbg $filename
         ;;
