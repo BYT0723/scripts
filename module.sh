@@ -22,6 +22,7 @@ fi
 # 定义运行命令的Map
 declare -A applicationCmd
 applicationCmd["picom"]="picom --config $dir/configs/picom.conf -b"
+# applicationCmd["picom"]="picom --config $dir/configs/picom.conf -b --experimental-backends"
 
 # Options
 layout=$(cat ${theme} | grep 'USE_ICON' | cut -d'=' -f2)

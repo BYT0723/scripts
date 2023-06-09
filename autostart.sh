@@ -10,8 +10,8 @@ dir=$(dirname $0)
 
 # picom (window composer)
 if [ -z "$(pgrep picom)" ]; then
-    # picom --config $dir/configs/picom.conf -b --experimental-backends
     picom --config $dir/configs/picom.conf -b
+    # picom --config $dir/configs/picom.conf -b --experimental-backends
 fi
 
 # polkit (require lxsession or lxsession-gtk3)
@@ -21,7 +21,7 @@ fi
 
 # autolock (screen locker)
 if [ -z "$(pgrep xautolock)" ]; then
-    xautolock -time 30 -locker betterlockscreen -detectsleep &
+    xautolock -time 30 -locker slock -detectsleep &
 fi
 
 if [ -z "$(pgrep nm-applet)" ]; then
