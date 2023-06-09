@@ -15,6 +15,7 @@ declare -A icons
 icons["disk"]=" "
 icons["memory"]=" "
 icons["cpu"]=" "
+icons["temp"]=" "
 icons["mpd"]=" "
 
 # seconds
@@ -125,7 +126,7 @@ print_cpu() {
         else
             printf "\x08^c$white^^b$black^"
         fi
-        printf " ${temp}°C"
+        printf "${icons["temp"]}${temp}°C"
     fi
 }
 
