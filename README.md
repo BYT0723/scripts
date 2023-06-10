@@ -40,7 +40,7 @@
 | term.sh               | termnial launcher                  | st / alacritty                                                                                |
 | touchpad-toggle.sh    | touchpad switcher                  | libnotify                                                                                     |
 | volume.sh             | volume controller                  | alsa-utils                                                                                    |
-| wallpaper.sh          | wallpaper controller               | feh / xwinwrap / mpv                                                                          |
+| wallpaper.sh          | wallpaper controller               | feh / xwinwrap / mpv / archlinux-wallpaper                                                    |
 
 For details, see the comment documentation in the script
 
