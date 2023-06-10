@@ -28,7 +28,7 @@ icon() {
         fi
 
     elif [[ "$2" == "conf" ]]; then
-        if [[ -n $(cat ${confPath[$3]} | grep $4 | grep $(typeToValue $5)) ]]; then
+        if [[ -n $(cat ${confPath[$3]} | grep -E "^$4\s*=\s*$(typeToValue $5)") ]]; then
             echo ${icon[0]}
         else
             echo ${icon[1]}
@@ -59,23 +59,22 @@ toggleApplication() {
 
 # toggle conf property
 toggleConf() {
-    line=$(cat ${confPath[$1]} | grep $2 -n | awk -F ':' '{print $1}')
-    if [[ -n $(cat ${confPath[$1]} | grep $2 | grep $(typeToValue $3)) ]]; then
+    if [[ -n $(cat ${confPath[$1]} | grep -E "^$2\s*=\s*$(typeToValue $3)") ]]; then
         case "$3" in
         bool)
-            sed -i $line' s/false/true/' ${confPath[$1]}
+            sed -i "s|^$2\s*=\s*false|$2\ =\ true|g" ${confPath[$1]}
             ;;
         number)
-            sed -i $line' s/0/1/' ${confPath[$1]}
+            sed -i "s|^$2\s*=\s*0|$2\ =\ 1|g" ${confPath[$1]}
             ;;
         esac
     else
         case "$3" in
         bool)
-            sed -i $line' s/true/false/' ${confPath[$1]}
+            sed -i "s|^$2\s*=\s*true|$2\ =\ false|g" ${confPath[$1]}
             ;;
         number)
-            sed -i $line' s/1/0/' ${confPath[$1]}
+            sed -i "s|^$2\s*=\s*1|$2\ =\ 0|g" ${confPath[$1]}
             ;;
         esac
     fi

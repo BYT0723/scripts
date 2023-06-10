@@ -20,7 +20,7 @@ config["cmd"]="feh --no-fehbg --bg-scale /usr/share/backgrounds/archlinux/small.
 # Get single configuration
 getConfig() {
     if [ -f $conf ]; then
-        res=$(cat $conf | grep "^$1=" | tail -n 1 | awk -F '=' '{print $2}')
+        res=$(cat $conf | grep -E "^$1\s*=" | tail -n 1 | awk -F '=' '{print $2}' | grep -o "[^ ]\+\( \+[^ ]\+\)*")
         if [ -z "$res" ]; then
             echo ${config[$1]}
         else
