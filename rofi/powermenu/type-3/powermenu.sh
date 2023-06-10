@@ -65,6 +65,8 @@ run_cmd() {
             amixer set Master mute
             systemctl suspend
             betterlockscreen -l
+            mpc -q play
+            amixer set Master unmute
         elif [[ $1 == '--logout' ]]; then
             if [[ "$DESKTOP_SESSION" == 'openbox' ]]; then
                 openbox --exit
@@ -91,11 +93,15 @@ $reboot)
     run_cmd --reboot
     ;;
 $lock)
+    mpc -q pause
+    amixer set Master mute
     if [[ -x '/usr/bin/betterlockscreen' ]]; then
         betterlockscreen -l
     elif [[ -x '/usr/bin/i3lock' ]]; then
         i3lock
     fi
+    mpc -q play
+    amixer set Master unmute
     ;;
 $suspend)
     run_cmd --suspend
