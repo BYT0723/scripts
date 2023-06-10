@@ -33,6 +33,13 @@ icon() {
         else
             echo ${icon[1]}
         fi
+
+    elif [[ "$2" == "cmd" ]]; then
+        if [[ -n $(ps ax | grep "$3" | grep -v grep) ]]; then
+            echo ${icon[1]}
+        else
+            echo ${icon[0]}
+        fi
     fi
 }
 
@@ -44,6 +51,9 @@ typeToValue() {
         ;;
     number)
         echo 0
+        ;;
+    wallpaper_type)
+        echo "image"
         ;;
     esac
 }
@@ -67,6 +77,9 @@ toggleConf() {
         number)
             sed -i "s|^$2\s*=\s*0|$2\ =\ 1|g" ${confPath[$1]}
             ;;
+        wallpaper_type)
+            sed -i "s|^$2\s*=\s*image|$2\ =\ video|g" ${confPath[$1]}
+            ;;
         esac
     else
         case "$3" in
@@ -76,6 +89,13 @@ toggleConf() {
         number)
             sed -i "s|^$2\s*=\s*1|$2\ =\ 0|g" ${confPath[$1]}
             ;;
+        wallpaper_type)
+            sed -i "s|^$2\s*=\s*video|$2\ =\ image|g" ${confPath[$1]}
+            ;;
         esac
     fi
+}
+
+getConfig() {
+    echo $(cat ${confPath[$1]} | grep -E "^$2\s*=" | tail -n 1 | awk -F '=' '{print $2}' | grep -o "[^ ]\+\( \+[^ ]\+\)*")
 }

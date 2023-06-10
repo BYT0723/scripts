@@ -19,10 +19,15 @@ elif [[ ("$theme" == *'type-2'*) || ("$theme" == *'type-4'*) ]]; then
     list_row='1'
 fi
 
+# 配置文件路径
+declare -A confPath
+confPath["picom"]="$dir/configs/picom.conf"
+confPath["wallpaper"]="$dir/configs/wallpaper.conf"
+
 # 定义运行命令的Map
 declare -A applicationCmd
-applicationCmd["picom"]="picom --config $dir/configs/picom.conf -b"
-# applicationCmd["picom"]="picom --config $dir/configs/picom.conf -b --experimental-backends"
+# applicationCmd["picom"]="picom --config $dir/configs/picom.conf -b"
+applicationCmd["picom"]="picom --config $dir/configs/picom.conf -b --experimental-backends"
 
 # Options
 layout=$(cat ${theme} | grep 'USE_ICON' | cut -d'=' -f2)
@@ -33,6 +38,7 @@ if [[ "$layout" == 'NO' ]]; then
         " Network                       $(icon active app NetworkManager)"
         " Bluetooth                     $(icon active service bluetooth)"
         " Notification                  $(icon active app dunst)"
+        " Wallpaper                     $(icon active cmd 'wallpaper.sh -r')"
     )
     picomOpt=(
         "蘒 Toggle                       $(icon toggle app picom)"
@@ -40,6 +46,11 @@ if [[ "$layout" == 'NO' ]]; then
     notificationOpt=(
         "Pop                            $(dunstctl count history)"
         "CloseAll                       $(dunstctl count displayed)"
+    )
+    wallpaperOpt=(
+        "next"
+        "random                         $(icon toggle conf wallpaper random number)"
+        "random_type                 $(getConfig wallpaper random_type)"
     )
 else
     firstOpt=(
@@ -62,11 +73,16 @@ optId[${firstOpt[0]}]="--opt1"
 optId[${firstOpt[1]}]="--opt2"
 optId[${firstOpt[2]}]="--opt3"
 optId[${firstOpt[3]}]="--opt4"
+optId[${firstOpt[4]}]="--opt5"
 
 optId[${picomOpt[0]}]="--picomOpt1"
 
 optId[${notificationOpt[0]}]="--notificationOpt1"
 optId[${notificationOpt[1]}]="--notificationOpt2"
+
+optId[${wallpaperOpt[0]}]="--wallpaperOpt1"
+optId[${wallpaperOpt[1]}]="--wallpaperOpt2"
+optId[${wallpaperOpt[2]}]="--wallpaperOpt3"
 
 # Rofi CMD
 rofi_cmd() {
@@ -116,6 +132,10 @@ $connected_device"
         prompt='Notification'
         mesg="Dunst Notification Manager"
         opts=("${notificationOpt[@]}")
+    elif [[ "$1" == ${optId[${firstOpt[4]}]} ]]; then
+        prompt='Wallpaper'
+        mesg="Setting Wallpaper"
+        opts=("${wallpaperOpt[@]}")
     else
         prompt='Module'
         mesg="Manage Module Of System"
@@ -144,6 +164,15 @@ run_cmd() {
         ;;
     ${optId[${notificationOpt[1]}]})
         dunstctl close-all
+        ;;
+    ${optId[${wallpaperOpt[0]}]})
+        ~/.dwm/wallpaper.sh -n
+        ;;
+    ${optId[${wallpaperOpt[1]}]})
+        toggleConf wallpaper random number
+        ;;
+    ${optId[${wallpaperOpt[2]}]})
+        toggleConf wallpaper random_type wallpaper_type
         ;;
     ${optId[${firstOpt[1]}]})
         chosen="$(run_rofi $1)"
