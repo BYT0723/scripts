@@ -6,6 +6,7 @@
 
 # wallpaper configuration file
 conf="$(dirname $0)/configs/wallpaper.conf"
+cmdf="$(dirname $0)/configs/wallpaper-cmd.sh"
 
 # Define the default configuration
 declare -A config
@@ -15,7 +16,7 @@ config["random_image_dir"]="~/Pictures"
 config["random_video_dir"]="~/Videos"
 config["random_depth"]=1
 config["duration"]=30
-config["cmd"]="feh --no-fehbg --bg-scale /usr/share/backgrounds/archlinux/small.png"
+cmd="feh --no-fehbg --bg-scale /usr/share/backgrounds/archlinux/small.png"
 
 # Get single configuration
 getConfig() {
@@ -93,7 +94,7 @@ set_wallpaper() {
 
         xwinwrap -d -ov -fs -- mpv -wid WID "$1" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) >/dev/null 2>&1 &
         # write command to configuration
-        sed -i "s|cmd=.\+|cmd=xwinwrap -ov -fs -- mpv -wid WID "$1" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf)|g" $conf
+        echo "xwinwrap -d -ov -fs -- mpv -wid WID \""$1"\" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf)" >$cmdf
         ;;
     "image")
         # command detection
@@ -104,7 +105,7 @@ set_wallpaper() {
 
         feh --bg-scale --no-fehbg "$1"
         # write command to configuration
-        sed -i "s|cmd=.\+|cmd=feh --no-fehbg --bg-scale "$1"|g" $conf
+        echo "feh --bg-scale --no-fehbg \""$1"\"" >$cmdf
         ;;
     "page")
 
@@ -118,20 +119,23 @@ set_wallpaper() {
             return
         fi
 
-        # tabbed xid的存储路径, 并删除旧的
+        # The storage path of tabbed xid
         idfd="/tmp/tabbed-wallpaper.xid"
 
-        if [ -f $idfd ]; then
-            rm $idfd
-        fi
-
-        # 启动xwinwrap和tabbed
-        xwinwrap -ov -fs -- tabbed -g $(xrandr --current | grep -o -E "current\s([0-9])+\sx\s[0-9]+" | awk '{print $2$3$4}') -w WID >$idfd &
+        # Start xwinwrap and tabbed
+        size=$(xrandr --current | grep -o -E "current\s([0-9])+\sx\s[0-9]+" | awk '{print $2$3$4}')
+        xwinwrap -ov -fs -- tabbed -g $size -w WID >$idfd &
 
         sleep 0.1
 
-        # 启动surf并绑定到tabbed中
+        # Start surf and bind to tabbed
         surf -e $(cat $idfd) $1 &
+
+        # write command to configuration
+        echo 'idfd="/tmp/tabbed-wallpaper.xid"
+xwinwrap -ov -fs -- tabbed -g '$size' -w WID >$idfd &
+sleep 0.1
+surf -e $(cat $idfd) "'$1'" & ' >$cmdf
         ;;
     esac
 }
@@ -197,11 +201,14 @@ next_wallpaper() {
 # wallpaper launch_wallpaper
 launch_wallpaper() {
     while true; do
-        cmd=$(getConfig cmd)
         if [ $(getConfig random) -eq 1 ]; then
             next_wallpaper
         else
-            $cmd
+            if [ ! -f $cmdf ]; then
+                $cmd
+            else
+                bash $cmdf
+            fi
         fi
         sleep $(($(getConfig duration) * 60))
     done
