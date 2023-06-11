@@ -124,7 +124,7 @@ set_wallpaper() {
 
         # Start xwinwrap and tabbed
         size=$(xrandr --current | grep -o -E "current\s([0-9])+\sx\s[0-9]+" | awk '{print $2$3$4}')
-        xwinwrap -ov -fs -- tabbed -g $size -w WID >$idfd &
+        xwinwrap -ov -fs -- tabbed -g $size -w WID 1>$idfd 2>/dev/null &
 
         sleep 0.1
 
