@@ -70,8 +70,11 @@ set_wallpaper() {
     jpg | png)
         Type="image"
         ;;
+    html | htm)
+        Type="page"
+        ;;
     *)
-        Type="video"
+        Type="page"
         ;;
     esac
 
@@ -88,7 +91,7 @@ set_wallpaper() {
             return
         fi
 
-        nohup xwinwrap -ov -fs -- mpv -wid WID "$1" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) >/dev/null 2>&1 &
+        xwinwrap -d -ov -fs -- mpv -wid WID "$1" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) >/dev/null 2>&1 &
         # write command to configuration
         sed -i "s|cmd=.\+|cmd=xwinwrap -ov -fs -- mpv -wid WID "$1" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf)|g" $conf
         ;;
@@ -102,6 +105,33 @@ set_wallpaper() {
         feh --bg-scale --no-fehbg "$1"
         # write command to configuration
         sed -i "s|cmd=.\+|cmd=feh --no-fehbg --bg-scale "$1"|g" $conf
+        ;;
+    "page")
+
+        # command detection
+        if ! [[ -n $(command -v xwinwrap) ]]; then
+            echo "set page to wallpaper need xwinwrap, install xwinwrap-git package"
+            return
+        fi
+        if ! [[ -n $(command -v surf) ]]; then
+            echo "set page to wallpaper need surf, install surf package"
+            return
+        fi
+
+        # tabbed xid的存储路径, 并删除旧的
+        idfd="/tmp/tabbed-wallpaper.xid"
+
+        if [ -f $idfd ]; then
+            rm $idfd
+        fi
+
+        # 启动xwinwrap和tabbed
+        xwinwrap -ov -fs -- tabbed -g $(xrandr --current | grep -o -E "current\s([0-9])+\sx\s[0-9]+" | awk '{print $2$3$4}') -w WID >$idfd &
+
+        sleep 0.1
+
+        # 启动surf并绑定到tabbed中
+        surf -e $(cat $idfd) $1 &
         ;;
     esac
 }
@@ -138,7 +168,7 @@ next_wallpaper() {
         # Randomly get a video wallpaper
         filename=${targets[$(($RANDOM % $len + 1))]}
 
-        nohup xwinwrap -ov -fs -- mpv -wid WID "$filename" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) >/dev/null 2>&1 &
+        xwinwrap -d -ov -fs -- mpv -wid WID "$filename" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) >/dev/null 2>&1 &
         ;;
     "image")
         local dir=$(getConfig random_image_dir)
