@@ -18,7 +18,7 @@
    - `xautolock`, 定时自动锁屏，配合 slock 实现锁屏效果，如果想使用其他锁屏，更换 slock,在 autostart.sh 中.`slock`
    - `fcitx5-im`, 输入法的整合包，配置见 ArchWiki，安装需要的语言包，并配置好环境变量即可.`fcitx5-chinese-addons`中文包.
    - `light`, 调节屏幕亮度，这种会有部分问题，如若显卡配置未安装则先安装并配置好显卡，其余问题见 Wiki.
-   - `lxqt-policykit`(可选), Polkit 的 lxqt 的代理，权限管理，将终端中的权限请求转移到 qt 下，会解决一下奇怪的问题，可看需求安装.
+   - `lxsession`(可选), Polkit 的代理，权限管理，将终端中的权限请求转移到 lxsession 下，会解决一下奇怪的问题，可看需求安装.
    - `udiskie`(可选), 自动加载移动设备，加载你的 U 盘、移动硬盘等.
    - `network-manager-applet`(可选), networkmanager 的系统托盘图标.
    - ...
@@ -26,7 +26,7 @@
 | Name                  | Detail                             | Required                                                                                            |
 | :-------------------- | :--------------------------------- | :-------------------------------------------------------------------------------------------------- |
 | app.sh                | applications launcher by rofi      | rofi                                                                                                |
-| autostart.sh          | dwm autostart script               | picom-git / lxqt-policykit / xautolock / slock / network-manager-applet / udiskie / fcitx5-im       |
+| autostart.sh          | dwm autostart script               | picom-git / lxsession / xautolock / slock / network-manager-applet / udiskie / fcitx5-im            |
 | brightness.sh         | Screen backlight control           | light                                                                                               |
 | clock.sh              | alarm clock by crontab             | libnotify                                                                                           |
 | dwm-status-tools.sh   | dwm status bar toolkit             | acpi / alsa-utils / light / networkmanager / mpc / mpd                                              |
