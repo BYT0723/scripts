@@ -20,198 +20,191 @@ cmd="feh --no-fehbg --bg-scale /usr/share/backgrounds/archlinux/small.png"
 
 # Get single configuration
 getConfig() {
-    if [ -f $conf ]; then
-        res=$(cat $conf | grep -E "^$1\s*=" | tail -n 1 | awk -F '=' '{print $2}' | grep -o "[^ ]\+\( \+[^ ]\+\)*")
-        if [ -z "$res" ]; then
-            echo ${config[$1]}
-        else
-            echo $res
-        fi
-    else
-        echo ${config[$1]}
-    fi
+	if [ -f $conf ]; then
+		res=$(cat $conf | grep -E "^$1\s*=" | tail -n 1 | awk -F '=' '{print $2}' | grep -o "[^ ]\+\( \+[^ ]\+\)*")
+		if [ -z "$res" ]; then
+			echo ${config[$1]}
+		else
+			echo $res
+		fi
+	else
+		echo ${config[$1]}
+	fi
 }
 
 error() {
-    echo -e "\033[31m"$1"\033[0m"
+	echo -e "\033[31m"$1"\033[0m"
 }
 
 # print help information
 echo_help() {
-    echo -e "Help Message"
-    echo "      -r | --run             run wallpaper"
-    echo ""
-    echo "      -s | --set <path>      set wallpaper"
-    echo ""
-    echo "      -n | --next            random next wallpaper"
+	echo -e "Help Message"
+	echo "      -r | --run             run wallpaper"
+	echo ""
+	echo "      -s | --set <path>      set wallpaper"
+	echo ""
+	echo "      -n | --next            random next wallpaper"
 }
 
 # set wallpaper
 set_wallpaper() {
-    if [ -z "$1" ]; then
-        error "invalid wallpaper path"
-        return
-    fi
+	if [ -z "$1" ]; then
+		error "invalid wallpaper path"
+		return
+	fi
 
-    # kill existing xwinwrap
-    if [[ -n $(pgrep xwinwrap) ]]; then
-        killall xwinwrap
-    fi
+	# kill existing xwinwrap
+	if [[ -n $(pgrep xwinwrap) ]]; then
+		killall xwinwrap
+	fi
 
-    # sleep for a short time to prevent killing the new xwinwrap
-    sleep 0.3
+	# sleep for a short time to prevent killing the new xwinwrap
+	sleep 0.3
 
-    # get file suffix
-    Type=$(echo "${1#*.}")
-    # classify according to the suffix
-    case "$Type" in
-    mp4 | mkv | avi)
-        Type="video"
-        ;;
-    jpg | png)
-        Type="image"
-        ;;
-    html | htm)
-        Type="page"
-        ;;
-    *)
-        Type="page"
-        ;;
-    esac
+	# get file suffix
+	Type=$(echo "${1#*.}")
+	# classify according to the suffix
+	case "$Type" in
+	mp4 | mkv | avi)
+		Type="video"
+		;;
+	jpg | png)
+		Type="image"
+		;;
+	html | htm)
+		Type="page"
+		;;
+	*)
+		Type="page"
+		;;
+	esac
 
-    # run different commands according to the type
-    case "$Type" in
-    "video")
-        # command detection
-        if ! [[ -n $(command -v xwinwrap) ]]; then
-            echo "set video to wallpaper need xwinwrap, install xwinwrap-git package"
-            return
-        fi
-        if ! [[ -n $(command -v mpv) ]]; then
-            echo "set video to wallpaper need mpv, install mpv package"
-            return
-        fi
+	# run different commands according to the type
+	case "$Type" in
+	"video")
+		# command detection
+		if ! [[ -n $(command -v xwinwrap) ]]; then
+			echo "set video to wallpaper need xwinwrap, install xwinwrap-git package"
+			return
+		fi
+		if ! [[ -n $(command -v mpv) ]]; then
+			echo "set video to wallpaper need mpv, install mpv package"
+			return
+		fi
 
-        xwinwrap -d -ov -fs -- mpv -wid WID "$1" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) >/dev/null 2>&1 &
-        # write command to configuration
-        echo "xwinwrap -d -ov -fs -- mpv -wid WID \""$1"\" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf)" >$cmdf
-        ;;
-    "image")
-        # command detection
-        if ! [[ -n $(command -v feh) ]]; then
-            echo "set image to wallpaper need feh, install feh package"
-            return
-        fi
+		xwinwrap -d -ov -fs -- mpv -wid WID "$1" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) >/dev/null 2>&1 &
+		# write command to configuration
+		echo "xwinwrap -d -ov -fs -- mpv -wid WID \""$1"\" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf)" >$cmdf
+		;;
+	"image")
+		# command detection
+		if ! [[ -n $(command -v feh) ]]; then
+			echo "set image to wallpaper need feh, install feh package"
+			return
+		fi
 
-        feh --bg-scale --no-fehbg "$1"
-        # write command to configuration
-        echo "feh --bg-scale --no-fehbg \""$1"\"" >$cmdf
-        ;;
-    "page")
+		feh --bg-scale --no-fehbg "$1"
+		# write command to configuration
+		echo "feh --bg-scale --no-fehbg \""$1"\"" >$cmdf
+		;;
+	"page")
 
-        # command detection
-        if ! [[ -n $(command -v xwinwrap) ]]; then
-            echo "set page to wallpaper need xwinwrap, install xwinwrap-git package"
-            return
-        fi
-        if ! [[ -n $(command -v surf) ]]; then
-            echo "set page to wallpaper need surf, install surf package"
-            return
-        fi
+		# command detection
+		if ! [[ -n $(command -v xwinwrap) ]]; then
+			echo "set page to wallpaper need xwinwrap, install xwinwrap-git package"
+			return
+		fi
+		if ! [[ -n $(command -v surf) ]]; then
+			echo "set page to wallpaper need surf, install surf package"
+			return
+		fi
 
-        # The storage path of tabbed xid
-        idfd="/tmp/tabbed-wallpaper.xid"
+		# The storage path of tabbed xid
+		# idfd="/tmp/tabbed-wallpaper.xid"
 
-        # Start xwinwrap and tabbed
-        size=$(xrandr --current | grep -o -E "current\s([0-9])+\sx\s[0-9]+" | awk '{print $2$3$4}')
-        xwinwrap -ov -fs -- tabbed -g $size -w WID 1>$idfd 2>/dev/null &
+		# Start xwinwrap and tabbed
+		size=$(xrandr --current | grep -o -E "current\s([0-9])+\sx\s[0-9]+" | awk '{print $2$3$4}')
+		# xwinwrap -ov -fs -- tabbed -g $size -w WID 1>$idfd 2>/dev/null &
 
-        sleep 0.1
+		xwinwrap -ov -fs -- tabbed -w WID -g $size -r 2 surf -e '' $1 2>&1 >/dev/null 2>&1 >/dev/null 2>&1 >/dev/null &
 
-        # Start surf and bind to tabbed
-        surf -e $(cat $idfd) $1 &
-
-        # write command to configuration
-        echo 'idfd="/tmp/tabbed-wallpaper.xid"
-xwinwrap -ov -fs -- tabbed -g '$size' -w WID >$idfd &
-sleep 0.1
-surf -e $(cat $idfd) "'$1'" & ' >$cmdf
-        ;;
-    esac
+		echo "xwinwrap -ov -fs -- tabbed -w WID -g $size -r 2 surf -e '' $1 2>&1 >/dev/null 2>&1 >/dev/null 2>&1 >/dev/null &" >$cmdf
+		;;
+	esac
 }
 
 # next random wallpaper
 next_wallpaper() {
-    if [[ -n $(pgrep xwinwrap) ]]; then
-        killall xwinwrap
-    fi
+	if [[ -n $(pgrep xwinwrap) ]]; then
+		killall xwinwrap
+	fi
 
-    sleep 0.3
+	sleep 0.3
 
-    echo $(getConfig random_type)
-    # run different command according to the `random_type` in the configuration
-    case "$(getConfig random_type)" in
-    "video")
+	echo $(getConfig random_type)
+	# run different command according to the `random_type` in the configuration
+	case "$(getConfig random_type)" in
+	"video")
 
-        local dir=$(getConfig random_video_dir)
+		local dir=$(getConfig random_video_dir)
 
-        if ! [ -d $dir ]; then
-            error "No target directory "$dir
-            return
-        fi
+		if ! [ -d $dir ]; then
+			error "No target directory "$dir
+			return
+		fi
 
-        # The number of files in random_video_dir
-        targets=($(find $dir -type f -maxdepth $(getConfig random_depth) -regextype posix-extended -regex ".*\.(mp4|avi|mkv)"))
+		# The number of files in random_video_dir
+		targets=($(find $dir -type f -maxdepth $(getConfig random_depth) -regextype posix-extended -regex ".*\.(mp4|avi|mkv)"))
 
-        len=${#targets[*]}
+		len=${#targets[*]}
 
-        if [ $len == 0 ]; then
-            error "No target wallpaper found in "$dir
-            return
-        fi
-        # Randomly get a video wallpaper
-        filename=${targets[$(($RANDOM % $len + 1))]}
+		if [ $len == 0 ]; then
+			error "No target wallpaper found in "$dir
+			return
+		fi
+		# Randomly get a video wallpaper
+		filename=${targets[$(($RANDOM % $len + 1))]}
 
-        xwinwrap -d -ov -fs -- mpv -wid WID "$filename" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) >/dev/null 2>&1 &
-        ;;
-    "image")
-        local dir=$(getConfig random_image_dir)
+		xwinwrap -d -ov -fs -- mpv -wid WID "$filename" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) >/dev/null 2>&1 &
+		;;
+	"image")
+		local dir=$(getConfig random_image_dir)
 
-        if ! [ -d $dir ]; then
-            error "No target directory "$dir
-            return
-        fi
-        # The number of files in random_video_dir
-        targets=($(find $dir -type f -maxdepth $(getConfig random_depth) -regextype posix-extended -regex ".*\.(jpeg|jpg|png)"))
+		if ! [ -d $dir ]; then
+			error "No target directory "$dir
+			return
+		fi
+		# The number of files in random_video_dir
+		targets=($(find $dir -type f -maxdepth $(getConfig random_depth) -regextype posix-extended -regex ".*\.(jpeg|jpg|png)"))
 
-        len=${#targets[*]}
+		len=${#targets[*]}
 
-        if [ $len == 0 ]; then
-            error "No target wallpaper found in "$dir
-            return
-        fi
-        # Randomly get a video wallpaper
-        filename=${targets[$(($RANDOM % $len + 1))]}
+		if [ $len == 0 ]; then
+			error "No target wallpaper found in "$dir
+			return
+		fi
+		# Randomly get a video wallpaper
+		filename=${targets[$(($RANDOM % $len + 1))]}
 
-        feh --bg-scale --no-fehbg $filename
-        ;;
-    esac
+		feh --bg-scale --no-fehbg $filename
+		;;
+	esac
 }
 
 # wallpaper launch_wallpaper
 launch_wallpaper() {
-    while true; do
-        if [ $(getConfig random) -eq 1 ]; then
-            next_wallpaper
-        else
-            if [ ! -f $cmdf ]; then
-                $cmd
-            else
-                bash $cmdf
-            fi
-        fi
-        sleep $(($(getConfig duration) * 60))
-    done
+	while true; do
+		if [ $(getConfig random) -eq 1 ]; then
+			next_wallpaper
+		else
+			if [ ! -f $cmdf ]; then
+				$cmd
+			else
+				bash $cmdf
+			fi
+		fi
+		sleep $(($(getConfig duration) * 60))
+	done
 }
 
 # 操作符
@@ -223,9 +216,9 @@ case "$op" in
 '-n' | '--next') next_wallpaper ;;
 '-h' | '--help') echo_help ;;
 *)
-    echo -e "\033[31mbad operator\033[0m"
-    echo_help
-    ;;
+	echo -e "\033[31mbad operator\033[0m"
+	echo_help
+	;;
 esac
 
 exit 0
