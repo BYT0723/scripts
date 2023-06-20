@@ -42,7 +42,10 @@
 | volume.sh             | volume controller                  | alsa-utils                                                                                          |
 | wallpaper.sh          | wallpaper controller               | feh / xwinwrap / mpv / archlinux-wallpaper / [tabbed](https://github.com/BYT0723/tabbed.git) / surf |
 
-> Tips: tabbed 为本人修改过的，需要自行编译，clone 下仓库后`sudo make clean install`即可
+> Tips
+>
+> - tabbed 为本人修改过的，可进行 xmbed 嵌入，若直接使用 AUR 中的 tabbed，在使用 web page 可能出现不可预估的问题；
+>   本包需要自行编译，将仓库 clone 到本地，执行`sudo make clean install`即可。
 
 For details, see the comment documentation in the script
 
