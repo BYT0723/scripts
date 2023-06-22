@@ -92,9 +92,9 @@ set_wallpaper() {
 			return
 		fi
 
-		xwinwrap -d -ov -fs -- mpv -wid WID "$1" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) >/dev/null 2>&1 &
+		xwinwrap -d -ov -fs -- mpv -wid WID "$1" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
 		# write command to configuration
-		echo "xwinwrap -d -ov -fs -- mpv -wid WID \""$1"\" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf)" >$cmdf
+		echo "xwinwrap -d -ov -fs -- mpv -wid WID \""$1"\" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log" >$cmdf
 		;;
 	"image")
 		# command detection
@@ -103,9 +103,9 @@ set_wallpaper() {
 			return
 		fi
 
-		feh --bg-scale --no-fehbg "$1"
+		feh --bg-scale --no-fehbg "$1" >~/.wallpaper.log
 		# write command to configuration
-		echo "feh --bg-scale --no-fehbg \""$1"\"" >$cmdf
+		echo "feh --bg-scale --no-fehbg '"$1"' >~/.wallpaper.log" >$cmdf
 		;;
 	"page")
 
@@ -119,16 +119,12 @@ set_wallpaper() {
 			return
 		fi
 
-		# The storage path of tabbed xid
-		# idfd="/tmp/tabbed-wallpaper.xid"
-
 		# Start xwinwrap and tabbed
 		size=$(xrandr --current | grep -o -E "current\s([0-9])+\sx\s[0-9]+" | awk '{print $2$3$4}')
-		# xwinwrap -ov -fs -- tabbed -g $size -w WID 1>$idfd 2>/dev/null &
 
-		xwinwrap -ov -fs -- tabbed -w WID -g $size -r 2 surf -e '' $1 2>&1 >/dev/null 2>&1 >/dev/null 2>&1 >/dev/null &
+		xwinwrap -d -ov -fs -- tabbed -w WID -g $size -r 2 surf -e '' $1 2>&1 >~/.wallpaper.log 2>&1 >~/.wallpaper.log
 
-		echo "xwinwrap -ov -fs -- tabbed -w WID -g $size -r 2 surf -e '' $1 2>&1 >/dev/null 2>&1 >/dev/null 2>&1 >/dev/null &" >$cmdf
+		echo "xwinwrap -d -ov -fs -- tabbed -w WID -g $size -r 2 surf -e '' $1 2>&1 >~/.wallpaper.log 2>&1 >~/.wallpaper.log" >$cmdf
 		;;
 	esac
 }
@@ -165,7 +161,7 @@ next_wallpaper() {
 		# Randomly get a video wallpaper
 		filename=${targets[$(($RANDOM % $len + 1))]}
 
-		xwinwrap -d -ov -fs -- mpv -wid WID "$filename" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) >/dev/null 2>&1 &
+		xwinwrap -d -ov -fs -- mpv -wid WID "$filename" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
 		;;
 	"image")
 		local dir=$(getConfig random_image_dir)
@@ -186,7 +182,7 @@ next_wallpaper() {
 		# Randomly get a video wallpaper
 		filename=${targets[$(($RANDOM % $len + 1))]}
 
-		feh --bg-scale --no-fehbg $filename
+		feh --bg-scale --no-fehbg $filename >~/.wallpaper.log
 		;;
 	esac
 }
