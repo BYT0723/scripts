@@ -53,6 +53,9 @@ set_wallpaper() {
 		return
 	fi
 
+	args=("$@")        # 将所有参数存储到数组中
+	arg="${args[@]:1}" # 获取从索引1开始的3个参数作为切片
+
 	# kill existing xwinwrap
 	if [[ -n $(pgrep xwinwrap) ]]; then
 		killall xwinwrap
@@ -61,8 +64,11 @@ set_wallpaper() {
 	# sleep for a short time to prevent killing the new xwinwrap
 	sleep 0.3
 
+	tmpFilename="${arg// /_}"
+
 	# get file suffix
-	Type=$(echo "${1#*.}")
+	Type="${tmpFilename#*.}"
+
 	# classify according to the suffix
 	case "$Type" in
 	mp4 | mkv | avi)
@@ -92,9 +98,9 @@ set_wallpaper() {
 			return
 		fi
 
-		xwinwrap -d -ov -fs -- mpv -wid WID "$1" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
+		xwinwrap -d -ov -fs -- mpv -wid WID "$arg" --fs --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
 		# write command to configuration
-		echo "xwinwrap -d -ov -fs -- mpv -wid WID \""$1"\" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log" >$cmdf
+		echo "xwinwrap -d -ov -fs -- mpv -wid WID \""$arg"\" --fs --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log" >$cmdf
 		;;
 	"image")
 		# command detection
@@ -103,9 +109,9 @@ set_wallpaper() {
 			return
 		fi
 
-		feh --bg-scale --no-fehbg "$1" >~/.wallpaper.log
+		feh --bg-scale --no-fehbg "$arg" >~/.wallpaper.log
 		# write command to configuration
-		echo "feh --bg-scale --no-fehbg '"$1"' >~/.wallpaper.log" >$cmdf
+		echo "feh --bg-scale --no-fehbg '"$arg"' >~/.wallpaper.log" >$cmdf
 		;;
 	"page")
 
@@ -122,9 +128,9 @@ set_wallpaper() {
 		# Start xwinwrap and tabbed
 		size=$(xrandr --current | grep -o -E "current\s([0-9])+\sx\s[0-9]+" | awk '{print $2$3$4}')
 
-		xwinwrap -d -ov -fs -- tabbed -w WID -g $size -r 2 surf -e '' $1 2>&1 >~/.wallpaper.log 2>&1 >~/.wallpaper.log
+		xwinwrap -d -ov -fs -- tabbed -w WID -g $size -r 2 surf -e '' $arg 2>&1 >~/.wallpaper.log 2>&1 >~/.wallpaper.log
 
-		echo "xwinwrap -d -ov -fs -- tabbed -w WID -g $size -r 2 surf -e '' $1 2>&1 >~/.wallpaper.log 2>&1 >~/.wallpaper.log" >$cmdf
+		echo "xwinwrap -d -ov -fs -- tabbed -w WID -g $size -r 2 surf -e '' $arg 2>&1 >~/.wallpaper.log 2>&1 >~/.wallpaper.log" >$cmdf
 		;;
 	esac
 }
@@ -137,7 +143,8 @@ next_wallpaper() {
 
 	sleep 0.3
 
-	echo $(getConfig random_type)
+	depth=$(getConfig random_depth)
+
 	# run different command according to the `random_type` in the configuration
 	case "$(getConfig random_type)" in
 	"video")
@@ -149,17 +156,16 @@ next_wallpaper() {
 			return
 		fi
 
-		# The number of files in random_video_dir
-		targets=($(find $dir -type f -maxdepth $(getConfig random_depth) -regextype posix-extended -regex ".*\.(mp4|avi|mkv)"))
-
-		len=${#targets[*]}
+		len=$(find $dir -type f -maxdepth $depth -regextype posix-extended -regex ".*\.(mp4|avi|mkv)" | wc -l)
 
 		if [ $len == 0 ]; then
 			error "No target wallpaper found in "$dir
 			return
 		fi
+
 		# Randomly get a video wallpaper
-		filename=${targets[$(($RANDOM % $len + 1))]}
+		random=$(($RANDOM % $len + 1))
+		filename=$(find $dir -type f -maxdepth $depth -regextype posix-extended -regex ".*\.(mp4|avi|mkv)" | head -n $random | tail -n 1)
 
 		xwinwrap -d -ov -fs -- mpv -wid WID "$filename" --mute --no-osc --no-osd-bar --loop-file --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
 		;;
@@ -170,19 +176,19 @@ next_wallpaper() {
 			error "No target directory "$dir
 			return
 		fi
-		# The number of files in random_video_dir
-		targets=($(find $dir -type f -maxdepth $(getConfig random_depth) -regextype posix-extended -regex ".*\.(jpeg|jpg|png)"))
 
-		len=${#targets[*]}
+		len=$(find $dir -type f -maxdepth $depth -regextype posix-extended -regex ".*\.(jpeg|jpg|png)" | wc -l)
 
 		if [ $len == 0 ]; then
 			error "No target wallpaper found in "$dir
 			return
 		fi
-		# Randomly get a video wallpaper
-		filename=${targets[$(($RANDOM % $len + 1))]}
 
-		feh --bg-scale --no-fehbg $filename >~/.wallpaper.log
+		# Randomly get a video wallpaper
+		random=$(($RANDOM % $len + 1))
+		filename=$(find $dir -type f -maxdepth $depth -regextype posix-extended -regex ".*\.(jpeg|jpg|png)" | head -n $random | tail -n 1)
+
+		feh --bg-scale --no-fehbg "$filename" >~/.wallpaper.log
 		;;
 	esac
 }
@@ -208,7 +214,7 @@ op=$1
 
 case "$op" in
 '-r' | '--run') launch_wallpaper ;;
-'-s' | '--set') set_wallpaper $2 ;;
+'-s' | '--set') set_wallpaper $* ;;
 '-n' | '--next') next_wallpaper ;;
 '-h' | '--help') echo_help ;;
 *)
