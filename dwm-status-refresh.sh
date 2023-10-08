@@ -70,7 +70,7 @@ print_system_tools() {
 }
 
 print_other_tools() {
-	printf "$(print_speed)$(print_mpd)$(print_weather)"
+	printf "$(print_speed)$(print_mpd)"
 }
 
 xsetroot -name "$(print_other_tools)$(print_core)$(print_system_tools)"
