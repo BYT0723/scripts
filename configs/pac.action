@@ -1,11 +1,11 @@
 {{alias}}
-default = +forward-override{forward .}
-pac     = +forward-override{forward-socks5 127.0.0.1:1080 . }
+direct = +forward-override{forward .}
+trojan = +forward-override{forward-socks5 127.0.0.1:1080 .}
 
-{default}
+{direct}
 /
 
-{pac}
+{trojan}
 .000webhost.com
 .030buy.com
 .0rz.tw
@@ -128,6 +128,7 @@ pac     = +forward-override{forward-socks5 127.0.0.1:1080 . }
 .9001700.com
 .908taiwan.org
 .91porn.com
+.91porny.com
 .91vps.club
 .92ccav.com
 .991.com
@@ -5911,4 +5912,18 @@ pac     = +forward-override{forward-socks5 127.0.0.1:1080 . }
 .gnome-look.org
 .zodgame.xyz
 .detentiongirls.com
-.byt0723.xyz
+.nerdfonts.com
+.statically.io
+.civitai.com
+.cloudfunctions.net
+.googletagmanager.com
+.wallhaven.cc
+.jdbstatic.com
+.steamstatic.com
+.openai.com
+.fakehub.com
+.hub.docker.com
+.ideapocket.com
+.tameikegoro.jp
+.cableav.tv
+.manjaro.org
