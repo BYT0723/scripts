@@ -87,7 +87,7 @@ print_wifi() {
 # disk path in variable $disk_root
 print_disk() {
 	# root disk space value
-	local disk_root=$(df -h | grep /dev/sda2 | awk '{print $4}')
+	local disk_root=$(df -h | grep /dev/nvme0n1p6 | awk '{print $4}')
 	# colorscheme
 	printf "\x06^c$white^^b$black^"
 	# output
@@ -139,8 +139,8 @@ function update_weather() {
 	# more look at: https://github.com/chubin/wttr.in
 	# 获取主机使用语言
 	local language=$(echo $LANG | awk -F '_' '{print $1}')
-	# weather=$(curl -H "Accept-Language:"$language -s -m 1 "wttr.in?format=%c%t\n")
-	weather=$(curl -H "Accept-Language:"$language -s -m 1 "wttr.in?format=%C+%t\n")
+	weather=$(curl -H "Accept-Language:"$language -s -m 1 "wttr.in?format=%c%t\n")
+	# weather=$(curl -H "Accept-Language:"$language -s -m 1 "wttr.in?format=%C+%t\n")
 	# weather=$(curl -H "Accept-Language:"$language -s -m 1 "wttr.in?format=%c%C+%t\n")
 	if [ ! -z "$weather" ]; then
 		echo $weather'?'$(date +'%Y-%m-%d %H:%M:%S') >$weather_path

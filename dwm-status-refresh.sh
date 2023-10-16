@@ -65,12 +65,11 @@ print_core() {
 }
 
 print_system_tools() {
-	# printf "$(print_date)$(print_volume)$(print_battery)"
-	printf "$(print_date)"
+	printf "$(print_date)$(print_volume)$(print_battery)"
 }
 
 print_other_tools() {
-	printf "$(print_speed)$(print_mpd)"
+	printf "$(print_speed)$(print_weather)$(print_mpd)"
 }
 
 xsetroot -name "$(print_other_tools)$(print_core)$(print_system_tools)"
