@@ -168,6 +168,7 @@ next_wallpaper() {
 		filename=$(find $dir -type f -maxdepth $depth -regextype posix-extended -regex ".*\.(mp4|avi|mkv)" | head -n $random | tail -n 1)
 
 		xwinwrap -d -ov -fs -- mpv -wid WID "$filename" --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
+		echo "xwinwrap -d -ov -fs -- mpv -wid WID \""$filename"\" --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log" >$cmdf
 		;;
 	"image")
 		local dir=$(getConfig random_image_dir)
@@ -189,6 +190,7 @@ next_wallpaper() {
 		filename=$(find $dir -type f -maxdepth $depth -regextype posix-extended -regex ".*\.(jpeg|jpg|png)" | head -n $random | tail -n 1)
 
 		feh --bg-scale --no-fehbg "$filename" >~/.wallpaper.log
+		echo "feh --bg-scale --no-fehbg '"$filename"' >~/.wallpaper.log" >$cmdf
 		;;
 	esac
 }

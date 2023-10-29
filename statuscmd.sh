@@ -15,12 +15,13 @@ dateHandler() {
 	buttonType=$1
 	case "$buttonType" in
 	1)
-		bash $dir/notify.sh cal -s -y
-		# notify-send -c status -h string:x-dunst-stack-tag:datetime "$(cal -s)"
+		# bash $dir/notify.sh cal -s -y
+		notify-send -c status -h string:x-dunst-stack-tag:datetime "$(cal -s)"
 		;;
 	2) ;;
 	3)
-		bash $dir/notify.sh ccal -u
+		# bash $dir/notify.sh ccal -u
+		notify-send -c status -h string:x-dunst-stack-tag:datetime "$(ccal -u)"
 		;;
 	esac
 }
@@ -29,8 +30,8 @@ batteryHandler() {
 	buttonType=$1
 	case "$buttonType" in
 	1)
-		bash $dir/notify.sh acpi -i
-		# notify-send -c status -h string:x-dunst-stack-tag:batteryInformation "$(acpi -i)"
+		# bash $dir/notify.sh acpi -i
+		notify-send -c status -h string:x-dunst-stack-tag:batteryInformation "$(acpi -i)"
 		;;
 	2)
 		echo 2 or 3
@@ -45,8 +46,8 @@ diskHandler() {
 	buttonType=$1
 	case "$buttonType" in
 	1)
-		bash $dir/notify.sh df -h
-		# notify-send -c status -h string:x-dunst-stack-tag:diskInformation "$(df -h)"
+		# bash $dir/notify.sh df -h
+		notify-send -c status -h string:x-dunst-stack-tag:diskInformation "$(df -h)"
 		;;
 	2) ;;
 	3) ;;
