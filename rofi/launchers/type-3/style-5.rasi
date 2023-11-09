@@ -29,7 +29,7 @@ window {
     fullscreen:                  false;
     width:                       1000px;
     x-offset:                    0px;
-    y-offset:                    300px;
+    y-offset:                    400px;
 
     enabled:                     true;
     margin:                      0px;
@@ -122,9 +122,9 @@ scrollbar {
 /*****----- Elements -----*****/
 element {
     enabled:                     true;
-    spacing:                     10px;
+    spacing:                     20px;
     margin:                      0px;
-    padding:                     5px;
+    padding:                     10px;
     border:                      0px solid;
     border-radius:               0px;
     border-color:                @selected;
@@ -139,15 +139,15 @@ element normal.normal {
 }
 element selected.normal {
     border:                      1px solid;
-    border-radius:               4px;
+    border-radius:               10px;
     border-color:                @background;
     background-color:            @selected;
-    text-color:                  @foreground;
+    text-color:                  @background;
 }
 element-icon {
     background-color:            transparent;
     text-color:                  inherit;
-    size:                        50px;
+    size:                        70px;
     cursor:                      inherit;
 }
 element-text {

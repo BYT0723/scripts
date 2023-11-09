@@ -149,8 +149,7 @@ function update_weather() {
 
 print_weather() {
 	if [ ! -f $weather_path ] || [ -z "$(cat $weather_path | awk -F '?' '{print $2}')" ]; then
-		update_weather &
-		return
+		update_weather
 	fi
 
 	printf "\x09^c$blue^^b$grey^"
@@ -160,7 +159,7 @@ print_weather() {
 	# 如果时间间隔超过$weather_interval秒,则更新天气状态
 	local duration=$(($(date +%s) - $(date -d "$date" +%s)))
 	if [[ $duration > $weather_interval ]]; then
-		update_weather &
+		update_weather
 	fi
 
 }

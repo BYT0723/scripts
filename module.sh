@@ -12,11 +12,11 @@ source $dir/util.sh
 HistoryPopCount=10
 
 if [[ ("$theme" == *'type-1'*) || ("$theme" == *'type-3'*) || ("$theme" == *'type-5'*) ]]; then
-    list_col='1'
-    list_row='6'
+	list_col='1'
+	list_row='6'
 elif [[ ("$theme" == *'type-2'*) || ("$theme" == *'type-4'*) ]]; then
-    list_col='6'
-    list_row='1'
+	list_col='6'
+	list_row='1'
 fi
 
 # 配置文件路径
@@ -33,39 +33,41 @@ applicationCmd["picom"]="picom --config $dir/configs/picom.conf -b"
 layout=$(cat ${theme} | grep 'USE_ICON' | cut -d'=' -f2)
 
 if [[ "$layout" == 'NO' ]]; then
-    firstOpt=(
-        " Picom                         $(icon active app picom)"
-        " Network                       $(icon active app NetworkManager)"
-        " Bluetooth                     $(icon active service bluetooth)"
-        " Notification                  $(icon active app dunst)"
-        " Wallpaper                     $(icon active cmd 'wallpaper.sh -r')"
-    )
-    picomOpt=(
-        "蘒 Toggle                       $(icon toggle app picom)"
-    )
-    notificationOpt=(
-        "Pop                            $(dunstctl count history)"
-        "CloseAll                       $(dunstctl count displayed)"
-    )
-    wallpaperOpt=(
-        "next"
-        "random                         $(icon toggle conf wallpaper random number)"
-        "random_type                 $(getConfig wallpaper random_type)"
-    )
+	firstOpt=(
+		" Picom                         $(icon active app picom)"
+		" Network                       $(icon active app NetworkManager)"
+		" Bluetooth                     $(icon active service bluetooth)"
+		" Notification                  $(icon active app dunst)"
+		" Wallpaper                     $(icon active cmd 'wallpaper.sh -r')"
+	)
+	picomOpt=(
+		"蘒 Toggle                       $(icon toggle app picom)"
+		"󰗘 Animations                   $(icon toggle conf picom animations bool)"
+	)
+	notificationOpt=(
+		"Pop                            $(dunstctl count history)"
+		"CloseAll                       $(dunstctl count displayed)"
+	)
+	wallpaperOpt=(
+		"next"
+		"random                         $(icon toggle conf wallpaper random number)"
+		"random_type                 $(getConfig wallpaper random_type)"
+	)
 else
-    firstOpt=(
-        " $(icon active app picom)"
-        " $(icon active app NetworkManager)"
-        " $(icon active service bluetooth)"
-        " $(icon active app dunst)"
-    )
-    picomOpt=(
-        "蘒$(icon toggle app picom)"
-    )
-    notificationOpt=(
-        "Pop $(dunstctl count history)"
-        "CA $(dunstctl count displayed)"
-    )
+	firstOpt=(
+		" $(icon active app picom)"
+		" $(icon active app NetworkManager)"
+		" $(icon active service bluetooth)"
+		" $(icon active app dunst)"
+	)
+	picomOpt=(
+		"蘒$(icon toggle app picom)"
+		"󰗘 $(icon conf confPath["picom"] animations bool)"
+	)
+	notificationOpt=(
+		"Pop $(dunstctl count history)"
+		"CA $(dunstctl count displayed)"
+	)
 fi
 
 declare -A optId
@@ -86,122 +88,125 @@ optId[${wallpaperOpt[2]}]="--wallpaperOpt3"
 
 # Rofi CMD
 rofi_cmd() {
-    rofi -theme-str "listview {columns: $list_col; lines: $list_row;}" \
-        -theme-str 'textbox-prompt-colon {str: " ";}' \
-        -dmenu \
-        -p "$prompt" \
-        -mesg "$mesg" \
-        -markup-rows \
-        -theme ${theme}
+	rofi -theme-str "listview {columns: $list_col; lines: $list_row;}" \
+		-theme-str 'textbox-prompt-colon {str: " ";}' \
+		-dmenu \
+		-p "$prompt" \
+		-mesg "$mesg" \
+		-markup-rows \
+		-theme ${theme}
 }
 
 # Pass variables to rofi dmenu
 run_rofi() {
-    if [[ "$1" == ${optId[${firstOpt[0]}]} ]]; then
-        prompt='Picom'
-        mesg="Windows Composer"
-        opts=("${picomOpt[@]}")
-    elif [[ "$1" == ${optId[${firstOpt[1]}]} ]]; then
-        prompt='Network'
-        mesg=""
-        eth="$(nmcli connection show -active | grep -E 'eth' | awk '{print $1}')"
-        wifi="$(nmcli connection show -active | grep -E 'wifi' | awk '{print $1}')"
-        if [ "$eth" != "" ]; then
-            mesg="  $eth"
-        fi
-        if [[ "$wifi" != "" ]]; then
-            if [ "$mesg" != "" ]; then
-                mesg="$mesg
+	if [[ "$1" == ${optId[${firstOpt[0]}]} ]]; then
+		prompt='Picom'
+		mesg="Windows Composer"
+		opts=("${picomOpt[@]}")
+	elif [[ "$1" == ${optId[${firstOpt[1]}]} ]]; then
+		prompt='Network'
+		mesg=""
+		eth="$(nmcli connection show -active | grep -E 'eth' | awk '{print $1}')"
+		wifi="$(nmcli connection show -active | grep -E 'wifi' | awk '{print $1}')"
+		if [ "$eth" != "" ]; then
+			mesg="  $eth"
+		fi
+		if [[ "$wifi" != "" ]]; then
+			if [ "$mesg" != "" ]; then
+				mesg="$mesg
   $wifi [Connected]"
-            else
-                mesg="  $wifi [Connected]"
-            fi
-        fi
-        opts=$(nmcli device wifi list --rescan auto | awk 'NR!=1 {print substr($0,9)}' | awk '{print $8," ",$2}' | awk '!a[$0]++')
-    elif [[ "$1" == ${optId[${firstOpt[2]}]} ]]; then
-        prompt='Bluetooth'
-        connected_device=$(bluetoothctl devices Connected | awk '{print substr($0,25)}')
-        if [ "$connected_device" != "" ]; then
-            mesg="Connected:
+			else
+				mesg="  $wifi [Connected]"
+			fi
+		fi
+		opts=$(nmcli device wifi list --rescan auto | awk 'NR!=1 {print substr($0,9)}' | awk '{print $8," ",$2}' | awk '!a[$0]++')
+	elif [[ "$1" == ${optId[${firstOpt[2]}]} ]]; then
+		prompt='Bluetooth'
+		connected_device=$(bluetoothctl devices Connected | awk '{print substr($0,25)}')
+		if [ "$connected_device" != "" ]; then
+			mesg="Connected:
 $connected_device"
-        else
-            mesg="No device connected"
-        fi
-        opts=$(bluetoothctl devices | awk '{print substr($0,26)}')
-    elif [[ "$1" == ${optId[${firstOpt[3]}]} ]]; then
-        prompt='Notification'
-        mesg="Dunst Notification Manager"
-        opts=("${notificationOpt[@]}")
-    elif [[ "$1" == ${optId[${firstOpt[4]}]} ]]; then
-        prompt='Wallpaper'
-        mesg="Setting Wallpaper"
-        opts=("${wallpaperOpt[@]}")
-    else
-        prompt='Module'
-        mesg="Manage Module Of System"
-        opts=("${firstOpt[@]}")
-    fi
+		else
+			mesg="No device connected"
+		fi
+		opts=$(bluetoothctl devices | awk '{print substr($0,26)}')
+	elif [[ "$1" == ${optId[${firstOpt[3]}]} ]]; then
+		prompt='Notification'
+		mesg="Dunst Notification Manager"
+		opts=("${notificationOpt[@]}")
+	elif [[ "$1" == ${optId[${firstOpt[4]}]} ]]; then
+		prompt='Wallpaper'
+		mesg="Setting Wallpaper"
+		opts=("${wallpaperOpt[@]}")
+	else
+		prompt='Module'
+		mesg="Manage Module Of System"
+		opts=("${firstOpt[@]}")
+	fi
 
-    for ((i = 0; i < ${#opts[@]}; i++)); do
-        if [[ $i > 0 ]]; then
-            msg=$msg"\n"
-        fi
-        msg=$msg${opts[$i]}
-    done
-    echo -e "$msg" | rofi_cmd
+	for ((i = 0; i < ${#opts[@]}; i++)); do
+		if [[ $i > 0 ]]; then
+			msg=$msg"\n"
+		fi
+		msg=$msg${opts[$i]}
+	done
+	echo -e "$msg" | rofi_cmd
 }
 
 # Execute Command
 run_cmd() {
-    case "$1" in
-    ${optId[${picomOpt[0]}]})
-        toggleApplication picom
-        ;;
-    ${optId[${notificationOpt[0]}]})
-        for ((i = 0; i < $HistoryPopCount; i++)); do
-            dunstctl history-pop
-        done
-        ;;
-    ${optId[${notificationOpt[1]}]})
-        dunstctl close-all
-        ;;
-    ${optId[${wallpaperOpt[0]}]})
-        ~/.dwm/wallpaper.sh -n
-        ;;
-    ${optId[${wallpaperOpt[1]}]})
-        toggleConf wallpaper random number
-        ;;
-    ${optId[${wallpaperOpt[2]}]})
-        toggleConf wallpaper random_type wallpaper_type
-        ;;
-    ${optId[${firstOpt[1]}]})
-        chosen="$(run_rofi $1)"
-        if [[ "$chosen" == "" || "$chosen" == "$(nmcli connection show -active | grep -E 'wifi' | awk '{print $1}')" ]]; then
-            exit
-        fi
-        nmcli device wifi connect $(echo $chosen | awk '{print $2}')
-        ;;
-    ${optId[${firstOpt[2]}]})
-        chosen="$(run_rofi $1)"
-        if [[ "$chosen" == "" ]]; then
-            exit
-        fi
-        bluetoothctl disconnect $(bluetoothctl devices Connected | grep "$chosen" | awk '{print $2}')
-        ;;
-    *)
-        chosen="$(run_rofi $1)"
-        if [[ "$chosen" == "" ]]; then
-            exit
-        fi
-        run_cmd ${optId[$chosen]}
-        ;;
-    esac
+	case "$1" in
+	${optId[${picomOpt[0]}]})
+		toggleApplication picom
+		;;
+	${optId[${picomOpt[1]}]})
+		toggleConf picom animations bool
+		;;
+	${optId[${notificationOpt[0]}]})
+		for ((i = 0; i < $HistoryPopCount; i++)); do
+			dunstctl history-pop
+		done
+		;;
+	${optId[${notificationOpt[1]}]})
+		dunstctl close-all
+		;;
+	${optId[${wallpaperOpt[0]}]})
+		~/.dwm/wallpaper.sh -n
+		;;
+	${optId[${wallpaperOpt[1]}]})
+		toggleConf wallpaper random number
+		;;
+	${optId[${wallpaperOpt[2]}]})
+		toggleConf wallpaper random_type wallpaper_type
+		;;
+	${optId[${firstOpt[1]}]})
+		chosen="$(run_rofi $1)"
+		if [[ "$chosen" == "" || "$chosen" == "$(nmcli connection show -active | grep -E 'wifi' | awk '{print $1}')" ]]; then
+			exit
+		fi
+		nmcli device wifi connect $(echo $chosen | awk '{print $2}')
+		;;
+	${optId[${firstOpt[2]}]})
+		chosen="$(run_rofi $1)"
+		if [[ "$chosen" == "" ]]; then
+			exit
+		fi
+		bluetoothctl disconnect $(bluetoothctl devices Connected | grep "$chosen" | awk '{print $2}')
+		;;
+	*)
+		chosen="$(run_rofi $1)"
+		if [[ "$chosen" == "" ]]; then
+			exit
+		fi
+		run_cmd ${optId[$chosen]}
+		;;
+	esac
 }
 
 # Actions
 chosen="$(run_rofi)"
 if [[ "$chosen" == "" ]]; then
-    exit
+	exit
 fi
 run_cmd ${optId[$chosen]}
 
