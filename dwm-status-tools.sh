@@ -19,7 +19,7 @@ icons["temp"]=" "
 icons["mpd"]=" "
 
 # seconds
-weather_interval=60
+weather_interval=3600
 weather_path="/tmp/.weather"
 
 # Datetime
@@ -132,10 +132,10 @@ print_cpu() {
 
 # Update weather to $weather_path
 function update_weather() {
-	code=$(curl -I -s -o /dev/null -w "%{http_code}" "wttr.in?format=%c%t\n")
-	if [ "$code" != "200" ]; then
-		return
-	fi
+	# code=$(curl -I -s -o /dev/null -w "%{http_code}" "wttr.in?format=%c%t\n")
+	# if [ "$code" != "200" ]; then
+	# 	return
+	# fi
 	# more look at: https://github.com/chubin/wttr.in
 	# 获取主机使用语言
 	local language=$(echo $LANG | awk -F '_' '{print $1}')
