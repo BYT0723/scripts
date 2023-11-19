@@ -19,7 +19,7 @@ icons["temp"]=" "
 icons["mpd"]=" "
 
 # seconds
-weather_interval=3600
+weather_interval=600
 weather_path="/tmp/.weather"
 
 # Datetime
@@ -140,7 +140,7 @@ function update_weather() {
 	# 获取主机使用语言
 	local language=$(echo $LANG | awk -F '_' '{print $1}')
 	# weather=$(curl -H "Accept-Language:"$language -s -m 1 "wttr.in?format=%c%t\n")
-	weather=$(curl -H "Accept-Language:"$language -s -m 1 "wttr.in?format=%C+%t\n")
+	weather=$(curl -H "Accept-Language:"$language -s -m 1.5 "wttr.in?format=%C+%t\n")
 	# weather=$(curl -H "Accept-Language:"$language -s -m 1 "wttr.in?format=%c%C+%t\n")
 	if [ ! -z "$weather" ]; then
 		echo $weather'?'$(date +'%Y-%m-%d %H:%M:%S') >$weather_path
@@ -148,20 +148,15 @@ function update_weather() {
 }
 
 print_weather() {
-	if [ ! -f $weather_path ] || [ -z "$(cat $weather_path | awk -F '?' '{print $2}')" ]; then
-		update_weather
-	fi
-
 	printf "\x09^c$blue^^b$grey^"
 	printf "$(cat $weather_path | awk -F '?' '{print $1}')"
 
 	# 计算两次请求时间间隔
 	# 如果时间间隔超过$weather_interval秒,则更新天气状态
-	local duration=$(($(date +%s) - $(date -d "$date" +%s)))
-	if [[ $duration > $weather_interval ]]; then
+	local duration=$(($(date +%s) - $(date -d "$(cat $weather_path | awk -F '?' '{print $2}')" +%s)))
+	if [ ! -f $weather_path ] || [ -z "$(cat $weather_path | awk -F '?' '{print $2}')" ] || [ $duration -gt $weather_interval ]; then
 		update_weather
 	fi
-
 }
 
 # Music Player Daemon
