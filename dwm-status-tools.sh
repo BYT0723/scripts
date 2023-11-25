@@ -149,7 +149,7 @@ function update_weather() {
 
 print_weather() {
 	printf "\x09^c$blue^^b$grey^"
-	printf "$(cat $weather_path | awk -F '?' '{print $1}')"
+	printf "$(cat $weather_path | awk -F '?' '{print $1}' | head -c 14)"
 
 	# 计算两次请求时间间隔
 	# 如果时间间隔超过$weather_interval秒,则更新天气状态
