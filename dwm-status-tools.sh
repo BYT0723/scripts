@@ -110,7 +110,7 @@ print_cpu() {
 	# local cpu_percent=$(printf "%2.0f" $(iostat -c 1 2 | awk 'NR==9 {print $1}'))
 
 	# colorscheme
-	if [ $(echo "$cpu_val > 6.0" | bc) -eq 1 ]; then
+	if [ $(echo "$cpu_val > $(nproc)" | bc) -eq 1 ]; then
 		printf "\x08^c$black^^b$red^"
 	else
 		printf "\x08^c$white^^b$black^"
@@ -149,7 +149,7 @@ function update_weather() {
 
 print_weather() {
 	printf "\x09^c$blue^^b$grey^"
-	printf "$(cat $weather_path | awk -F '?' '{print $1}' | head -c 14)"
+	printf "$(cat $weather_path | awk -F '?' '{print $1}' | head -c 20)"
 
 	# 计算两次请求时间间隔
 	# 如果时间间隔超过$weather_interval秒,则更新天气状态
