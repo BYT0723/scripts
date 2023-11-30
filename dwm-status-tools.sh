@@ -24,9 +24,11 @@ weather_path="/tmp/.weather"
 
 # Datetime
 print_date() {
+	timeIcons=('' '' '' '' '' '' '' '' '' '' '' '')
 	# colorscheme
 	printf "\x01^b$grey^^c$darkblue^"
-	date '+%m/%d(%a) %R'
+	# date '+ %m/%d(%a) '${timeIcons[$(echo $(date '+%l') | bc)]}' %R'
+	date '+%m/%d(%a) '${timeIcons[$(echo $(date '+%l') | bc)]}' %R'
 }
 
 print_battery() {
