@@ -10,11 +10,13 @@ msgTag="brightness"
 
 case "$1" in
 'up')
-  light -A 2
-  ;;
+	light -A 2
+	;;
 'down')
-  light -U 2
-  ;;
+	light -U 2
+	;;
 esac
 
 notify-send -c tools -i display-brightness-symbolic -h string:x-dunst-stack-tag:$msgTag "$(printf "%.0f" $(light -G))"
+# # support progress bar
+# notify-send -c tools -i display-brightness-symbolic -h string:x-dunst-stack-tag:$msgTag -h int:value:"$(printf "%.0f" $(light -G))" "$(printf "%.0f" $(light -G))"

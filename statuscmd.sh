@@ -39,6 +39,12 @@ batteryHandler() {
 	3)
 		echo default
 		;;
+	4)
+		$(dirname $0)/brightness.sh up
+		;;
+	5)
+		$(dirname $0)/brightness.sh down
+		;;
 	esac
 }
 
@@ -123,6 +129,12 @@ volumeHandler() {
 	2) ;;
 	3)
 		alacritty -e ncpamixer
+		;;
+	4)
+		$(dirname $0)/volume.sh up
+		;;
+	5)
+		$(dirname $0)/volume.sh down
 		;;
 	esac
 }
