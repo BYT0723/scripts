@@ -26,7 +26,7 @@ weather_path="/tmp/.weather"
 print_date() {
 	timeIcons=('' '' '' '' '' '' '' '' '' '' '' '')
 	# colorscheme
-	printf "\x01^b$grey^^c$darkblue^"
+	printf "\x01^b$green^^c$grey^"
 	# date '+ %m/%d(%a) '${timeIcons[$(echo $(date '+%l') | bc)]}' %R'
 	date '+%m/%d(%a) '${timeIcons[$(echo $(date '+%l') | bc)]}' %R'
 }
@@ -179,7 +179,7 @@ print_mpd() {
 	if [[ $(mpc status) == *"[playing]"* ]]; then
 		printf "\x0a^c$black^^b$darkblue^"
 	else
-		printf "\x0a^c$green^^b$black^"
+		printf "\x0a^c$blue^^b$grey^"
 	fi
 	# output
 	printf "${icons[mpd]} $songName"
