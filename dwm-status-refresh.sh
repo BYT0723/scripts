@@ -24,10 +24,10 @@ function get_velocity {
 	velKB=$(echo "1000000000*($value-$old_value)/1024/$timediff" | bc)
 	if [ $velKB -gt 1000 ]; then
 		# echo $(echo "scale=2; $velKB/1024" | bc)M/s
-		printf "%3.1fM/s" $(echo "scale=1; $velKB/1024" | bc)
+		printf "%4.1fM/s" $(echo "scale=1; $velKB/1024" | bc)
 	else
 		# echo ${velKB}K/s
-		printf "%3dK/s" ${velKB}
+		printf "%4dK/s" ${velKB}
 	fi
 }
 
@@ -46,14 +46,8 @@ vel_trans="$(get_velocity $transmitted_bytes $old_transmitted_bytes $now)"
 # Network velocity
 print_speed() {
 	# define the calculated upper and lower symbols
-	local recvIcon=" "
-	local transIcon=" "
-	if [ $received_bytes -ne $old_received_bytes ]; then
-		recvIcon=""
-	fi
-	if [ $transmitted_bytes -ne $old_transmitted_bytes ]; then
-		transIcon=""
-	fi
+	local recvIcon=""
+	local transIcon=""
 	# colorscheme
 	printf "\x0b^b$grey^^c$white^"
 	# output

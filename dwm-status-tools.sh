@@ -28,13 +28,13 @@ print_date() {
 	# colorscheme
 	printf "\x01^b$green^^c$grey^"
 	# date '+ %m/%d(%a) '${timeIcons[$(echo $(date '+%l') | bc)]}' %R'
-	date '+%m/%d(%a) '${timeIcons[$(echo $(date '+%l') | bc)]}' %R'
+	date '+%m/%d(%a) '${timeIcons[$(echo $(date '+%l')'%12' | bc)]}' %R'
 }
 
 print_battery() {
 	battery_icons=(' ' ' ' ' ' ' ' ' ')
 	# battery_icons=('' '' '' '' '' '' '' '' '' '' '')
-	charging_icons=('')
+	charging_icons=('')
 	percent=$(acpi -b | head -n 1 | grep -Eo '[0-9]+%' | sed -r 's/%//g')
 
 	icon=${battery_icons[$(echo $percent"/20.01" | bc)]}
