@@ -207,6 +207,9 @@ launch_wallpaper() {
 				bash $cmdf
 			fi
 		fi
+		if [ ! -z "$(pgrep -f wallpaper.sh)" ]; then
+			break
+		fi
 		sleep $(($(getConfig duration) * 60))
 	done
 }

@@ -19,7 +19,9 @@ icons["temp"]=" "
 icons["mpd"]=" "
 
 # seconds
-weather_interval=600
+weather_common_interval=600 # 10 minute
+weather_retry_interval=60   # 1 minute
+
 weather_path="/tmp/.weather"
 
 # Datetime
@@ -32,7 +34,7 @@ print_date() {
 }
 
 print_battery() {
-	battery_icons=(' ' ' ' ' ' ' ' ' ')
+	battery_icons=('' '' '' '' '')
 	# battery_icons=('' '' '' '' '' '' '' '' '' '' '')
 	charging_icons=('')
 	percent=$(acpi -b | head -n 1 | grep -Eo '[0-9]+%' | sed -r 's/%//g')
@@ -60,7 +62,7 @@ print_volume() {
 	if [ "$volume" -eq 0 ]; then
 		icon=""
 	elif [ "$status" == "off" ]; then
-		icon="婢"
+		icon=""
 	else
 		icon=""
 	fi
@@ -134,24 +136,33 @@ print_cpu() {
 
 # Update weather to $weather_path
 function update_weather() {
-	# code=$(curl -I -s -o /dev/null -w "%{http_code}" "wttr.in?format=%c%t\n")
-	# if [ "$code" != "200" ]; then
-	# 	return
-	# fi
-	# more look at: https://github.com/chubin/wttr.in
-	# 获取主机使用语言
-	local language=$(echo $LANG | awk -F '_' '{print $1}')
-	# weather=$(curl -H "Accept-Language:"$language -s -m 1 "wttr.in?format=%c%t\n")
-	weather=$(curl -H "Accept-Language:"$language -s -m 1.5 "wttr.in?format=%C+%t\n")
-	# weather=$(curl -H "Accept-Language:"$language -s -m 1 "wttr.in?format=%c%C+%t\n")
-	if [ ! -z "$weather" ]; then
-		echo $weather'?'$(date +'%Y-%m-%d %H:%M:%S') >$weather_path
+	# local url = "wttr.in?format=%c%t\n"
+	# local url = "wttr.in?format=%c%C+%t\n"
+	local url = "wttr.in?format=%C%t\n"
+	local code=$(curl -I -s -m 1.5 -o /dev/null -w "%{http_code}" "$url")
+	if [ "$code" == "200" ]; then
+		# more look at: https://github.com/chubin/wttr.in
+		# 获取主机使用语言
+		local language=$(echo $LANG | awk -F '_' '{print $1}')
+		weather=$(curl -H "Accept-Language:"$language -s -m 1.5 "$url")
+
+		if [ ! -z "$weather" ]; then
+			echo $weather'?'$(date +'%Y-%m-%d %H:%M:%S') >$weather_path
+		fi
+	else
+		echo '?'$(date +'%Y-%m-%d %H:%M:%S') >$weather_path
 	fi
 }
 
 print_weather() {
 	printf "\x09^c$blue^^b$grey^"
 	printf "$(cat $weather_path | awk -F '?' '{print $1}' | head -c 20)"
+
+	if [ -z "$(cat $weather_path | awk -F '?' '{print $1}')" ]; then
+		local weather_interval =$weather_retry_interval
+	else
+		local weather_interval =$weather_common_interval
+	fi
 
 	# 计算两次请求时间间隔
 	# 如果时间间隔超过$weather_interval秒,则更新天气状态
@@ -182,7 +193,7 @@ print_mpd() {
 		printf "\x0a^c$blue^^b$grey^"
 	fi
 	# output
-	printf "${icons[mpd]} $songName"
+	printf "${icons[mpd]}$songName"
 }
 
 # Only fcitx and fcitx5 are supported

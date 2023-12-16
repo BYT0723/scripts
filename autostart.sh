@@ -3,7 +3,9 @@
 dir=$(dirname $0)
 
 # statusBar
-/bin/bash $dir/dwm-status.sh &
+if [ -z "$(pgrep -f dwm-status.sh)" ]; then
+	/bin/bash $dir/dwm-status.sh &
+fi
 
 # wallpaper
 /bin/bash $dir/wallpaper.sh -r &
