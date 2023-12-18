@@ -136,15 +136,17 @@ print_cpu() {
 
 # Update weather to $weather_path
 function update_weather() {
-	# local url = "wttr.in?format=%c%t\n"
-	# local url = "wttr.in?format=%c%C+%t\n"
-	local url = "wttr.in?format=%C%t\n"
+	# local url="https://wttr.in?format=%c%t\n"
+	local url="https://wttr.in?format=%c%C+%t\n"
+	# local url="https://wttr.in?format=%C%t\n"
 	local code=$(curl -I -s -m 1.5 -o /dev/null -w "%{http_code}" "$url")
 	if [ "$code" == "200" ]; then
 		# more look at: https://github.com/chubin/wttr.in
 		# 获取主机使用语言
 		local language=$(echo $LANG | awk -F '_' '{print $1}')
 		weather=$(curl -H "Accept-Language:"$language -s -m 1.5 "$url")
+
+		# TODO: 针对天气变化添加系统通知
 
 		if [ ! -z "$weather" ]; then
 			echo $weather'?'$(date +'%Y-%m-%d %H:%M:%S') >$weather_path
@@ -159,9 +161,9 @@ print_weather() {
 	printf "$(cat $weather_path | awk -F '?' '{print $1}' | head -c 20)"
 
 	if [ -z "$(cat $weather_path | awk -F '?' '{print $1}')" ]; then
-		local weather_interval =$weather_retry_interval
+		local weather_interval=$weather_retry_interval
 	else
-		local weather_interval =$weather_common_interval
+		local weather_interval=$weather_common_interval
 	fi
 
 	# 计算两次请求时间间隔
