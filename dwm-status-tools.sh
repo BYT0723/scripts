@@ -136,18 +136,16 @@ print_cpu() {
 
 # Update weather to $weather_path
 function update_weather() {
-	# local url="https://wttr.in?format=%c%t\n"
-	local url="https://wttr.in?format=%c%C+%t\n"
-	# local url="https://wttr.in?format=%C%t\n"
+	# 见: https://github.com/chubin/wttr.in#one-line-output
+	local url="https://wttr.in?format=%c|%C|%t|%p|%u|%D|%S|%z|%s|%d\n"
+
 	local code=$(curl -I -s -m 1.5 -o /dev/null -w "%{http_code}" "$url")
 	if [ "$code" == "200" ]; then
-		# more look at: https://github.com/chubin/wttr.in
 		# 获取主机使用语言
 		local language=$(echo $LANG | awk -F '_' '{print $1}')
-		weather=$(curl -H "Accept-Language:"$language -s -m 1.5 "$url")
-
-		# TODO: 针对天气变化添加系统通知
-
+		IFS='|' read icon condition temperature precipitation uvIndex dawn sunrise zenith sunset dusk <<<$(curl -H "Accept-Language:"$language -s -m 1.5 "$url")
+		times=($dawn $sunrise $zenith $sunset $dusk)
+		weather="$icon $temperature"
 		if [ ! -z "$weather" ]; then
 			echo $weather'?'$(date +'%Y-%m-%d %H:%M:%S') >$weather_path
 		fi
@@ -157,10 +155,12 @@ function update_weather() {
 }
 
 print_weather() {
-	printf "\x09^c$blue^^b$grey^"
-	printf "$(cat $weather_path | awk -F '?' '{print $1}' | head -c 20)"
+	IFS='?' read weather stamp <<<$(cat $weather_path)
 
-	if [ -z "$(cat $weather_path | awk -F '?' '{print $1}')" ]; then
+	printf "\x09^c$blue^^b$grey^"
+	printf "$weather"
+
+	if [ -z "$weather" ]; then
 		local weather_interval=$weather_retry_interval
 	else
 		local weather_interval=$weather_common_interval
@@ -168,8 +168,8 @@ print_weather() {
 
 	# 计算两次请求时间间隔
 	# 如果时间间隔超过$weather_interval秒,则更新天气状态
-	local duration=$(($(date +%s) - $(date -d "$(cat $weather_path | awk -F '?' '{print $2}')" +%s)))
-	if [ ! -f $weather_path ] || [ -z "$(cat $weather_path | awk -F '?' '{print $2}')" ] || [ $duration -gt $weather_interval ]; then
+	local duration=$(($(date +%s) - $(date -d "$stamp" +%s)))
+	if [ ! -f $weather_path ] || [ -z "$stamp" ] || [ $duration -gt $weather_interval ]; then
 		update_weather
 	fi
 }
