@@ -137,15 +137,14 @@ print_cpu() {
 # Update weather to $weather_path
 function update_weather() {
 	# 见: https://github.com/chubin/wttr.in#one-line-output
-	local url="https://wttr.in?format=%c|%C|%t|%p|%u|%D|%S|%z|%s|%d\n"
+	local url="https://wttr.in?format=%c%C+%t\n"
+	# 获取主机使用语言
+	local language=$(echo $LANG | awk -F '_' '{print $1}')
+	local response=$(curl -H "Accept-Language:"$language -i -s -m 2 "$url")
 
-	local code=$(curl -I -s -m 1.5 -o /dev/null -w "%{http_code}" "$url")
+	local code=$(echo "$response" | head -n 1 | awk '{print $2}')
 	if [ "$code" == "200" ]; then
-		# 获取主机使用语言
-		local language=$(echo $LANG | awk -F '_' '{print $1}')
-		IFS='|' read icon condition temperature precipitation uvIndex dawn sunrise zenith sunset dusk <<<$(curl -H "Accept-Language:"$language -s -m 1.5 "$url")
-		times=($dawn $sunrise $zenith $sunset $dusk)
-		weather="$icon $temperature"
+		local weather=$(echo "$response" | tail -n 1)
 		if [ ! -z "$weather" ]; then
 			echo $weather'?'$(date +'%Y-%m-%d %H:%M:%S') >$weather_path
 		fi
