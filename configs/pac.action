@@ -1,11 +1,11 @@
 {{alias}}
-direct = +forward-override{forward .}
-trojan = +forward-override{forward-socks5 127.0.0.1:1080 .}
+default = +forward-override{forward .}
+pac     = +forward-override{forward-socks5 127.0.0.1:1080 . }
 
-{direct}
+{default}
 /
 
-{trojan}
+{pac}
 .000webhost.com
 .030buy.com
 .0rz.tw
@@ -128,7 +128,6 @@ trojan = +forward-override{forward-socks5 127.0.0.1:1080 .}
 .9001700.com
 .908taiwan.org
 .91porn.com
-.91porny.com
 .91vps.club
 .92ccav.com
 .991.com
@@ -3476,6 +3475,7 @@ trojan = +forward-override{forward-socks5 127.0.0.1:1080 .}
 .netcolony.com
 .netfirms.com
 .netflav.com
+.netflav5.com
 .netflix.com
 .netflix.net
 .netme.cc
@@ -5919,11 +5919,20 @@ trojan = +forward-override{forward-socks5 127.0.0.1:1080 .}
 .googletagmanager.com
 .wallhaven.cc
 .jdbstatic.com
-.steamstatic.com
 .openai.com
 .fakehub.com
-.hub.docker.com
 .ideapocket.com
 .tameikegoro.jp
 .cableav.tv
 .manjaro.org
+.91porny.com
+.sedou.xyz
+.doaxvv.com
+.docker.com
+.typing.com
+.nitrotype.com
+.archlinux.org
+.v2rayssr.com
+.gnustep.org
+.gorm.io
+.elastic.co

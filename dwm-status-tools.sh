@@ -137,10 +137,10 @@ print_cpu() {
 # Update weather to $weather_path
 function update_weather() {
 	# 见: https://github.com/chubin/wttr.in#one-line-output
-	local url="https://wttr.in?format=%c%C+%t\n"
+	local url="https://wttr.in?format=%C+%t\n"
 	# 获取主机使用语言
 	local language=$(echo $LANG | awk -F '_' '{print $1}')
-	local response=$(curl -H "Accept-Language:"$language -i -s -m 2 "$url")
+	local response=$(curl -H "Accept-Language:"$language -i -s -m 5 "$url")
 
 	local code=$(echo "$response" | head -n 1 | awk '{print $2}')
 	if [ "$code" == "200" ]; then
