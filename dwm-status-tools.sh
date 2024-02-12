@@ -20,7 +20,7 @@ icons["mpd"]=" "
 
 # seconds
 weather_common_interval=600 # 10 minute
-weather_retry_interval=60   # 1 minute
+weather_retry_interval=600  # 1 minute
 
 weather_path="/tmp/.weather"
 

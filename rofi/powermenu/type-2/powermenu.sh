@@ -70,7 +70,7 @@ run_cmd() {
 			mpc -q pause
 			amixer set Master mute
 			systemctl suspend
-			betterlockscreen -l
+			dm-tool lock
 		elif [[ $1 == '--logout' ]]; then
 			if [[ "$DESKTOP_SESSION" == 'openbox' ]]; then
 				openbox --exit
@@ -97,7 +97,8 @@ $reboot)
 	run_cmd --reboot
 	;;
 $lock)
-	# xset dpms force off
+	sleep 1
+	xset dpms force standby
 	betterlockscreen -l
 	;;
 $suspend)

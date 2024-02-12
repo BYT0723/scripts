@@ -10,10 +10,10 @@ msgTag="brightness"
 
 case "$1" in
 'up')
-	light -A 1
+	light -A 2
 	;;
 'down')
-	light -U 1
+	light -U 2
 	;;
 esac
 
