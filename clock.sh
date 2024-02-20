@@ -13,26 +13,29 @@ export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
 export DISPLAY=:0
 
 printTitle() {
-    case "$1" in
-    "WORK")
-        echo " "
-        ;;
-    "HOME")
-        echo " "
-        ;;
-    "STUDY")
-        echo " "
-        ;;
-    "DIET")
-        echo "󰩰 "
-        ;;
-    *)
-        echo "$1"
-        ;;
-    esac
+	case "$1" in
+	"WORK")
+		echo " "
+		;;
+	"HOME")
+		echo " "
+		;;
+	"STUDY")
+		echo " "
+		;;
+	"DIET")
+		echo "󰩰 "
+		;;
+	"PLAN")
+		echo " "
+		;;
+	*)
+		echo "$1"
+		;;
+	esac
 }
 
 canberra-gtk-play -i audio-volume-change
 
 # send notification
-notify-send -i preferences-system-time-symbolic -u critical "$(printTitle $1)  $(date +"%H:%M")" $2
+notify-send -i preferences-system-time-symbolic -u critical "$(printTitle $1)  $(date +"%H:%M")" "$2"
