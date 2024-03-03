@@ -64,23 +64,20 @@ set_wallpaper() {
 	# sleep for a short time to prevent killing the new xwinwrap
 	sleep 0.3
 
-	tmpFilename="${arg// /_}"
+	baseFilename=$(basename "${arg// /_}")
 
 	# get file suffix
-	Type="${tmpFilename#*.}"
+	Type="${baseFilename#*.}"
 
 	# classify according to the suffix
 	case "$Type" in
-	mp4 | mkv | avi)
+	'mp4' | mkv | avi)
 		Type="video"
 		;;
 	jpg | png)
 		Type="image"
 		;;
 	html | htm)
-		Type="page"
-		;;
-	*)
 		Type="page"
 		;;
 	esac
