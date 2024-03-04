@@ -95,9 +95,9 @@ set_wallpaper() {
 			return
 		fi
 
-		xwinwrap -d -ov -fs -- mpv -wid WID "$arg" --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
+		xwinwrap -d -ov -fs -- mpv -wid WID "$arg" --load-scripts=no --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
 		# write command to configuration
-		echo "xwinwrap -d -ov -fs -- mpv -wid WID \""$arg"\" --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log" >$cmdf
+		echo "xwinwrap -d -ov -fs -- mpv -wid WID \""$arg"\" --load-scripts=no --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log" >$cmdf
 		;;
 	"image")
 		# command detection
@@ -164,8 +164,8 @@ next_wallpaper() {
 		random=$(($RANDOM % $len + 1))
 		filename=$(find $dir -type f -maxdepth $depth -regextype posix-extended -regex ".*\.(mp4|avi|mkv)" | head -n $random | tail -n 1)
 
-		xwinwrap -d -ov -fs -- mpv -wid WID "$filename" --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
-		echo "xwinwrap -d -ov -fs -- mpv -wid WID \""$filename"\" --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log" >$cmdf
+		xwinwrap -d -ov -fs -- mpv -wid WID "$filename" --load-scripts=no --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
+		echo "xwinwrap -d -ov -fs -- mpv -wid WID \""$filename"\" --load-scripts=no --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log" >$cmdf
 		;;
 	"image")
 		local dir=$(getConfig random_image_dir)
