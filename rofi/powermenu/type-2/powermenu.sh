@@ -72,7 +72,9 @@ run_cmd() {
 			systemctl suspend
 			dm-tool lock
 		elif [[ $1 == '--logout' ]]; then
-			if [[ "$DESKTOP_SESSION" == 'openbox' ]]; then
+			if [[ "$DESKTOP_SESSION" == 'dwm' ]]; then
+				kill $(pgrep dwm)
+			elif [[ "$DESKTOP_SESSION" == 'openbox' ]]; then
 				openbox --exit
 			elif [[ "$DESKTOP_SESSION" == 'bspwm' ]]; then
 				bspc quit

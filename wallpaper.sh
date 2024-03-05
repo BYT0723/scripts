@@ -57,12 +57,11 @@ set_wallpaper() {
 	arg="${args[@]:1}" # 获取从索引1开始的3个参数作为切片
 
 	# kill existing xwinwrap
-	if [[ -n $(pgrep xwinwrap) ]]; then
+	while [[ -n $(pgrep xwinwrap) ]]; do
 		killall xwinwrap
-	fi
-
-	# sleep for a short time to prevent killing the new xwinwrap
-	sleep 0.3
+		# sleep for a short time to prevent killing the new xwinwrap
+		sleep 0.3
+	done
 
 	baseFilename=$(basename "${arg// /_}")
 
@@ -134,11 +133,10 @@ set_wallpaper() {
 
 # next random wallpaper
 next_wallpaper() {
-	if [[ -n $(pgrep xwinwrap) ]]; then
+	while [[ -n $(pgrep xwinwrap) ]]; do
 		killall xwinwrap
-	fi
-
-	sleep 0.3
+		sleep 0.3
+	done
 
 	depth=$(getConfig random_depth)
 
