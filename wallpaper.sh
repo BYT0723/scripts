@@ -46,6 +46,14 @@ echo_help() {
 	echo "      -n | --next            random next wallpaper"
 }
 
+clean_lastest() {
+	# kill existing xwinwrap
+	while [[ -n "$(pgrep xwinwrap)" ]]; do
+		kill $(pgrep xwinwrap)
+		sleep 0.3
+	done
+}
+
 # set wallpaper
 set_wallpaper() {
 	if [ -z "$1" ]; then
@@ -56,12 +64,7 @@ set_wallpaper() {
 	args=("$@")        # 将所有参数存储到数组中
 	arg="${args[@]:1}" # 获取从索引1开始的3个参数作为切片
 
-	# kill existing xwinwrap
-	while [[ -n $(pgrep xwinwrap) ]]; do
-		killall xwinwrap
-		# sleep for a short time to prevent killing the new xwinwrap
-		sleep 0.3
-	done
+	clean_lastest
 
 	baseFilename=$(basename "${arg// /_}")
 
@@ -94,9 +97,9 @@ set_wallpaper() {
 			return
 		fi
 
-		xwinwrap -d -ov -fs -- mpv -wid WID "$arg" --load-scripts=no --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
+		xwinwrap -d -ov -fs -- mpv -wid WID "$arg" --no-config --load-scripts=no --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
 		# write command to configuration
-		echo "xwinwrap -d -ov -fs -- mpv -wid WID \""$arg"\" --load-scripts=no --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log" >$cmdf
+		echo "xwinwrap -d -ov -fs -- mpv -wid WID \""$arg"\" --no-config --load-scripts=no --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log" >$cmdf
 		;;
 	"image")
 		# command detection
@@ -133,10 +136,7 @@ set_wallpaper() {
 
 # next random wallpaper
 next_wallpaper() {
-	while [[ -n $(pgrep xwinwrap) ]]; do
-		killall xwinwrap
-		sleep 0.3
-	done
+	clean_lastest
 
 	depth=$(getConfig random_depth)
 
@@ -162,8 +162,8 @@ next_wallpaper() {
 		random=$(($RANDOM % $len + 1))
 		filename=$(find $dir -type f -maxdepth $depth -regextype posix-extended -regex ".*\.(mp4|avi|mkv)" | head -n $random | tail -n 1)
 
-		xwinwrap -d -ov -fs -- mpv -wid WID "$filename" --load-scripts=no --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
-		echo "xwinwrap -d -ov -fs -- mpv -wid WID \""$filename"\" --load-scripts=no --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log" >$cmdf
+		xwinwrap -d -ov -fs -- mpv -wid WID "$filename" --no-config --load-scripts=no --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
+		echo "xwinwrap -d -ov -fs -- mpv -wid WID \""$filename"\" --no-config --load-scripts=no --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log" >$cmdf
 		;;
 	"image")
 		local dir=$(getConfig random_image_dir)
@@ -192,20 +192,41 @@ next_wallpaper() {
 
 # wallpaper launch_wallpaper
 launch_wallpaper() {
+	if [[ "$$" != "$(pgrep -f $(basename $0))" ]]; then
+		pgrep -f $(basename $0) | while read -r pid; do
+			if [[ "$$" == "$pid" ]]; then
+				continue
+			else
+				kill $pid
+			fi
+		done
+	fi
+
+	clean_lastest
+	# PERF: 将文件名获取网址存入cmdf中，使用脚本启动，这样启动不会做预备
+	if [ ! -f $cmdf ]; then
+		$cmd
+	else
+		bash $cmdf
+	fi
+
+	local duration=$(($(getConfig duration) * 60))
 	while true; do
+		sleep $duration
 		if [ $(getConfig random) -eq 1 ]; then
 			next_wallpaper
-		else
-			if [ ! -f $cmdf ]; then
-				$cmd
-			else
-				bash $cmdf
-			fi
 		fi
-		if [ ! -z "$(pgrep -f wallpaper.sh)" ]; then
-			break
-		fi
-		sleep $(($(getConfig duration) * 60))
+
+		# # 当cmd文件最后一次更改时间小于duration,使用新的cmdf
+		# # FIX: 如果cmdf是脚本自己修改的如何判断呢？
+		# local lastChangeDur=$(($(date +%s) - $(date -d $(stat -c %y "$conf") +%s)))
+		# if [ $lastChangeDur -lt $duration ]; then
+		# 	while [[ -n $(pgrep xwinwrap) ]]; do
+		# 		killall xwinwrap
+		# 		sleep 0.3
+		# 	done
+		# 	bash $cmdf
+		# fi
 	done
 }
 
