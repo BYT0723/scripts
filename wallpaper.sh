@@ -6,7 +6,7 @@
 
 # wallpaper configuration file
 conf="$(dirname $0)/configs/wallpaper.conf"
-cmdf="$(dirname $0)/configs/wallpaper-cmd.sh"
+wallpaper_latest="$(dirname $0)/configs/wallpaper_latest"
 
 # Define the default configuration
 declare -A config
@@ -97,9 +97,23 @@ set_wallpaper() {
 			return
 		fi
 
-		xwinwrap -d -ov -fs -- mpv -wid WID "$arg" --no-config --load-scripts=no --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
+		xwinwrap -d -ov -fs -- mpv -wid WID "$arg" \
+			--no-config \
+			--load-scripts=no \
+			--no-keepaspect \
+			--mute \
+			--no-osc \
+			--loop \
+			--vid=1 \
+			--no-ytdl \
+			--no-terminal \
+			--really-quiet \
+			--cursor-autohide=no \
+			--player-operation-mode=cplayer \
+			--no-input-default-bindings \
+			--input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
 		# write command to configuration
-		echo "xwinwrap -d -ov -fs -- mpv -wid WID \""$arg"\" --no-config --load-scripts=no --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log" >$cmdf
+		echo "$arg" >$wallpaper_latest
 		;;
 	"image")
 		# command detection
@@ -110,7 +124,7 @@ set_wallpaper() {
 
 		feh --bg-scale --no-fehbg "$arg" >~/.wallpaper.log
 		# write command to configuration
-		echo "feh --bg-scale --no-fehbg '"$arg"' >~/.wallpaper.log" >$cmdf
+		echo "$arg" >$wallpaper_latest
 		;;
 	"page")
 
@@ -129,7 +143,7 @@ set_wallpaper() {
 
 		xwinwrap -d -ov -fs -- tabbed -w WID -g $size -r 2 surf -e '' $arg 2>&1 >~/.wallpaper.log 2>&1 >~/.wallpaper.log
 
-		echo "xwinwrap -d -ov -fs -- tabbed -w WID -g $size -r 2 surf -e '' $arg 2>&1 >~/.wallpaper.log 2>&1 >~/.wallpaper.log" >$cmdf
+		echo "$args" >$wallpaper_latest
 		;;
 	esac
 }
@@ -162,8 +176,22 @@ next_wallpaper() {
 		random=$(($RANDOM % $len + 1))
 		filename=$(find $dir -type f -maxdepth $depth -regextype posix-extended -regex ".*\.(mp4|avi|mkv)" | head -n $random | tail -n 1)
 
-		xwinwrap -d -ov -fs -- mpv -wid WID "$filename" --no-config --load-scripts=no --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
-		echo "xwinwrap -d -ov -fs -- mpv -wid WID \""$filename"\" --no-config --load-scripts=no --no-keepaspect --mute --no-osc --no-osd-bar --loop-file --cursor-autohide=no --player-operation-mode=cplayer --no-input-default-bindings --input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log" >$cmdf
+		xwinwrap -d -ov -fs -- mpv -wid WID "$filename" \
+			--no-config \
+			--load-scripts=no \
+			--no-keepaspect \
+			--mute \
+			--no-osc \
+			--loop \
+			--vid=1 \
+			--no-ytdl \
+			--no-terminal \
+			--really-quiet \
+			--cursor-autohide=no \
+			--player-operation-mode=cplayer \
+			--no-input-default-bindings \
+			--input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
+		echo $filename >$wallpaper_latest
 		;;
 	"image")
 		local dir=$(getConfig random_image_dir)
@@ -185,7 +213,7 @@ next_wallpaper() {
 		filename=$(find $dir -type f -maxdepth $depth -regextype posix-extended -regex ".*\.(jpeg|jpg|png)" | head -n $random | tail -n 1)
 
 		feh --bg-scale --no-fehbg "$filename" >~/.wallpaper.log
-		echo "feh --bg-scale --no-fehbg '"$filename"' >~/.wallpaper.log" >$cmdf
+		echo $filename >$wallpaper_latest
 		;;
 	esac
 }
@@ -204,10 +232,10 @@ launch_wallpaper() {
 
 	clean_lastest
 	# PERF: 将文件名获取网址存入cmdf中，使用脚本启动，这样启动不会做预备
-	if [ ! -f $cmdf ]; then
-		$cmd
+	if [ -f $wallpaper_latest ]; then
+		set_wallpaper -s "$(cat $wallpaper_latest)"
 	else
-		bash $cmdf
+		$cmd
 	fi
 
 	local duration=$(($(getConfig duration) * 60))
