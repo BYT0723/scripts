@@ -24,6 +24,6 @@ if [ "$status" == "off" ]; then
 	icon="audio-volume-muted-symbolic"
 fi
 
-notify-send -c tools -i $icon -h string:x-dunst-stack-tag:$msgTag "${volume}"
+# notify-send -c tools -i $icon -h string:x-dunst-stack-tag:$msgTag "${volume}"
 # # support progress bar
-# notify-send -c tools -i $icon -h string:x-dunst-stack-tag:$msgTag -h int:value:"${volume}" "${volume}"
+notify-send -c tools -i $icon -h string:x-dunst-stack-tag:$msgTag -h int:value:"${volume}" "${volume}"

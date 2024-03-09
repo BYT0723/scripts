@@ -100,7 +100,7 @@ $reboot)
 	;;
 $lock)
 	sleep 1
-	xset dpms force standby
+	xset dpms force off
 	betterlockscreen -l
 	;;
 $suspend)
