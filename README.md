@@ -41,7 +41,7 @@
 | touchpad-toggle.sh    | touchpad switcher                  | libnotify                                                                                           |
 | volume.sh             | volume controller                  | alsa-utils                                                                                          |
 | wallpaper.sh          | wallpaper controller               | feh / xwinwrap / mpv / archlinux-wallpaper / [tabbed](https://github.com/BYT0723/tabbed.git) / surf |
-| screenshot.sh         | screen shot tools                  | maim / feh / viewnior                                                                               |
+| screenshot.sh         | screen shot tools                  | maim / feh / viewnior / xdotool                                                                     |
 
 > Tips
 >
