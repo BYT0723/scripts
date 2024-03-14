@@ -45,3 +45,8 @@ fi
 if [ -z "$(pgrep fcitx5)" ]; then
 	fcitx5 -d
 fi
+
+# personal note
+if [ -z "$(pgrep -f note.sh)" ]; then
+	/bin/bash $dir/note.sh &
+fi
