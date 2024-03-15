@@ -3,7 +3,7 @@
 # 基本所在路径
 dir=$(dirname $0)
 # 注册私钥邮箱
-email="$(echo /etc/hostname)@syncer.com"
+email="$(cat /etc/hostname)@syncer.com"
 # 私钥路径
 key_path="$dir/syncer"
 # 服务器地址
@@ -48,9 +48,9 @@ if [ ! -d \"$(dirname $remote_auth_path)\" ] || [ ! -f \"$remote_auth_path\" ] |
 fi" >/dev/null
 
 case "$1" in
-'port-change')
+'--change-port')
 	log INFO "更新trojan接口..."
-	ssh $server -p $port -i $key_path "trojan port"
+	echo -e "\015" | ssh -tt $server -p $port -i $key_path -q "trojan port"
 	;;
 *)
 	log INFO "不更新trojan接口"
