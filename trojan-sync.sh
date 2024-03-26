@@ -50,7 +50,7 @@ fi" >/dev/null
 case "$1" in
 '--change-port')
 	log INFO "更新trojan接口..."
-	echo -e "\015" | ssh -tt $server -p $port -i $key_path -q "trojan port"
+	echo -e "\015" | ssh -tt $server -p $port -i $key_path -q "trojan port >> /dev/null"
 	;;
 *)
 	log INFO "不更新trojan接口"
@@ -59,7 +59,9 @@ esac
 
 # 更新远程Client Config文件
 log INFO "更新远程trojan client config..."
-echo "6" | ssh -tt $server -p $port -i $key_path -q '(trojan & sleep 1 && kill $!) > /dev/null'
+echo "6" | ssh -tt $server -p $port -i $key_path -q '(trojan & sleep 1 && kill $!) >> /dev/null'
+
+log INFO "远程端口为："$(ssh $server -p $port -i $key_path 'grep "remote_port" config.json | grep -oP "\d+"')
 
 # 拉去最新的Config
 log INFO "更新本地trojan client config..."
