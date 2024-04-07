@@ -1,7 +1,9 @@
 #!/bin/bash
 
 while true; do
-	/bin/bash /home/walter/.dwm/clock.sh PLAN "$(grep '^[*=]' /home/walter/.note)"
+	if [ -f $HOME/.note ] && [ ! -z "$(grep '^[*=]' $HOME/.note)" ]; then
+		/bin/bash /home/walter/.dwm/clock.sh PLAN "$(grep '^[*=]' $HOME/.note)"
+	fi
 	sleep 1800
 done
 
