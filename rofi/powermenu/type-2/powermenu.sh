@@ -99,9 +99,9 @@ $reboot)
 	run_cmd --reboot
 	;;
 $lock)
+	betterlockscreen -l &
 	sleep 1
 	xset dpms force off
-	betterlockscreen -l
 	;;
 $suspend)
 	run_cmd --suspend

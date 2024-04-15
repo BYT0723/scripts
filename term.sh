@@ -8,10 +8,10 @@ Type=$1
 # new different termina by $Type
 case "$Type" in
 float)
-	st -i -g 110x30 -f "CaskaydiaCove Nerd Font:style=Regular:size=12" &
+	st -i -g 130x40 -f "CaskaydiaCove Nerd Font:style=Regular:size=10" &
 	;;
 *)
 	# st &
-	alacritty &
+	alacritty -o 'font.size=10' &
 	;;
 esac
