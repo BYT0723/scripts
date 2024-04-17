@@ -45,7 +45,7 @@ pk=$(cat "${key_path}.pub")
 ssh $server -p $port -i $key_path "\
 if [ ! -d \"$(dirname $remote_auth_path)\" ] || [ ! -f \"$remote_auth_path\" ] || [ -z \"\$(grep \"$pk\" \"$remote_auth_path\")\" ]; then \
     mkdir -p \"$(dirname $remote_auth_path)\" && touch \"$remote_auth_path\" && echo \"$pk\" | tee -a \"$remote_auth_path\"; \
-fi" >/dev/null
+fi" >>/dev/null
 
 case "$1" in
 '--change-port')
@@ -65,7 +65,7 @@ log INFO "远程端口为："$(ssh $server -p $port -i $key_path 'grep "remote_p
 
 # 拉去最新的Config
 log INFO "更新本地trojan client config..."
-scp -P 29793 -i $key_path $server:$remote_config $local_config
+scp -P 29793 -i $key_path $server:$remote_config $local_config >>/dev/null
 
 # 重启trojan
 log INFO "重启本地trojan服务..."
