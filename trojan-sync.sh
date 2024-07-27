@@ -32,7 +32,7 @@ log() {
 }
 
 check_url() {
-	echo $(curl -s -o /dev/null -w "%{http_code}" -L "$1")
+	echo $(curl -s -m 5 -o /dev/null -w "%{http_code}" -L "$1")
 }
 
 # 检查本地配置文件写入权限
