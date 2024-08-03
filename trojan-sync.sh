@@ -31,10 +31,6 @@ log() {
 	esac
 }
 
-check_url() {
-	echo $(curl -s -m 5 -o /dev/null -w "%{http_code}" -L "$1")
-}
-
 # 检查本地配置文件写入权限
 if [ ! -w "$local_config" ]; then
 	log ERROR "您没有$local_config的写权限!!!"
@@ -54,7 +50,7 @@ if [ ! -d \"$(dirname $remote_auth_path)\" ] || [ ! -f \"$remote_auth_path\" ] |
     mkdir -p \"$(dirname $remote_auth_path)\" && touch \"$remote_auth_path\" && echo \"$pk\" | tee -a \"$remote_auth_path\"; \
 fi" >>/dev/null
 
-if [[ "$(check_url 'https://www.google.com')" == "200" ]]; then
+if [[ "$(curl -s -m 5 -o /dev/null -w '%{http_code}' -L 'https://www.google.com')" == "200" ]]; then
 	log INFO "您的网络连接正常!!!"
 	exit 0
 fi
@@ -71,7 +67,7 @@ if [[ -z "$remote_local_port" ]]; then
 	exit 1
 fi
 
-if [[ "$local_remote_port" == "$remote_local_port" ]]; then
+if [[ "$local_remote_port" == "$remote_local_port" ]] || [[ "$(ssh $server -p $port -i $key_path 'curl -s -m 5 -o /dev/null -w "%{http_code}" -L https://www.google.com')" != "200" ]]; then
 	log INFO "更新trojan接口..."
 	echo -e "\015" | ssh -tt $server -p $port -i $key_path -q "trojan port >> /dev/null"
 fi
