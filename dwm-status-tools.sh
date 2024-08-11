@@ -13,8 +13,8 @@ darkblue=#668ee3
 # Icons initial
 declare -A icons
 icons["disk"]=" "
-icons["memory"]=" "
-icons["cpu"]=" "
+icons["memory"]=" "
+icons["cpu"]=" "
 icons["temp"]=" "
 icons["mpd"]=" "
 
@@ -30,7 +30,7 @@ print_date() {
 	# colorscheme
 	printf "\x01^b$green^^c$grey^"
 	# date '+ %m/%d(%a) '${timeIcons[$(echo $(date '+%l') | bc)]}' %R'
-	date '+%m/%d(%a) '${timeIcons[$(echo $(date '+%l')'%12' | bc)]}' %R'
+	date '+ %m/%d(%a) '${timeIcons[$(echo $(date '+%l')'%12' | bc)]}' %R'
 }
 
 print_battery() {
