@@ -18,6 +18,9 @@ config["random_depth"]=1
 config["duration"]=30
 cmd="feh --no-fehbg --bg-scale /usr/share/backgrounds/archlinux/small.png"
 
+cache_video_dir="$HOME/.cache/wallpapers/"
+mkdir -p "$cache_video_dir"
+
 # Get single configuration
 getConfig() {
 	if [ -f $conf ]; then
@@ -97,7 +100,13 @@ set_wallpaper() {
 			return
 		fi
 
-		xwinwrap -d -ov -fs -- mpv -wid WID "$arg" \
+		nfname="$cache_video_dir"$(md5sum "$arg" | awk '{print $1}')".mp4"
+		if [ ! -f "$nfname" ]; then
+			notify-send "video wallpaper is being transcoding by ffmpeg ..."
+			ffmpeg -i "$arg" -c:v libx264 -vf scale=$(xdpyinfo | grep dimensions | awk '{print $2}' | sed 's/x/:/') -crf 18 -preset veryfast -c:a aac $nfname
+		fi
+
+		xwinwrap -d -ov -fs -- mpv -wid WID "$nfname" \
 			--no-config \
 			--load-scripts=no \
 			--no-keepaspect \
@@ -111,6 +120,9 @@ set_wallpaper() {
 			--cursor-autohide=no \
 			--player-operation-mode=cplayer \
 			--no-input-default-bindings \
+			--cache \
+			--demuxer-max-bytes=256MiB \
+			--demuxer-readahead-secs=20 \
 			--input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
 		# write command to configuration
 		echo "$arg" >$wallpaper_latest
@@ -176,7 +188,13 @@ next_wallpaper() {
 		random=$(($RANDOM % $len + 1))
 		filename=$(find $dir -type f -maxdepth $depth -regextype posix-extended -regex ".*\.(mp4|avi|mkv)" | head -n $random | tail -n 1)
 
-		xwinwrap -d -ov -fs -- mpv -wid WID "$filename" \
+		nfname="$cache_video_dir"$(md5sum "$filename" | awk '{print $1}')".mp4"
+		if [ ! -f "$nfname" ]; then
+			notify-send "video wallpaper is being transcoding by ffmpeg ..."
+			ffmpeg -i "$filename" -c:v libx264 -vf scale=$(xdpyinfo | grep dimensions | awk '{print $2}' | sed 's/x/:/') -crf 18 -preset veryfast -c:a aac $nfname
+		fi
+
+		xwinwrap -d -ov -fs -- mpv -wid WID "$nfname" \
 			--no-config \
 			--load-scripts=no \
 			--no-keepaspect \
@@ -190,6 +208,9 @@ next_wallpaper() {
 			--cursor-autohide=no \
 			--player-operation-mode=cplayer \
 			--no-input-default-bindings \
+			--cache \
+			--demuxer-max-bytes=256MiB \
+			--demuxer-readahead-secs=20 \
 			--input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
 		echo $filename >$wallpaper_latest
 		;;
