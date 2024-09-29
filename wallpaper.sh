@@ -72,7 +72,7 @@ set_wallpaper() {
 	baseFilename=$(basename "${arg// /_}")
 
 	# get file suffix
-	Type="${baseFilename#*.}"
+	Type="${baseFilename##*.}"
 
 	# classify according to the suffix
 	case "$Type" in
