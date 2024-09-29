@@ -12,8 +12,9 @@ export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
 # Displayed screen
 export DISPLAY=:0
 
-LEVEL="critical"
+LEVEL="normal"
 ICON=""
+TAG="clock"
 
 case "$1" in
 "WORK")
@@ -29,8 +30,9 @@ case "$1" in
 	ICON="󰩰 "
 	;;
 "PLAN")
-	LEVEL="normal"
+	LEVEL="low"
 	ICON=" "
+	TAG="note"
 	;;
 *)
 	echo "$1"
@@ -40,4 +42,4 @@ esac
 canberra-gtk-play -i audio-volume-change
 
 # send notification
-notify-send -i preferences-system-time-symbolic -u "$LEVEL" "$ICON  $(date +"%H:%M")" "$2"
+notify-send -i preferences-system-time-symbolic -h string:x-dunst-stack-tag:$msgTag -u "$LEVEL" "$ICON  $(date +"%H:%M")" "$2"
