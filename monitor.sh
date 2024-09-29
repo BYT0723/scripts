@@ -83,5 +83,4 @@ cycle_monitor() {
 	done
 }
 
-# cycle_monitor $1
-list_layout
+cycle_monitor $1
