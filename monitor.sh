@@ -6,7 +6,7 @@
 # xrandr
 # arandr
 
-read mouse_x mouse_y < <(xdotool getmouselocation | awk '{print $1}' | awk -F ':' '{print $2}')
+read mouse_x mouse_y < <(xdotool getmouselocation | sed -n 's/.*x:\([0-9]*\).*y:\([0-9]*\).*/\1 \2/p')
 
 # TODO: monitor layout列表，选择不同的布局
 # list_layout() {
