@@ -92,7 +92,7 @@ set_wallpaper() {
 	"video")
 		# command detection
 		if ! [[ -n $(command -v xwinwrap) ]]; then
-			echo "set video to wallpaper need xwinwrap, install xwinwrap-git package"
+			echo "set video to wallpaper need xwinwrap, install xwinwrap(https://github.com/BYT0723/xwinwrap) package"
 			return
 		fi
 		if ! [[ -n $(command -v mpv) ]]; then
@@ -100,32 +100,30 @@ set_wallpaper() {
 			return
 		fi
 
-		nfname="$cache_video_dir"$(md5sum "$arg" | awk '{print $1}')".mp4"
-		if [ ! -f "$nfname" ]; then
-			notify-send "video wallpaper is being transcoding by ffmpeg ..."
-			ffmpeg -i "$arg" -c:v libx264 -vf scale=$(xdpyinfo | grep dimensions | awk '{print $2}' | sed 's/x/:/') -crf 18 -preset veryfast -c:a aac $nfname
-		fi
+		for position in $(xrandr | grep " connected " | grep -oP '\d+x\d+\+\d+\+\d+'); do
+			xwinwrap -d -ov -g $position -- mpv -wid WID "$arg" \
+				--no-config \
+				--load-scripts=no \
+				--no-keepaspect \
+				--mute \
+				--no-osc \
+				--loop \
+				--vid=1 \
+				--no-ytdl \
+				--no-terminal \
+				--really-quiet \
+				--cursor-autohide=no \
+				--player-operation-mode=cplayer \
+				--no-input-default-bindings \
+				--cache \
+				--demuxer-max-bytes=256MiB \
+				--demuxer-readahead-secs=20 \
+				--input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
+		done
 
-		xwinwrap -d -ov -fs -- mpv -wid WID "$nfname" \
-			--no-config \
-			--load-scripts=no \
-			--no-keepaspect \
-			--mute \
-			--no-osc \
-			--loop \
-			--vid=1 \
-			--no-ytdl \
-			--no-terminal \
-			--really-quiet \
-			--cursor-autohide=no \
-			--player-operation-mode=cplayer \
-			--no-input-default-bindings \
-			--cache \
-			--demuxer-max-bytes=256MiB \
-			--demuxer-readahead-secs=20 \
-			--input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
 		# write command to configuration
 		echo "$arg" >$wallpaper_latest
+
 		;;
 	"image")
 		# command detection
@@ -142,7 +140,7 @@ set_wallpaper() {
 
 		# command detection
 		if ! [[ -n $(command -v xwinwrap) ]]; then
-			echo "set page to wallpaper need xwinwrap, install xwinwrap-git package"
+			echo "set video to wallpaper need xwinwrap, install xwinwrap(https://github.com/BYT0723/xwinwrap) package"
 			return
 		fi
 		if ! [[ -n $(command -v surf) ]]; then
@@ -177,7 +175,7 @@ next_wallpaper() {
 			return
 		fi
 
-		len=$(find $dir -type f -maxdepth $depth -regextype posix-extended -regex ".*\.(mp4|avi|mkv)" | wc -l)
+		len=$(find $dir -maxdepth $depth -type f -regextype posix-extended -regex ".*\.(mp4|avi|mkv)" | wc -l)
 
 		if [ $len == 0 ]; then
 			error "No target wallpaper found in "$dir
@@ -186,32 +184,29 @@ next_wallpaper() {
 
 		# Randomly get a video wallpaper
 		random=$(($RANDOM % $len + 1))
-		filename=$(find $dir -type f -maxdepth $depth -regextype posix-extended -regex ".*\.(mp4|avi|mkv)" | head -n $random | tail -n 1)
+		filename=$(find $dir -maxdepth $depth -type f -regextype posix-extended -regex ".*\.(mp4|avi|mkv)" | head -n $random | tail -n 1)
 
-		nfname="$cache_video_dir"$(md5sum "$filename" | awk '{print $1}')".mp4"
-		if [ ! -f "$nfname" ]; then
-			notify-send "video wallpaper is being transcoding by ffmpeg ..."
-			ffmpeg -i "$filename" -c:v libx264 -vf scale=$(xdpyinfo | grep dimensions | awk '{print $2}' | sed 's/x/:/') -crf 18 -preset veryfast -c:a aac $nfname
-		fi
+		for position in $(xrandr | grep " connected " | grep -oP '\d+x\d+\+\d+\+\d+'); do
+			xwinwrap -d -ov -g $position -- mpv -wid WID "$filename" \
+				--no-config \
+				--load-scripts=no \
+				--no-keepaspect \
+				--mute \
+				--no-osc \
+				--loop \
+				--vid=1 \
+				--no-ytdl \
+				--no-terminal \
+				--really-quiet \
+				--cursor-autohide=no \
+				--player-operation-mode=cplayer \
+				--no-input-default-bindings \
+				--cache \
+				--demuxer-max-bytes=256MiB \
+				--demuxer-readahead-secs=20 \
+				--input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
+		done
 
-		xwinwrap -d -ov -fs -- mpv -wid WID "$nfname" \
-			--no-config \
-			--load-scripts=no \
-			--no-keepaspect \
-			--mute \
-			--no-osc \
-			--loop \
-			--vid=1 \
-			--no-ytdl \
-			--no-terminal \
-			--really-quiet \
-			--cursor-autohide=no \
-			--player-operation-mode=cplayer \
-			--no-input-default-bindings \
-			--cache \
-			--demuxer-max-bytes=256MiB \
-			--demuxer-readahead-secs=20 \
-			--input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
 		echo $filename >$wallpaper_latest
 		;;
 	"image")
@@ -222,7 +217,7 @@ next_wallpaper() {
 			return
 		fi
 
-		len=$(find $dir -type f -maxdepth $depth -regextype posix-extended -regex ".*\.(jpeg|jpg|png)" | wc -l)
+		len=$(find $dir -maxdepth $depth -type f -regextype posix-extended -regex ".*\.(jpeg|jpg|png)" | wc -l)
 
 		if [ $len == 0 ]; then
 			error "No target wallpaper found in "$dir
@@ -231,7 +226,7 @@ next_wallpaper() {
 
 		# Randomly get a video wallpaper
 		random=$(($RANDOM % $len + 1))
-		filename=$(find $dir -type f -maxdepth $depth -regextype posix-extended -regex ".*\.(jpeg|jpg|png)" | head -n $random | tail -n 1)
+		filename=$(find $dir -maxdepth $depth -type f -regextype posix-extended -regex ".*\.(jpeg|jpg|png)" | head -n $random | tail -n 1)
 
 		feh --bg-scale --no-fehbg "$filename" >~/.wallpaper.log
 		echo $filename >$wallpaper_latest

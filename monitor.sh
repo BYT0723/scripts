@@ -83,4 +83,11 @@ cycle_monitor() {
 	done
 }
 
-cycle_monitor $1
+case "$1" in
+"next")
+	cycle_monitor $1
+	;;
+"prev")
+	cycle_monitor $1
+	;;
+esac

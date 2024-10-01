@@ -2,10 +2,6 @@
 
 dir=$(dirname $0)
 
-if [ -d "$HOME/.screenlayout" ] && [ -f "$HOME/.screenlayout/default.sh" ]; then
-	bash $HOME/.screenlayout/default.sh
-fi
-
 # Set Xorg Keymap
 if [ ! -z "$(pgrep Xorg)" ] && [ ! -z "$(command -v setxkbmap)" ]; then
 	setxkbmap -option "caps:swapescape,altwin:swap_lalt_lwin" # setxkbmap need `xorg-xkb-utils` package
