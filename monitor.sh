@@ -28,23 +28,24 @@ get_monitor_info() {
 		echo "invalid monitor name"
 		exit 1
 	fi
-	info=$(xrandr --listactivemonitors | grep $name | awk '{print $3}')
+	index=$(xrandr --listactivemonitors | grep $name | cut -d ':' -f1)
 
+	info=$(xrandr --listactivemonitors | grep $name | awk '{print $3}')
 	width=$(echo $info | awk -F '/' '{print $1}')
 	height=$(echo $info | awk -F 'x' '{print $2}' | awk -F '/' '{print $1}')
 	read x y < <(echo $info | awk -F 'x' '{print $2}' | awk -F '+' '{print $2 " " $3}')
-	echo $width $height $x $y
+	echo $index $width $height $x $y
 }
 
 get_current_monitor() {
 	xrandr --listactivemonitors | {
 		read
 		while read -r monitor; do
-			name=$(echo $name | awk '{print $NF}')
-			read width height x y < <(get_monitor_info "$name")
+			name=$(echo $monitor | awk '{print $NF}')
+			read index width height x y < <(get_monitor_info "$name")
 
 			if [ $(expr $mouse_x - $x) -ge 0 ] && [ $(expr $mouse_x - $x - $width) -le 0 ] && [ $(expr $mouse_y - $y) -ge 0 ] && [ $(expr $mouse_y - $y - $height) -le 0 ]; then
-				echo "$name $width $height $x $y"
+				echo "$index $name $width $height $x $y"
 				return
 			fi
 		done
@@ -61,7 +62,7 @@ cycle_monitor() {
 	monitors=($(xrandr | grep " connected " | awk '{print $1}'))
 
 	for i in "${!monitors[@]}"; do
-		read width height x y < <(get_monitor_info ${monitors[$i]})
+		read _ width height x y < <(get_monitor_info ${monitors[$i]})
 
 		if [ $(echo "$mouse_x - $x" | bc) -ge 0 ] && [ $(echo "$mouse_x - $x - $width" | bc) -le 0 ] && [ $(echo "$mouse_y - $y" | bc) -ge 0 ] && [ $(echo "$mouse_y - $y - $height" | bc) -le 0 ]; then
 			case "$action" in
@@ -72,8 +73,9 @@ cycle_monitor() {
 				target_index=$(((i + 1) % ${#monitors[@]})) # 计算下一个监视器的索引
 				;;
 			esac
+			echo ${monitors[$target_index]}
 
-			read target_width target_height target_x target_y < <(get_monitor_info ${monitors[$target_index]})
+			read _ target_width target_height target_x target_y < <(get_monitor_info ${monitors[$target_index]})
 			# 然后切换到目标monitor
 			new_x=$(echo $target_x + $target_width/2 | bc)
 			new_y=$(echo $target_y + $target_height/2 | bc)
