@@ -23,7 +23,13 @@ local_config="/etc/trojan/config.json"
 log() {
 	case "$1" in
 	ERROR)
-		echo -e "$(date +'%Y-%m-%d %H:%M:%S') \033[31m"[$1] ${@:2}"\033[0m"
+		echo -e "\033[31m$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}\033[0m"
+		;;
+	WARN)
+		echo -e "\033[33m$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}\033[0m"
+		;;
+	INFO)
+		echo -e "\033[90m$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}\033[0m"
 		;;
 	*)
 		echo -e "$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}"
@@ -68,12 +74,13 @@ if [[ -z "$remote_local_port" ]]; then
 fi
 
 if [[ "$local_remote_port" == "$remote_local_port" ]] || [[ "$(ssh $server -p $port -i $key_path 'all_proxy=socks://127.0.0.1:'$remote_local_port' curl -s -m 5 -o /dev/null -w "%{http_code}" -L https://www.google.com')" != "200" ]]; then
-	log INFO "更新trojan接口..."
+	log INFO "更新remote trojan接口..."
 	echo -e "\015" | ssh -tt $server -p $port -i $key_path -q "trojan port >> /dev/null"
 fi
 
 # 更新远程Client Config文件
-log INFO "更新远程trojan client config..."
+# NOTE: 此处是在服务端生成最新的客户端配置文件, 每次都会操作，日志会引起歧义，不做日志打印
+# log INFO "更新远程trojan client config..."
 echo "6" | ssh -tt $server -p $port -i $key_path -q '(trojan & sleep 1 && kill $!) >> /dev/null'
 
 log INFO "远程端口为："$(ssh $server -p $port -i $key_path 'grep "remote_port" config.json | grep -oP "\d+"')
