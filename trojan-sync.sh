@@ -73,7 +73,7 @@ if [[ -z "$remote_local_port" ]]; then
 	exit 1
 fi
 
-if [[ "$local_remote_port" == "$remote_local_port" ]] || [[ "$(ssh $server -p $port -i $key_path 'all_proxy=socks://127.0.0.1:'$remote_local_port' curl -s -m 5 -o /dev/null -w "%{http_code}" -L https://www.google.com')" != "200" ]]; then
+if [[ "$local_remote_port" == "$remote_local_port" ]] || [[ "$(http_proxy= https_proxy= all_proxy= curl -s -m 5 -o /dev/null -w "%{http_code}" -L https://byt0723.xyz:$remote_local_port)" != "200" ]]; then
 	log INFO "更新remote trojan接口..."
 	echo -e "\015" | ssh -tt $server -p $port -i $key_path -q "trojan port >> /dev/null"
 fi
