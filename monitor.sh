@@ -6,6 +6,8 @@
 # xrandr
 # arandr
 
+# 不推荐使用，dwm有内置focusmon 和 tagmon方法
+
 read mouse_x mouse_y < <(xdotool getmouselocation | sed -n 's/.*x:\([0-9]*\).*y:\([0-9]*\).*/\1 \2/p')
 
 # TODO: monitor layout列表，选择不同的布局
