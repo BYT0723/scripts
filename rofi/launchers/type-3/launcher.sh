@@ -17,4 +17,5 @@ theme='style-5'
 rofi \
 	-icon-theme $(grep -oP 'gtk-icon-theme-name="\K[^"]+' ~/.gtkrc-2.0) \
 	-show drun \
+	-monitor -4 \
 	-theme ${dir}/${theme}.rasi
