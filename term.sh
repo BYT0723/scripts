@@ -11,7 +11,6 @@ float)
 	st -i -g 130x40 -f "CaskaydiaCove Nerd Font:style=Regular:size=10" &
 	;;
 *)
-	# st &
-	alacritty -o 'font.size=10' &
+	WINIT_X11_SCALE_FACTOR=1 alacritty -o 'font.size=17' &
 	;;
 esac
