@@ -92,6 +92,7 @@ rofi_cmd() {
 		-mesg "$mesg" \
 		${active} ${urgent} \
 		-markup-rows \
+		-monitor -4 \
 		-theme ${theme}
 }
 
