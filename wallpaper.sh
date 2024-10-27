@@ -21,6 +21,8 @@ cmd="feh --no-fehbg --bg-scale /usr/share/backgrounds/archlinux/small.png"
 cache_video_dir="$HOME/.cache/wallpapers/"
 mkdir -p "$cache_video_dir"
 
+source $(dirname $0)/monitor.sh
+
 # Get single configuration
 getConfig() {
 	if [ -f $conf ]; then
@@ -186,8 +188,14 @@ next_wallpaper() {
 		random=$(($RANDOM % $len + 1))
 		filename=$(find $dir -maxdepth $depth -type f -regextype posix-extended -regex ".*\.(mp4|avi|mkv)" | head -n $random | tail -n 1)
 
-		for position in $(xrandr | grep " connected " | grep -oP '\d+x\d+\+\d+\+\d+'); do
-			xwinwrap -d -ov -g $position -- mpv -wid WID "$filename" \
+		for name in $(xrandr | grep " connected " | awk '{print $1}'); do
+			read _ target_width target_height target_x target_y < <(get_monitor_info $name)
+
+			new_x=$(echo $target_x + $target_width/2 | bc)
+			new_y=$(echo $target_y + $target_height/2 | bc)
+			xdotool mousemove $new_x $new_y
+
+			xwinwrap -d -ov -g $target_width"x"$target_height"+"$target_x"+"$target_y -- mpv -wid WID "$filename" \
 				--no-config \
 				--load-scripts=no \
 				--no-keepaspect \
@@ -206,6 +214,8 @@ next_wallpaper() {
 				--demuxer-readahead-secs=20 \
 				--input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
 		done
+
+		xdotool mousemove $mouse_x $mouse_y
 
 		echo $filename >$wallpaper_latest
 		;;
