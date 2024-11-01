@@ -91,7 +91,7 @@ print_wifi() {
 # disk path in variable $disk_root
 print_disk() {
 	# root disk space value
-	local disk_root=$(df -h | grep /dev/nvme0n1p6 | awk '{print $4}')
+	local disk_root=$(df -h | grep '/$' | awk '{print $4}')
 	# colorscheme
 	printf "\x06^c$white^^b$black^"
 	# output
@@ -123,8 +123,21 @@ print_cpu() {
 	# printf "${icons[cpu]}$cpu_percent%%"
 	printf "${icons[cpu]}$cpu_val"
 
-	if [ -f /sys/class/thermal/thermal_zone0/temp ]; then
-		temp=$(head -c 2 /sys/class/thermal/thermal_zone0/temp)
+	vendor=$(cat /proc/cpuinfo | grep "vendor_id" | head -n 1 | awk -F ':' '{print $2}' | xargs)
+	case $vendor in
+	"GenuineIntel")
+		cpuIndex=$(cat -n /sys/class/thermal/thermal_zone*/type | grep "x86_pkg_temp$" | awk '{print $1}')
+		;;
+	"AuthenticAMD")
+		cpuIndex=$(cat -n /sys/class/thermal/thermal_zone*/type | grep "amd_pkg$" | awk '{print $1}')
+		;;
+	*)
+		notify-send "unsupported arch to get cpu temperature: "$vendor
+		;;
+	esac
+
+	if [ ! -z "$cpuIndex" ] && [ -f "/sys/class/thermal/thermal_zone$cpuIndex/temp" ]; then
+		temp=$(head -c 2 /sys/class/thermal/thermal_zone$cpuIndex/temp)
 		if [ $temp -ge 70 ]; then
 			printf "\x08^c$black^^b$red^"
 		else
