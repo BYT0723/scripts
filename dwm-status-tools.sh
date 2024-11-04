@@ -126,10 +126,10 @@ print_cpu() {
 	vendor=$(cat /proc/cpuinfo | grep "vendor_id" | head -n 1 | awk -F ':' '{print $2}' | xargs)
 	case $vendor in
 	"GenuineIntel")
-		cpuIndex=$(cat -n /sys/class/thermal/thermal_zone*/type | grep "x86_pkg_temp$" | awk '{print $1}')
+		cpuIndex=$(cat -n /sys/class/thermal/thermal_zone*/type | grep "x86_pkg_temp$" | awk '{print $1 - 1}')
 		;;
 	"AuthenticAMD")
-		cpuIndex=$(cat -n /sys/class/thermal/thermal_zone*/type | grep "amd_pkg$" | awk '{print $1}')
+		cpuIndex=$(cat -n /sys/class/thermal/thermal_zone*/type | grep "amd_pkg$" | awk '{print $1 - 1}')
 		;;
 	*)
 		notify-send "unsupported arch to get cpu temperature: "$vendor
