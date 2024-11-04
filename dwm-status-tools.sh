@@ -127,24 +127,28 @@ print_cpu() {
 	case $vendor in
 	"GenuineIntel")
 		cpuIndex=$(cat -n /sys/class/thermal/thermal_zone*/type | grep "x86_pkg_temp$" | awk '{print $1 - 1}')
+		if [ ! -z "$cpuIndex" ] && [ -f "/sys/class/thermal/thermal_zone$cpuIndex/temp" ]; then
+			temp=$(head -c 2 /sys/class/thermal/thermal_zone$cpuIndex/temp)
+		fi
 		;;
 	"AuthenticAMD")
-		cpuIndex=$(cat -n /sys/class/thermal/thermal_zone*/type | grep "amd_pkg$" | awk '{print $1 - 1}')
+		cpuIndex=$(cat -n /sys/class/hwmon/hwmon*/name | grep "k10temp$" | awk '{print $1 - 1}')
+		if [ ! -z "$cpuIndex" ] && [ -f "/sys/class/hwmon/hwmon$cpuIndex/temp1_input" ]; then
+			temp=$(head -c 2 "/sys/class/hwmon/hwmon$cpuIndex/temp1_input")
+		fi
 		;;
 	*)
 		notify-send "unsupported arch to get cpu temperature: "$vendor
 		;;
 	esac
 
-	if [ ! -z "$cpuIndex" ] && [ -f "/sys/class/thermal/thermal_zone$cpuIndex/temp" ]; then
-		temp=$(head -c 2 /sys/class/thermal/thermal_zone$cpuIndex/temp)
-		if [ $temp -ge 70 ]; then
-			printf "\x08^c$black^^b$red^"
-		else
-			printf "\x08^c$white^^b$black^"
-		fi
-		printf "${icons["temp"]}${temp}°C"
+	if [ ! -z "$temp"] && [ $temp -ge 70 ]; then
+		printf "\x08^c$black^^b$red^"
+	else
+		printf "\x08^c$white^^b$black^"
 	fi
+	printf "${icons["temp"]}${temp}°C"
+
 }
 
 # Update weather to $weather_path
