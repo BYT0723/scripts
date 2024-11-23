@@ -54,8 +54,8 @@ fi
 
 # Set Xorg Keyboard Configuration
 if [ ! -z "$(pgrep Xorg)" ] && [ ! -z "$(command -v xset)" ]; then
-	expected_delay=200
-	expected_rate=30
+	expected_delay=250
+	expected_rate=35
 	msg=$(xset q | grep 'auto repeat delay') # xset need `xorg-xset` package
 	cur_delay=$(echo $msg | awk '{print $4}')
 	cur_rate=$(echo $msg | awk '{print $NF}')
