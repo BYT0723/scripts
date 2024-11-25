@@ -17,6 +17,7 @@ icons["memory"]=" "
 icons["cpu"]=" "
 icons["temp"]=" "
 icons["mpd"]=" "
+icons["mail"]=" "
 
 # seconds
 weather_common_interval=600 # 10 minute
@@ -238,4 +239,12 @@ print_im() {
 		;;
 	esac
 	printf "   $im"
+}
+
+print_mail() {
+	unread=$(notmuch count tag:unread)
+	if [ $unread -gt 0 ]; then
+		printf "\x0c^c$yellow^^b$grey^"
+		printf "${icons[mail]}$unread"
+	fi
 }
