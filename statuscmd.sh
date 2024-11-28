@@ -147,7 +147,7 @@ mailHandler() {
 		;;
 	2) ;;
 	3)
-		aerc
+		alacritty -e aerc
 		;;
 	esac
 }
