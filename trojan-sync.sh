@@ -23,13 +23,13 @@ local_config="/etc/trojan/config.json"
 log() {
 	case "$1" in
 	ERROR)
-		echo -e "\033[31m$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}\033[0m"
+		echo -e "\033[30m\033[41m$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}\033[0m"
 		;;
 	WARN)
-		echo -e "\033[33m$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}\033[0m"
+		echo -e "\033[30m\033[43m$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}\033[0m"
 		;;
 	INFO)
-		echo -e "\033[90m$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}\033[0m"
+		echo -e "\033[30m\033[47m$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}\033[0m"
 		;;
 	*)
 		echo -e "$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}"
