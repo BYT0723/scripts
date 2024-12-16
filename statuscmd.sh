@@ -151,6 +151,9 @@ mailHandler() {
 		# inline_img_protocol 4
 		# imgdisplay kitty
 		kitty -e aerc
+		if [ $(ps ax | grep mail.sh | wc -l) -le 1 ]; then
+			bash $dir/mail.sh &
+		fi
 		;;
 	esac
 }
