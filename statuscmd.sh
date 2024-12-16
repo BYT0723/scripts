@@ -147,7 +147,10 @@ mailHandler() {
 		;;
 	2) ;;
 	3)
-		alacritty -e aerc
+		# w3m configuration
+		# inline_img_protocol 4
+		# imgdisplay kitty
+		kitty -e aerc
 		;;
 	esac
 }
