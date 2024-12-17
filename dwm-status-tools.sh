@@ -18,6 +18,7 @@ icons["cpu"]=" "
 icons["temp"]=" "
 icons["mpd"]=" "
 icons["mail"]=" "
+icons["rss"]=" "
 
 # seconds
 weather_common_interval=600 # 10 minute
@@ -246,5 +247,13 @@ print_mail() {
 	if [ $unread -gt 0 ]; then
 		printf "\x0c^c$yellow^^b$grey^"
 		printf "${icons[mail]}$unread"
+	fi
+}
+
+print_rss() {
+	unread=$(newsboat -x print-unread | awk '{print $1}')
+	if [ $unread -gt 0 ]; then
+		printf "\x0d^c$yellow^^b$grey^"
+		printf "${icons[rss]}$unread"
 	fi
 }
