@@ -158,6 +158,19 @@ mailHandler() {
 	esac
 }
 
+rssHandler() {
+	buttonType=$1
+	case "$buttonType" in
+	1)
+		notify-send -i rss "$(newsboat -x print-unread)"
+		;;
+	2) ;;
+	3)
+		kitty -e newsboat &
+		;;
+	esac
+}
+
 # route by $cmdType
 case "$cmdType" in
 date)
@@ -189,5 +202,8 @@ weather)
 	;;
 mail)
 	mailHandler $2
+	;;
+rss)
+	rssHandler $2
 	;;
 esac
