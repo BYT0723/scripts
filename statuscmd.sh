@@ -16,12 +16,23 @@ dateHandler() {
 	case "$buttonType" in
 	1)
 		# bash $dir/notify.sh cal -s -y
-		notify-send -c status -h string:x-dunst-stack-tag:datetime "$(cal -s)"
+		notify-send \
+			-t 60000 \
+			-c status \
+			-h string:x-dunst-stack-tag:calendar \
+			-h string:body-markup:no \
+			"Calendar" \
+			"$(LANG=en_US.UTF-8 cal -s | sed -E "s|($(date +%e))|<b><u>\1</u></b>|")"
 		;;
 	2) ;;
 	3)
 		# bash $dir/notify.sh ccal -u
-		notify-send -c status -h string:x-dunst-stack-tag:datetime "$(ccal -u)"
+		notify-send \
+			-t 60000 \
+			-c status \
+			-h string:x-dunst-stack-tag:calendar-lunar \
+			"Calendar (Lunar)" \
+			"<span font_family='LXGW WenKai Mono'>$(LANG=en_US.UTF-8 ccal -u | sed 's/\x1b\[[1-9;]*m/<b><u>/g' | sed 's|\x1b\[[0;]*m|</u></b>|g')</span>"
 		;;
 	esac
 }
@@ -31,7 +42,7 @@ batteryHandler() {
 	case "$buttonType" in
 	1)
 		# bash $dir/notify.sh acpi -i
-		notify-send -c status -h string:x-dunst-stack-tag:batteryInformation "$(acpi -i)"
+		notify-send -c status -i battery -h string:x-dunst-stack-tag:batteryInformation "Battery" "$(acpi -i)"
 		;;
 	2)
 		echo 2 or 3
@@ -53,7 +64,11 @@ diskHandler() {
 	case "$buttonType" in
 	1)
 		# bash $dir/notify.sh df -h
-		notify-send -c status -h string:x-dunst-stack-tag:diskInformation "$(df -h)"
+		notify-send \
+			-c status \
+			-h string:x-dunst-stack-tag:diskInformation \
+			"💾 Storage" \
+			"$(LANG=en_US.UTF-8 df -h -x tmpfs -x devtmpfs)"
 		;;
 	2) ;;
 	3) ;;
@@ -111,7 +126,11 @@ weatherHandler() {
 	local language=$(echo $LANG | awk -F '_' '{print $1}')
 	case "$buttonType" in
 	1)
-		notify-send -c status -h string:x-dunst-stack-tag:currentWeather "$(curl -H 'Accept-Language:'$language 'wttr.in/?T0')"
+		notify-send \
+			-c status \
+			-h string:x-dunst-stack-tag:currentWeather \
+			"Weather" \
+			"$(curl -H 'Accept-Language:'$language 'wttr.in/?T0' | sed 's|\\|\\\\|g')"
 		;;
 	2)
 		xdg-open https://wttr.in/?T
