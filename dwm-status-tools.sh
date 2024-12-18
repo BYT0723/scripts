@@ -144,7 +144,7 @@ print_cpu() {
 		;;
 	esac
 
-	if [ ! -z "$temp"] && [ $temp -ge 70 ]; then
+	if [ ! -z "$temp" ] && [ $temp -ge 70 ]; then
 		printf "\x08^c$black^^b$red^"
 	else
 		printf "\x08^c$white^^b$black^"
@@ -244,7 +244,7 @@ print_im() {
 
 print_mail() {
 	unread=$(notmuch count tag:unread)
-	if [ $unread -gt 0 ]; then
+	if [[ $unread > 0 ]]; then
 		printf "\x0c^c$yellow^^b$grey^"
 		printf "${icons[mail]}$unread"
 	fi
@@ -252,7 +252,7 @@ print_mail() {
 
 print_rss() {
 	unread=$(newsboat -x print-unread | awk '{print $1}')
-	if [ $unread -gt 0 ]; then
+	if [[ $unread > 0 ]]; then
 		printf "\x0d^c$yellow^^b$grey^"
 		printf "${icons[rss]}$unread"
 	fi
