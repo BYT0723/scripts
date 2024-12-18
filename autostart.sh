@@ -8,6 +8,14 @@ if [ ! -z "$(pgrep Xorg)" ] && [ ! -z "$(command -v setxkbmap)" ]; then
 	# For other keymaps, see: `/usr/share/X11/xkb/rules/base.lst`
 fi
 
+if [ -z "$(pgrep dunst)" ]; then
+	dunst &
+fi
+
+if [ -z "$(pgrep easyeffects)" ]; then
+	easyeffects --gapplication-service &
+fi
+
 # statusBar
 if [ -z "$(pgrep -f dwm-status.sh)" ]; then
 	/bin/bash $dir/dwm-status.sh &
