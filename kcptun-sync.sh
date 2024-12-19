@@ -118,4 +118,13 @@ WantedBy=multi-user.target" >>$service_path
 	fi
 fi
 
+if [[ "$(systemctl is-active trojan)" == "active" ]]; then
+	trojan_config=$(cat /etc/trojan/config.json)
+	>/etc/trojan/config.json
+	echo $trojan_config | jq --argjson local_port $(jq -r '(.localaddr | split(":")[1])' /etc/kcptun/config.json) '.remote_addr = "127.0.0.1" | .remote_port = $local_port' >>/etc/trojan/config.json
+
+	log INFO "重启本地trojan服务..."
+	systemctl restart trojan
+fi
+
 log INFO "[Done]"
