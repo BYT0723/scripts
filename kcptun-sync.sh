@@ -61,6 +61,8 @@ if [ ! -d \"$(dirname $remote_auth_path)\" ] || [ ! -f \"$remote_auth_path\" ] |
     mkdir -p \"$(dirname $remote_auth_path)\" && touch \"$remote_auth_path\" && echo \"$pk\" | tee -a \"$remote_auth_path\"; \
 fi" >>/dev/null
 
+log INFO "当前KcpTun连接: "$(jq -r '.localaddr + " ===> " + .remoteaddr' /etc/kcptun/config.json)
+
 if [[ "$(curl -s -m 5 -o /dev/null -w '%{http_code}' -L 'https://www.google.com')" == "200" ]]; then
 	log INFO "您的网络连接正常!!!"
 	read -p "是否继续(y/n): " -n 1 -r ok && echo
@@ -71,12 +73,12 @@ fi
 
 tmpFile="/tmp/kcptun/config/"$(echo $HOST | md5sum | cut -d ' ' -f 1)".json"
 
-ssh -t -p $port $user@$host -i $key_path '
+ssh -t -q -p $port $user@$host -i $key_path '
     dir=/usr/local/kcptun
-    for cfg in $(ls $dir | grep "server-config[0-9]*.json");do
+    for cfg in $(ls $dir | grep "server-config[0-9]*.json" | sort);do
         echo -e "$cfg\t$(cat $dir/$cfg | jq -r ".listen + \" ===> \" + .target")"
     done
-    read -p "选择配置ID:" -r id
+    read -p "选择配置ID: " -r id
 
     file=$dir/server-config$id.json
     if [ ! -f "$file" ]; then
@@ -87,9 +89,9 @@ ssh -t -p $port $user@$host -i $key_path '
     mkdir -p $(dirname '$tmpFile')
     cp $file '$tmpFile
 
-server_config=$(ssh -p $port $user@$host -i $key_path "cat $tmpFile")
+[ $? -ne 0 ] && exit || true
 
-client_config=$(echo $server_config | jq --arg remote_host "$host" '{
+client_config=$(echo $(ssh -p $port $user@$host -i $key_path "cat $tmpFile") | jq --arg remote_host "$host" '{
   localaddr: ":\(.target | split(":")[1])",
   remoteaddr: "\($remote_host):\(.listen | split(":")[1])",
   key: .key,
