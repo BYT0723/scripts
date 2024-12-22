@@ -2,6 +2,8 @@
 
 # sync kcptun and trojan configuration from remote server
 
+source $(dirname $0)/util.sh
+
 # 基本所在路径
 dir=$(dirname $0)
 # 注册私钥邮箱
@@ -23,24 +25,6 @@ local_config="/etc/kcptun/config.json"
 # service 路径
 service_path="/etc/systemd/system/kcptun_client.service"
 service_name=$(basename $service_path)
-
-# 日志函数
-log() {
-	case "$1" in
-	ERROR)
-		echo -e "\033[30m\033[41m$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}\033[0m"
-		;;
-	WARN)
-		echo -e "\033[30m\033[43m$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}\033[0m"
-		;;
-	INFO)
-		echo -e "\033[30m\033[47m$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}\033[0m"
-		;;
-	*)
-		echo -e "$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}"
-		;;
-	esac
-}
 
 # 检查本地配置文件写入权限
 if [[ $UID != 0 ]]; then

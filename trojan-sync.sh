@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source $(dirname $0)/util.sh
+
 # 基本所在路径
 dir=$(dirname $0)
 # 注册私钥邮箱
@@ -18,24 +20,6 @@ remote_server_config="/usr/local/etc/trojan/config.json"
 remote_auth_path="/root/.ssh/authorized_keys"
 # 本地trojan client配置路径
 local_config="/etc/trojan/config.json"
-
-# 日志函数
-log() {
-	case "$1" in
-	ERROR)
-		echo -e "\033[30m\033[41m$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}\033[0m"
-		;;
-	WARN)
-		echo -e "\033[30m\033[43m$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}\033[0m"
-		;;
-	INFO)
-		echo -e "\033[30m\033[47m$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}\033[0m"
-		;;
-	*)
-		echo -e "$(date +'%Y-%m-%d %H:%M:%S') [$1] ${@:2}"
-		;;
-	esac
-}
 
 # 检查本地配置文件写入权限
 if [ ! -w "$local_config" ]; then
