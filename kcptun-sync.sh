@@ -16,11 +16,11 @@ host=byt0723.xyz
 user=root
 # 服务器ssh端口
 port="29793"
-# 服务器中torjan server配置路径
+# 服务器中kcptun server配置路径
 remote_server_config="/usr/local/kcptun/server-config.json"
 # 服务器中ssh授权文件
 remote_auth_path="/root/.ssh/authorized_keys"
-# 本地trojan client配置路径
+# 本地kcptun client配置路径
 local_config="/etc/kcptun/config.json"
 # service 路径
 service_path="/etc/systemd/system/kcptun_client.service"
@@ -59,10 +59,11 @@ tmpFile="/tmp/kcptun/config/"$(echo $HOST | md5sum | cut -d ' ' -f 1)".json"
 
 ssh -t -q -p $port $user@$host -i $key_path '
     dir=/usr/local/kcptun
+    printf "%-10s\t%-15s\t%-15s\n" "配置" "Local_Addr" "Remote_Addr"
     for cfg in $(ls $dir | grep "server-config[0-9]*.json" | sort);do
-        echo -e "$cfg\t$(cat $dir/$cfg | jq -r ".listen + \" ===> \" + .target")"
+        printf "%-10s\t%-15s\t%-15s\n" "$(echo $cfg | cut -d '.' -f 1 | cut -d '-' -f 2)" "$(cat $dir/$cfg | jq -r ".listen")" "$(cat $dir/$cfg | jq -r ".target")"
     done
-    read -p "选择配置ID: " -r id
+    read -p "选择配置ID(default:config): " -r id
 
     file=$dir/server-config$id.json
     if [ ! -f "$file" ]; then
@@ -73,6 +74,7 @@ ssh -t -q -p $port $user@$host -i $key_path '
     mkdir -p $(dirname '$tmpFile')
     cp $file '$tmpFile
 
+# 检测上一个ssh命令的exitCode, 非0则退出
 [ $? -ne 0 ] && exit || true
 
 client_config=$(echo $(ssh -p $port $user@$host -i $key_path "cat $tmpFile") | jq --arg remote_host "$host" '{
