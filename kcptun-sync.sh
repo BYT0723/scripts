@@ -59,11 +59,13 @@ tmpFile="/tmp/kcptun/config/"$(echo $HOST | md5sum | cut -d ' ' -f 1)".json"
 
 ssh -t -q -p $port $user@$host -i $key_path '
     dir=/usr/local/kcptun
-    printf "%-10s\t%-15s\t%-15s\n" "配置" "Local_Addr" "Remote_Addr"
+    echo 
+    printf "%-10s\t%-15s\t%-15s\n" "Config[ID]" "Local_Addr" "Remote_Addr"
     for cfg in $(ls $dir | grep "server-config[0-9]*.json" | sort);do
         printf "%-10s\t%-15s\t%-15s\n" "$(echo $cfg | cut -d '.' -f 1 | cut -d '-' -f 2)" "$(cat $dir/$cfg | jq -r ".listen")" "$(cat $dir/$cfg | jq -r ".target")"
     done
-    read -p "选择配置ID(default:config): " -r id
+    echo
+    read -p "选择配置ID: " -r id
 
     file=$dir/server-config$id.json
     if [ ! -f "$file" ]; then
