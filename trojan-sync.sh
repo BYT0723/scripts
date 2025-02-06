@@ -9,7 +9,7 @@ email="$(cat /etc/hostname)@syncer.com"
 # 私钥路径
 key_path="$dir/syncer"
 # 服务器地址
-server="root@byt0723.xyz"
+server="root@proxy.byt0723.xyz"
 # 服务器ssh端口
 port="29793"
 # 服务器中trojan client配置路径

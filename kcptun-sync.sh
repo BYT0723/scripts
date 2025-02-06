@@ -11,7 +11,7 @@ email="$(cat /etc/hostname)@syncer.com"
 # 私钥路径
 key_path="$dir/syncer"
 # 服务器地址
-host=byt0723.xyz
+host=proxy.byt0723.xyz
 # 用户名
 user=root
 # 服务器ssh端口
