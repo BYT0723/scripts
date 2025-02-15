@@ -44,11 +44,13 @@ batteryHandler() {
 		# bash $dir/notify.sh acpi -i
 		notify-send -c status -i battery -h string:x-dunst-stack-tag:batteryInformation "Battery" "$(acpi -i)"
 		;;
-	2)
-		echo 2 or 3
-		;;
+	2) ;;
 	3)
-		echo default
+		# Display Power Management
+		# `xset -dpms`      : Turn off DPMS
+		# `xset s off -dpms`: Disable DPMS and prevent screen from blanking
+		# https://wiki.archlinux.org/title/Display_Power_Management_Signaling#Runtime_settings
+		notify-send -c status -i display "DPMS" -h string:x-dunst-stack-tag:dpms "$(xset q | tail -n 3)"
 		;;
 	4)
 		$(dirname $0)/brightness.sh up
