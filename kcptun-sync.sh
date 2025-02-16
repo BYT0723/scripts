@@ -123,7 +123,7 @@ WantedBy=multi-user.target" >>$service_path
 		log INFO "start $service_name服务..."
 		systemctl start $service_name
 	else
-		# 重启trojan
+		# 重启kcptun_client
 		log INFO "重启本地$service_name服务..."
 		systemctl restart $service_name
 	fi
@@ -136,6 +136,28 @@ if [[ "$(systemctl is-active trojan)" == "active" ]]; then
 
 	log INFO "重启本地trojan服务..."
 	systemctl restart trojan
+fi
+
+# cat /etc/shadowsocks/bandwagon.json
+# {
+#   "server": "127.0.0.1",
+#   "server_port": 29595,
+#   "local_address": "127.0.0.1",
+#   "local_port": 1080,
+#   "password": "wangtao",
+#   "timeout": 300,
+#   "method": "aes-256-gcm",
+#   "fast_open": false,
+#   "workers": 8,
+#   "prefer_ipv6": false
+# }
+if [[ "$(systemctl is-active shadowsocks@bandwagon)" == "active" ]]; then
+	shadowsocks_config=$(cat /etc/shadowsocks/bandwagon.json)
+	>/etc/shadowsocks/bandwagon.json
+	echo $shadowsocks_config | jq --argjson local_port $(jq -r '(.localaddr | split(":")[1])' /etc/kcptun/config.json) '.server = "127.0.0.1" | .server_port = $local_port' >>/etc/shadowsocks/bandwagon.json
+
+	log INFO "重启本地shadowsocks@bandwagon服务..."
+	systemctl restart shadowsocks@bandwagon
 fi
 
 log INFO "[Done]"
