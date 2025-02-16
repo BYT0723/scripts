@@ -46,11 +46,15 @@ batteryHandler() {
 		;;
 	2) ;;
 	3)
+		screen_saver_timeout=$(xset q | grep "timeout" | awk '{print $2}')
+		dpms_state=$(xset q | grep "DPMS" | tail -n 1 | awk '{print $3}')
 		# Display Power Management
 		# `xset -dpms`      : Turn off DPMS
 		# `xset s off -dpms`: Disable DPMS and prevent screen from blanking
 		# https://wiki.archlinux.org/title/Display_Power_Management_Signaling#Runtime_settings
-		notify-send -c status -i display "DPMS" -h string:x-dunst-stack-tag:dpms "$(xset q | tail -n 3)"
+		notify-send -c status -i display "DPMS" -h string:x-dunst-stack-tag:dpms "\
+ScreenSaver: $([ $screen_saver_timeout -gt 0 ] && echo "Enabled" || echo "Disabled")\n\
+DPMS:        $dpms_state"
 		;;
 	4)
 		$(dirname $0)/brightness.sh up

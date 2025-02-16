@@ -2,73 +2,63 @@
 
 dir=$(dirname $0)
 
-# Set Xorg Keymap
-if [ ! -z "$(pgrep Xorg)" ] && [ ! -z "$(command -v setxkbmap)" ]; then
-	setxkbmap -option "caps:swapescape,altwin:swap_lalt_lwin" # setxkbmap need `xorg-xkb-utils` package
-	# For other keymaps, see: `/usr/share/X11/xkb/rules/base.lst`
+# Set Xorg
+if [ ! -z "$(pgrep Xorg)" ]; then
+	# Set Xorg Keyboard Configuration
+	if [ ! -z "$(command -v setxkbmap)" ]; then
+		# For other keymaps, see: `/usr/share/X11/xkb/rules/base.lst`
+		setxkbmap -option "caps:swapescape,altwin:swap_lalt_lwin" # setxkbmap need `xorg-xkb-utils` package
+	fi
+	if [ ! -z "$(command -v xset)" ]; then
+		xset r rate 250 35
+	fi
+
+	# screen manager (屏保和DPMS)
+	if [ -z "$(pgrep -f screen.sh)" ]; then
+		/bin/bash $dir/screen.sh &
+	fi
 fi
 
+# 启动通知
 if [ -z "$(pgrep dunst)" ]; then
 	dunst &
 fi
 
+# 音频控制
 if [ -z "$(pgrep easyeffects)" ]; then
 	easyeffects --gapplication-service &
 fi
 
-# statusBar
+# 状态栏
 if [ -z "$(pgrep -f dwm-status.sh)" ]; then
 	/bin/bash $dir/dwm-status.sh &
 fi
 
-# wallpaper
+# 壁纸
 /bin/bash $dir/wallpaper.sh -r &
 
-# picom (window composer)
+# picom (window composer) 窗口合成
 if [ -z "$(pgrep picom)" ]; then
 	picom --config $dir/configs/picom.conf -b
 	# picom --config $dir/configs/picom.conf -b --experimental-backends
 fi
 
-# polkit (require lxsession or lxsession-gtk3)
+# polkit (require lxsession or lxsession-gtk3) 鉴权
 if [ -z "$(pgrep lxpolkit)" ]; then
 	lxpolkit &
 fi
 
-# autolock (screen locker)
-if [ -z "$(pgrep xautolock)" ]; then
-	xautolock -time 30 -locker slock -detectsleep &
-fi
-
-# if [ -z "$(pgrep mate-power-manager)" ]; then
-# 	mate-power-manager &
-# fi
-#
-# if [ -z "$(pgrep volumeicon)" ]; then
-# 	volumeicon &
-# fi
-
+# network manager 网络管理bar icon
 if [ -z "$(pgrep nm-applet)" ]; then
 	nm-applet &
 fi
 
+# auto mount
 if [ -z "$(pgrep udiskie)" ]; then
 	udiskie -sn &
 fi
 
+# input method
 if [ -z "$(pgrep fcitx5)" ]; then
 	fcitx5 -d
-fi
-
-# Set Xorg Keyboard Configuration
-if [ ! -z "$(pgrep Xorg)" ] && [ ! -z "$(command -v xset)" ]; then
-	expected_delay=250
-	expected_rate=35
-	msg=$(xset q | grep 'auto repeat delay') # xset need `xorg-xset` package
-	cur_delay=$(echo $msg | awk '{print $4}')
-	cur_rate=$(echo $msg | awk '{print $NF}')
-
-	if [ "$cur_delay" -ne "$expected_delay" ] || [ "$cur_rate" -ne "$expected_rate" ]; then
-		xset r rate $expected_delay $expected_rate
-	fi
 fi
