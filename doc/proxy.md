@@ -2,9 +2,15 @@
 
 ## 1. 方案
 
-local host: flow -> (system proxy) -> (trojan client) -> (kcptun client) -> [network]
+### 方案一
+local host: flow -> (system proxy) -> (trojan client) -> (kcptun client) -> [network]  
+remote host: [network] -> (kcptun server) -> (trojan server) -> target host  
 
-remote host: [network] -> (kcptun server) -> (trojan server) -> target host
+### 方案二
+local host: flow -> (system proxy) -> (shadowsocks client) -> (kcptun client) -> [network]  
+remote host: [network] -> (kcptun server) -> (shadowsocks server) -> target host  
+
+两个方案区别在于代理工具，数据包在网络中都是通过kcptun的udp packet传输
 
 ## 2. 服务安装
 
@@ -33,12 +39,20 @@ source <(curl -sL https://git.io/trojan-install)
 
 > 定时更形SSL证书，通过crontab定时调用`acme.sh`去检查和更新证书
 
-```bash
+```crontab
 # 什么服务占用443端口就暂停什么服务，这里是nginx
 0 15 * * * systemctl stop nginx; "/root/.acme.sh"/acme.sh --cron --home "/root/.acme.sh" > /dev/null; systemctl start nginx
 ```
 
-### 2.2 安装kcptun server
+### 2.2 安装shadowsocks server
+
+```bash
+wget --no-check-certificate -O shadowsocks-all.sh https://raw.githubusercontent.com/teddysun/shadowsocks_install/master/shadowsocks-all.sh
+chmod +x shadowsocks-all.sh
+./shadowsocks-all.sh 2>&1 | tee shadowsocks-all.log
+```
+
+### 2.3 安装kcptun server
 
 ```shell
 # 下载安装脚本
@@ -71,6 +85,9 @@ firewall-cmd --reload
 
 > Arch Linux环境演示
 
+> `shadowsocks`和`trojan`安装一个即可; 或修改shadowsocks配置文件，`local_port`不能与`trojan`配置文件中的`local_port`一致
+
+
 ### 3.1 安装trojan client
 
 ```bash
@@ -88,7 +105,35 @@ systemctl start trojan
 
 运行`trojan-sync.sh`同步远程配置文件
 
-### 3.2 安装kcptun client
+
+### 3.2 安装shadowsocks client
+
+```bash
+# 安装shadowsocks client
+sudo pacman -S shadowsocks
+
+# 写入shadowsocks配置文件
+sudo echo '{
+  "server": "127.0.0.1",
+  "server_port": 29595,
+  "local_address": "127.0.0.1",
+  "local_port": 1080,
+  "password": "wangtao",
+  "timeout": 300,
+  "method": "aes-256-gcm",
+  "fast_open": false,
+  "workers": 8,
+  "prefer_ipv6": false
+}' > /etc/shadowsocks/bandwagon.json
+
+# 默认启动shadowsocks client
+systemctl enable shadowsocks@bandwagon
+
+# 启动shadowsocks client
+systemctl start shadowsocks@bandwagon
+```
+
+### 3.3 安装kcptun client
 
 ```bash
 # 安装kcptun client
