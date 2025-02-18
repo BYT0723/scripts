@@ -8,7 +8,10 @@ dpms_off_time=1800     # dpms关机时间 30分钟
 # 获取文件的当前哈希值
 current_hash=$(md5sum $0 | awk '{print $1}')
 # 检查间隔
-duration=30 # 检查间隔 1分钟
+duration=300 # 检查间隔 5分钟
+
+# DEBUG LOG
+SCREEN_DEBUG_NOTIFY=0
 
 # init
 init() {
@@ -34,7 +37,7 @@ enable_screen_saver_and_dpms() {
 		xset s $screen_saver_time $screen_saver_time +dpms           # 屏保 10 分钟
 		xset dpms $dpms_sleep_time $dpms_suspend_time $dpms_off_time # DPMS: 待机 15 分钟, 挂起 20 分钟, 关闭 30 分钟
 		state=1
-		notify-send -t 2000 "[Screensaver and DPMS] enabled"
+		[[ $SCREEN_DEBUG_NOTIFY -eq 1 ]] && notify-send -t 2000 "[Screensaver and DPMS] enabled" || true
 	fi
 }
 
@@ -43,7 +46,7 @@ disable_screen_saver_and_dpms() {
 		pkill xautolock
 		xset s off -dpms
 		state=0
-		notify-send -t 2000 "[Screensaver and DPMS] disabled"
+		[[ $SCREEN_DEBUG_NOTIFY -eq 1 ]] && notify-send -t 2000 "[Screensaver and DPMS] disabled" || true
 	fi
 }
 
