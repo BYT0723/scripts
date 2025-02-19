@@ -105,29 +105,32 @@ run_rofi() {
 	fi
 }
 
-msgTag="volume"
+musicMsgTag="music_info"
+musicVolumnMsgTag="music_volumn_info"
 
 # Execute Command
 run_cmd() {
+	icon="music-app"
+
 	if [[ "$1" == '--on' ]]; then
 		mpd
 	elif [[ "$1" == '--opt1' ]]; then
 		mpc -q toggle
-		notify-send -c mpd -i emblem-music-symbolic -h string:x-dunst-stack-tag:$msgTag "$(mpc current) $(mpc status | awk 'NR==2 {print $1}')"
+		notify-send -c mpd -i $icon -h string:x-dunst-stack-tag:$musicMsgTag "$(mpc -f "%title% - %artist%" current) $(mpc status | awk 'NR==2 {print $1}')"
 	elif [[ "$1" == '--opt2' ]]; then
 		mpc -q stop
 	elif [[ "$1" == '--opt3' ]]; then
 		mpc -q prev
-		notify-send -c mpd -i emblem-music-symbolic -h string:x-dunst-stack-tag:$msgTag "$(mpc -f "%title% - %artist%" current)"
+		notify-send -c mpd -i $icon -h string:x-dunst-stack-tag:$musicMsgTag "$(mpc -f "%title% - %artist%" current)"
 	elif [[ "$1" == '--opt4' ]]; then
 		mpc -q next
-		notify-send -c mpd -i emblem-music-symbolic -h string:x-dunst-stack-tag:$msgTag "$(mpc -f "%title% - %artist%" current)"
+		notify-send -c mpd -i $icon -h string:x-dunst-stack-tag:$musicMsgTag "$(mpc -f "%title% - %artist%" current)"
 	elif [[ "$1" == '--opt5' ]]; then
 		mpc volume -20
-		notify-send -c mpd -i emblem-music-symbolic -h string:x-dunst-stack-tag:$msgTag "$(mpc volume)"
+		notify-send -c mpd -i $icon -h string:x-dunst-stack-tag:$musicVolumnMsgTag "$(mpc volume)"
 	elif [[ "$1" == '--opt6' ]]; then
 		mpc volume +20
-		notify-send -c mpd -i emblem-music-symbolic -h string:x-dunst-stack-tag:$msgTag "$(mpc volume)"
+		notify-send -c mpd -i $icon -h string:x-dunst-stack-tag:$musicVolumnMsgTag "$(mpc volume)"
 	elif [[ "$1" == '--opt7' ]]; then
 		mpc -q repeat
 	elif [[ "$1" == '--opt8' ]]; then

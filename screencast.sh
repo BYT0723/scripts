@@ -16,7 +16,7 @@ FRAME_RATE=60
 
 # Theme Elements
 prompt='Screencast'
-mesg="DIR: $(xdg-user-dir)/Screencasts"
+mesg="  $DIR"
 
 if [ -f "$PID_FILE" ]; then
 	last_modified_timestamp=$(stat -c "%Y" "$PID_FILE")
@@ -88,7 +88,7 @@ run_rofi() {
 # countdown
 countdown() {
 	for sec in $(seq $1 -1 1); do
-		dunstify -t 1000 --replace=699 "Start Screencast in : $sec"
+		notify-send -t 1000 --replace-id=699 "Start Screencast in : $sec"
 		sleep 1
 	done
 }
@@ -124,7 +124,7 @@ cast_area() {
 	countdown '3'
 
 	# Start recording with ffmpeg
-	ffmpeg -video_size "${W}x${H}" -framerate $FRAME_RATE -f x11grab -i ":0.0+$X,$Y" $filepath >/dev/null 2>&1 &
+	ffmpeg -video_size "${W}x${H}" -framerate $FRAME_RATE -f x11grab -i ":0.0+$X,$Y" -vsync 2 -c:v libx264 -threads 8 -preset veryfast -crf 23 $filepath >/dev/null 2>&1 &
 
 	# Save the ffmpeg process PID
 	echo $! >"$PID_FILE"
@@ -144,7 +144,7 @@ cast() {
 	# Get the screen resolution
 	resolution=$(xdpyinfo | awk '/dimensions:/ {print $2}')
 
-	ffmpeg -video_size "$resolution" -framerate $FRAME_RATE -f x11grab -i :0.0 "$filepath" >/dev/null 2>&1 &
+	ffmpeg -video_size "$resolution" -framerate $FRAME_RATE -f x11grab -i :0.0 -vsync 2 -c:v libx264 -threads 8 -preset veryfast -crf 23 "$filepath" >/dev/null 2>&1 &
 
 	# Save the ffmpeg process PID
 	echo $! >"$PID_FILE"

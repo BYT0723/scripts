@@ -7,9 +7,19 @@ type="$dir/rofi/applets/type-1"
 style='style-2.rasi'
 theme="$type/$style"
 
+DIR="$(xdg-user-dir)/Screenshots"
+
+time=$(date +%Y-%m-%d-%H-%M-%S)
+geometry=$(xrandr | grep 'current' | head -n1 | cut -d',' -f2 | tr -d '[:blank:],current')
+FILENAME="Screenshot_${time}_${geometry}.png"
+
+if [[ ! -d "$DIR" ]]; then
+	mkdir -p "$DIR"
+fi
+
 # Theme Elements
 prompt='Screenshot'
-mesg="DIR: $(xdg-user-dir)/Screenshots"
+mesg="  $DIR"
 
 if [[ "$theme" == *'type-1'* ]]; then
 	list_col='1'
@@ -62,22 +72,12 @@ run_rofi() {
 	echo -e "$option_1\n$option_2\n$option_3\n$option_4\n$option_5" | rofi_cmd
 }
 
-# Screenshot
-time=$(date +%Y-%m-%d-%H-%M-%S)
-geometry=$(xrandr | grep 'current' | head -n1 | cut -d',' -f2 | tr -d '[:blank:],current')
-dir="$(xdg-user-dir)/Screenshots"
-file="Screenshot_${time}_${geometry}.png"
-
-if [[ ! -d "$dir" ]]; then
-	mkdir -p "$dir"
-fi
-
 # notify and view screenshot
 notify_view() {
-	notify_cmd_shot='dunstify -u low --replace=699'
+	notify_cmd_shot='notify-send -i gscreenshot -u low --replace-id=699'
 	${notify_cmd_shot} "Copied to clipboard."
-	feh ${dir}/"$file"
-	if [[ -e "$dir/$file" ]]; then
+	feh ${DIR}/"$FILENAME"
+	if [[ -e "$DIR/$FILENAME" ]]; then
 		${notify_cmd_shot} "Screenshot Saved."
 	else
 		${notify_cmd_shot} "Screenshot Deleted."
@@ -86,43 +86,42 @@ notify_view() {
 
 # Copy screenshot to clipboard
 copy_shot() {
-	tee "$file" | xclip -selection clipboard -t image/png
+	tee "$FILENAME" | xclip -selection clipboard -t image/png
 }
 
 # countdown
 countdown() {
 	for sec in $(seq $1 -1 1); do
-		dunstify -t 1000 --replace=699 "Taking shot in : $sec"
+		notify-send -i gscreenshot -t 1000 --replace-id=699 "Taking shot in : $sec"
 		sleep 1
 	done
 }
 
 # take shots
 shotnow() {
-	cd ${dir} && sleep 0.5 && maim -u -f png | copy_shot
+	cd $DIR && sleep 0.5 && maim -u -f png | copy_shot
 	notify_view
 }
 
 shot5() {
 	countdown '5'
-	sleep 1 && cd ${dir} && maim -u -f png | copy_shot
+	sleep 1 && cd $DIR && maim -u -f png | copy_shot
 	notify_view
 }
 
 shot10() {
 	countdown '10'
-	sleep 1 && cd ${dir} && maim -u -f png | copy_shot
+	sleep 1 && cd $DIR && maim -u -f png | copy_shot
 	notify_view
 }
 
 shotwin() {
-	cd ${dir} && maim -u -f png -i $(xdotool getactivewindow) | copy_shot
+	cd $DIR && maim -u -f png -i $(xdotool getactivewindow) | copy_shot
 	notify_view
 }
 
 shotarea() {
-	# cd ${dir} && maim -u -f png -s -b 2 -c 0.35,0.55,0.85,0.25 -l | copy_shot
-	cd ${dir} && maim -u -f png -s -b 2 -c 0.35,0.55,0.85,0.25 -l | copy_shot
+	cd $DIR && maim -u -f png -s -b 2 -c 0.35,0.55,0.85,0.25 -l | copy_shot
 	notify_view
 }
 
