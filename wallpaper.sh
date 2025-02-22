@@ -244,8 +244,21 @@ next_wallpaper() {
 	esac
 }
 
+set_lastest() {
+	# clean lastest wallpaper process (like xwinwrap)
+	clean_lastest
+
+	# PERF: 将文件名获取网址存入cmdf中，使用脚本启动，这样启动不会做预备
+	if [ -f $wallpaper_latest ]; then
+		set_wallpaper -s "$(cat $wallpaper_latest)"
+	else
+		$cmd
+	fi
+}
+
 # wallpaper launch_wallpaper
 launch_wallpaper() {
+	# kill last daemon
 	if [[ "$$" != "$(pgrep -f $(basename $0))" ]]; then
 		pgrep -f $(basename $0) | while read -r pid; do
 			if [[ "$$" == "$pid" ]]; then
@@ -256,13 +269,7 @@ launch_wallpaper() {
 		done
 	fi
 
-	clean_lastest
-	# PERF: 将文件名获取网址存入cmdf中，使用脚本启动，这样启动不会做预备
-	if [ -f $wallpaper_latest ]; then
-		set_wallpaper -s "$(cat $wallpaper_latest)"
-	else
-		$cmd
-	fi
+	set_lastest
 
 	local duration=$(($(getConfig duration) * 60))
 	while true; do
@@ -290,6 +297,7 @@ op=$1
 case "$op" in
 '-r' | '--run') launch_wallpaper ;;
 '-s' | '--set') set_wallpaper $* ;;
+'-l' | '--last') set_lastest ;;
 '-n' | '--next') next_wallpaper ;;
 '-h' | '--help') echo_help ;;
 *)
