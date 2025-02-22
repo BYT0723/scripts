@@ -164,7 +164,7 @@ cast_fullscreen() {
 
 	read index name width height x y < <(get_current_monitor)
 
-	ffmpeg -video_size ${width}x${height} -framerate $FRAME_RATE -f x11grab -i :0.0 \
+	ffmpeg -video_size ${width}x${height} -framerate $FRAME_RATE -f x11grab -i :0.0+${x},${y} \
 		-f pulse -i "screencast_sink.monitor" \
 		-vsync 2 -c:v libx264 -threads 8 -preset veryfast -crf 23 $filepath >/dev/null 2>&1 &
 
