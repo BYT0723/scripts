@@ -22,10 +22,10 @@ source "$(dirname "$0")"/monitor.sh
 
 # countdown
 countdown() {
-	for sec in "$(seq "$1" -1 1)"; do
-		notify-send -t 1000 --replace-id=699 "Start Screencast in : $sec"
+	while IFS= read -r sec; do
+		notify-send -t 1100 --replace-id=699 "Start Screencast in : ${sec}sec"
 		sleep 1
-	done
+	done < <(seq "$1" -1 1)
 }
 
 setup_virtual_devices() {
