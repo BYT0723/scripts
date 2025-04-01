@@ -1,16 +1,17 @@
 #!/bin/bash
 
 # Termina Manager
-# launch command in file config.h varialbe termcmd
+# launch command in file config.h variable termcmd
 
 Type=$1
 
 # new different termina by $Type
 case "$Type" in
 float)
-	st -i -g 130x40 -f "CaskaydiaCove Nerd Font:size=10" &
+	# WINIT_X11_SCALE_FACTOR=1 alacritty --class float-term -o 'font.normal.family="CaskaydiaCove Nerd Font"' -o 'font.size=12'
+	WINIT_X11_SCALE_FACTOR=1 alacritty --config-file $HOME/.config/alacritty/alacritty-float.toml &
 	;;
 *)
-	WINIT_X11_SCALE_FACTOR=1 alacritty -o 'font.size=17' &
+	WINIT_X11_SCALE_FACTOR=1 alacritty &
 	;;
 esac
