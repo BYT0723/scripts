@@ -6,6 +6,8 @@ dir=$(dirname "$0")
 type="$dir/rofi/applets/type-1"
 style='style-2.rasi'
 theme="$type/$style"
+appName="Screencast"
+appIcon="screenrecorder"
 
 PID_FILE="/tmp/screencaster_pid"
 PATH_FILE="/tmp/screencaster_path"
@@ -23,7 +25,7 @@ source "$(dirname "$0")"/monitor.sh
 # countdown
 countdown() {
 	while IFS= read -r sec; do
-		notify-send -t 1100 --replace-id=699 "Start Screencast in : ${sec}sec"
+		notify-send -i $appIcon -t 1010 --replace-id=699 "$appName" "Start in : ${sec}sec"
 		sleep 1
 	done < <(seq "$1" -1 1)
 }
@@ -73,7 +75,7 @@ cleanup_virtual_devices() {
 handle_dependencies() {
 	# Check if slop and ffmpeg are installed
 	if ! command -v slop &>/dev/null || ! command -v ffmpeg &>/dev/null; then
-		notify-send "Screencast: slop and ffmpeg are required but not installed."
+		notify-send -i $appIcon "$appName" "slop and ffmpeg are required but not installed."
 		exit 1
 	fi
 	if [ ! -d "$DIR" ]; then
@@ -85,7 +87,7 @@ cast_area() {
 	# Use slop to select region and get the geometry
 	geometry=$(slop -f "%x %y %w %h")
 	if [ "$geometry" = "" ]; then
-		notify-send "No region selected. Exiting."
+		notify-send -i $appIcon "$appName" "No region selected. Exiting."
 		exit 1
 	fi
 
@@ -94,7 +96,7 @@ cast_area() {
 
 	# Check if the width and height are valid
 	if [ "$W" -eq 0 ] || [ "$H" -eq 0 ]; then
-		notify-send "Invalid region size. Exiting."
+		notify-send -i $appIcon "$appName" "Invalid region size. Exiting."
 		exit 1
 	fi
 
@@ -133,7 +135,7 @@ stop_cast() {
 		PID=$(cat "$PID_FILE")
 		kill "$PID"
 		rm -f "$PID_FILE"
-		notify-send "Recording stopped, Saved to $(cat "$PATH_FILE")"
+		notify-send -i $appIcon "$appName" "Recording stopped, Saved to $(cat "$PATH_FILE")"
 		rm -f "$PATH_FILE"
 	fi
 }

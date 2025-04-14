@@ -37,7 +37,7 @@
 | powermenu.sh          | powermenu by rofi                  | rofi / betterlockscreen / alsa-utils                                                                |
 | quicklinks.sh         | quick links by rofi                | firefox or chromium                                                                                 |
 | statuscmd.sh          | dwm status bar click event handler | libnotify / alacritty                                                                               |
-| term.sh               | termnial launcher                  | st / alacritty                                                                                      |
+| term.sh               | terminal launcher                  | st / alacritty                                                                                      |
 | touchpad-toggle.sh    | touchpad switcher                  | libnotify                                                                                           |
 | volume.sh             | volume controller                  | alsa-utils                                                                                          |
 | wallpaper.sh          | wallpaper controller               | feh / xwinwrap / mpv / archlinux-wallpaper / [tabbed](https://github.com/BYT0723/tabbed.git) / surf |

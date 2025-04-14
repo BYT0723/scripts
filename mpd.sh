@@ -110,27 +110,30 @@ musicVolumnMsgTag="music_volumn_info"
 
 # Execute Command
 run_cmd() {
-	icon="music-app"
-
 	if [[ "$1" == '--on' ]]; then
 		mpd
 	elif [[ "$1" == '--opt1' ]]; then
 		mpc -q toggle
-		notify-send -c mpd -i $icon -h string:x-dunst-stack-tag:$musicMsgTag "$(mpc -f "%title% - %artist%" current) $(mpc status | awk 'NR==2 {print $1}')"
+		mpc status | grep paused && icon="media-playback-start-symbolic" || icon="media-playback-pause-symbolic"
+		notify-send -c mpd -i $icon -h string:x-dunst-stack-tag:$musicMsgTag "$(mpc -f "%title% - %artist%" current)"
 	elif [[ "$1" == '--opt2' ]]; then
 		mpc -q stop
 	elif [[ "$1" == '--opt3' ]]; then
 		mpc -q prev
+		mpc status | grep paused && icon="media-playback-start-symbolic" || icon="media-playback-pause-symbolic"
 		notify-send -c mpd -i $icon -h string:x-dunst-stack-tag:$musicMsgTag "$(mpc -f "%title% - %artist%" current)"
 	elif [[ "$1" == '--opt4' ]]; then
 		mpc -q next
+		mpc status | grep paused && icon="media-playback-start-symbolic" || icon="media-playback-pause-symbolic"
 		notify-send -c mpd -i $icon -h string:x-dunst-stack-tag:$musicMsgTag "$(mpc -f "%title% - %artist%" current)"
 	elif [[ "$1" == '--opt5' ]]; then
 		mpc volume -20
-		notify-send -c mpd -i $icon -h string:x-dunst-stack-tag:$musicVolumnMsgTag "$(mpc volume)"
+		current=$(mpc volume | cut -d':' -f2 | cut -d' ' -f2 | cut -d'%' -f1)
+		notify-send -c mpd -h string:x-dunst-stack-tag:$musicVolumnMsgTag -h int:value:"${current}" "MPD Volume: $current"
 	elif [[ "$1" == '--opt6' ]]; then
 		mpc volume +20
-		notify-send -c mpd -i $icon -h string:x-dunst-stack-tag:$musicVolumnMsgTag "$(mpc volume)"
+		current=$(mpc volume | cut -d':' -f2 | cut -d' ' -f2 | cut -d'%' -f1)
+		notify-send -c mpd -h string:x-dunst-stack-tag:$musicVolumnMsgTag -h int:value:"${current}" "MPD Volume: $current"
 	elif [[ "$1" == '--opt7' ]]; then
 		mpc -q repeat
 	elif [[ "$1" == '--opt8' ]]; then

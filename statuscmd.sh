@@ -168,7 +168,7 @@ mailHandler() {
 	buttonType=$1
 	case "$buttonType" in
 	1)
-		notify-send -i mail-unread-symbolic "$(notmuch search --output=files tag:unread | cut -d/ -f5 | sort | uniq -c | awk '{print "[" $2 "] \t" $1 "封新邮件"}')"
+		notify-send -i mail-unread-symbolic "新邮件" "$(notmuch search --output=files tag:unread | cut -d/ -f5 | sort | uniq -c | awk '{print "[" $2 "] \t" $1 "封新邮件"}')"
 		;;
 	2) ;;
 	3)

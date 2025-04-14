@@ -21,8 +21,8 @@ icons["mail"]=" "
 icons["rss"]=" "
 
 # seconds
-weather_common_interval=600 # 10 minute
-weather_retry_interval=600  # 1 minute
+weather_common_interval=1800 # 30 minute
+weather_retry_interval=1800  # 30 minute
 
 weather_path="/tmp/.weather"
 

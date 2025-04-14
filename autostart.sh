@@ -1,12 +1,12 @@
 #!/bin/bash
 
-dir=$(dirname $0)
+dir=$(dirname "$0")
 
 # 启动应用
 # $1 application name
 # $2 command
 launch() {
-	[ -z "$(pgrep $1)" ] && eval "$2" || true
+	[ "$(pgrep "$1")" = "" ] && eval "$2" || true
 }
 
 # 启动并监控脚本
@@ -15,7 +15,7 @@ launch() {
 # $2 command
 launch_monitor() {
 	while true; do
-		[ -z "$(pgrep -f $1)" ] && eval "$2" || true
+		[ "$(pgrep -f "$1")" = "" ] && eval "$2" || true
 		# 每分钟
 		sleep 60
 	done
@@ -34,14 +34,16 @@ xorg_setting() {
 		fi
 	fi
 	# 壁纸(不用判断是否存在，脚本中已判断)
-	/bin/bash $dir/wallpaper.sh -r &
+	/bin/bash "$dir"/wallpaper.sh -r &
 
 	# 状态栏信息
 	launch_monitor "[d]wm-status.sh" "/bin/bash $dir/dwm-status.sh &" &
 	# 壁纸
 	launch_monitor "[w]allpaper.sh" "/bin/bash $dir/wallpaper.sh -r &" &
 	# 屏保
-	launch_monitor "[s]creen.sh" "/bin/bash $dir/screen.sh &" &
+	launch_monitor "[sc]reen.sh" "/bin/bash $dir/screen.sh &" &
+	# 主题切换
+	launch_monitor "[sy]stem-theme.sh" "/bin/bash $dir/system-theme.sh &" &
 }
 
 application_launch() {

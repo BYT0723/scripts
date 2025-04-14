@@ -6,6 +6,7 @@ dir=$(dirname $0)
 type="$dir/rofi/applets/type-1"
 style='style-2.rasi'
 theme="$type/$style"
+appName="Screenshot"
 
 DIR="$(xdg-user-dir)/Screenshots"
 
@@ -75,7 +76,7 @@ run_rofi() {
 
 # notify and view screenshot
 notify_view() {
-	notify_cmd_shot='notify-send -i gscreenshot -u low --replace-id=699'
+	notify_cmd_shot='notify-send -i gscreenshot -u low --replace-id=699 '$appName
 	${notify_cmd_shot} "Copied to clipboard."
 	feh ${DIR}/"$FILENAME"
 	if [[ -e "$DIR/$FILENAME" ]]; then
@@ -93,7 +94,7 @@ copy_shot() {
 # countdown
 countdown() {
 	for sec in $(seq $1 -1 1); do
-		notify-send -i gscreenshot -t 1000 --replace-id=699 "Taking shot in : $sec"
+		notify-send -i gscreenshot -t 1010 --replace-id=699 $appName "Taking shot in : $sec"
 		sleep 1
 	done
 }
