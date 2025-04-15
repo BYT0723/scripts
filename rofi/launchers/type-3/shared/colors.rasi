@@ -15,4 +15,5 @@
 
 /* Import color-scheme from `colors` directory */
 
-@import "~/.dwm/rofi/colors/paper.rasi"
+// @import "~/.dwm/rofi/colors/paper.rasi"
+@import "~/.dwm/rofi/colors/onedark.rasi"

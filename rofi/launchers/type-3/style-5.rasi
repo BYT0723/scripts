@@ -28,7 +28,7 @@ window {
     location:                    north;
     anchor:                      north;
     fullscreen:                  false;
-    width:                       1000px;
+    width:                       800px;
     x-offset:                    0px;
     y-offset:                    400px;
 
@@ -148,7 +148,7 @@ element selected.normal {
 element-icon {
     background-color:            transparent;
     text-color:                  inherit;
-    size:                        70px;
+    size:                        48px;
     cursor:                      inherit;
 }
 element-text {
