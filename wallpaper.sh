@@ -118,6 +118,8 @@ set_wallpaper() {
 				--player-operation-mode=cplayer \
 				--no-input-default-bindings \
 				--cache \
+				--hwdec=auto \
+				--no-sub \
 				--demuxer-max-bytes=256MiB \
 				--demuxer-readahead-secs=20 \
 				--input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
@@ -210,6 +212,8 @@ next_wallpaper() {
 				--player-operation-mode=cplayer \
 				--no-input-default-bindings \
 				--cache \
+				--hwdec=auto \
+				--no-sub \
 				--demuxer-max-bytes=256MiB \
 				--demuxer-readahead-secs=20 \
 				--input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
