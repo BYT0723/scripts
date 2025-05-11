@@ -87,6 +87,9 @@ set_wallpaper() {
 	html | htm)
 		Type="page"
 		;;
+	*)
+		Type="page"
+		;;
 	esac
 
 	# run different commands according to the type
@@ -154,10 +157,9 @@ set_wallpaper() {
 			return
 		fi
 
-		# Start xwinwrap and tabbed
-		size=$(xrandr --current | grep -o -E "current\s([0-9])+\sx\s[0-9]+" | awk '{print $2$3$4}')
-
-		xwinwrap -d -ov -fs -- tabbed -w WID -g $size -r 2 surf -e '' $arg 2>&1 >~/.wallpaper.log 2>&1 >~/.wallpaper.log
+		for position in $(xrandr | grep " connected " | grep -oP '\d+x\d+\+\d+\+\d+'); do
+			xwinwrap -d -ov -g $position -- tabbed -w WID -g $(echo $position | sed -E 's/^([0-9]+x[0-9]+).*/\1/') -r 2 surf -e '' $arg 2>&1 >~/.wallpaper.log 2>&1 >~/.wallpaper.log
+		done
 
 		echo "$args" >$wallpaper_latest
 		;;
