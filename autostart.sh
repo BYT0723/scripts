@@ -62,6 +62,8 @@ application_launch() {
 	launch udiskie "udiskie -sn &"
 	# polkit (require lxsession or lxsession-gtk3) 鉴权
 	launch lxpolkit "lxpolkit &"
+	# conky (system monitor)
+	launch conky "conky -U -d"
 }
 
 xorg_setting
