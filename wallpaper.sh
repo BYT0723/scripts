@@ -118,7 +118,9 @@ set_wallpaper() {
 				--player-operation-mode=cplayer \
 				--no-input-default-bindings \
 				--cache \
-				--hwdec=auto \
+				--framedrop=decoder \
+				--speed=0.75 \
+				--vf=scale=2560:-1,fps=60 \
 				--no-sub \
 				--demuxer-max-bytes=256MiB \
 				--demuxer-readahead-secs=20 \
@@ -212,7 +214,9 @@ next_wallpaper() {
 				--player-operation-mode=cplayer \
 				--no-input-default-bindings \
 				--cache \
-				--hwdec=auto \
+				--framedrop=decoder \
+				--speed=0.75 \
+				--vf=scale=2560:-1,fps=60 \
 				--no-sub \
 				--demuxer-max-bytes=256MiB \
 				--demuxer-readahead-secs=20 \
