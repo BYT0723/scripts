@@ -81,7 +81,7 @@ set_wallpaper() {
 	'mp4' | mkv | avi)
 		Type="video"
 		;;
-	jpg | png)
+	jpg | jpeg | png)
 		Type="image"
 		;;
 	html | htm)
