@@ -159,7 +159,7 @@ function update_weather() {
 	local url="https://wttr.in?format=%c%t+(%C)\n"
 	# 获取主机使用语言
 	local language=$(echo $LANG | awk -F '_' '{print $1}')
-	local response=$(curl -H "Accept-Language:"$language -i -s -m 5 "$url")
+	local response=$(curl -k -H "Accept-Language:"$language -i -s -m 5 "$url")
 
 	local code=$(echo "$response" | head -n 1 | awk '{print $2}')
 	if [ "$code" == "200" ]; then
