@@ -100,7 +100,7 @@ $reboot)
 	run_cmd --reboot
 	;;
 $lock)
-	betterlockscreen -l &
+	dm-tool lock
 	sleep 1
 	xset dpms force off
 	;;
