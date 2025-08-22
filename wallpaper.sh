@@ -14,7 +14,7 @@ config["random"]=0
 config["random_type"]="image"
 config["random_image_dir"]="~/Pictures"
 config["random_video_dir"]="~/Videos"
-config["random_depth"]=1
+config["random_depth"]=3
 config["duration"]=30
 cmd="feh --no-fehbg --bg-scale /usr/share/backgrounds/archlinux/small.png"
 
