@@ -104,9 +104,9 @@ cast_area() {
 
 	countdown '3'
 
-	ffmpeg -video_size \""${W}x${H}"\" -framerate "$FRAME_RATE" -f x11grab -i ":0.0+${X},${Y}" \
+	ffmpeg -video_size "${W}x${H}" -framerate "$FRAME_RATE" -f x11grab -i ":0.0+${X},${Y}" \
 		-f pulse -i "screencast_sink.monitor" \
-		-vsync 2 -c:v libx264 -threads 8 -preset veryfast -crf 23 "$filepath" >/dev/null 2>&1 &
+		-fps_mode cfr -c:v libx264 -threads 8 -preset veryfast -crf 23 "$filepath" >/dev/null 2>&1 &
 
 	# Save the ffmpeg process PID
 	echo $! >"$PID_FILE"
@@ -122,7 +122,7 @@ cast_fullscreen() {
 
 	ffmpeg -video_size "${width}x${height}" -framerate "$FRAME_RATE" -f x11grab -i :0.0+"${x},${y}" \
 		-f pulse -i "screencast_sink.monitor" \
-		-vsync 2 -c:v libx264 -threads 8 -preset veryfast -crf 23 "$filepath" >/dev/null 2>&1 &
+		-fps_mode cfr -c:v libx264 -threads 8 -preset veryfast -crf 23 "$filepath" >/dev/null 2>&1 &
 
 	# Save the ffmpeg process PID
 	echo $! >"$PID_FILE"
