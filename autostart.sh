@@ -38,12 +38,8 @@ xorg_setting() {
 
 	# 状态栏信息
 	launch_monitor "[d]wm-status.sh" "/bin/bash $dir/dwm-status.sh &" &
-	# 壁纸
-	launch_monitor "[w]allpaper.sh" "/bin/bash $dir/wallpaper.sh -r &" &
 	# 屏保
 	launch_monitor "[sc]reen.sh" "/bin/bash $dir/screen.sh &" &
-	# 主题切换
-	launch_monitor "[sy]stem-theme.sh" "/bin/bash $dir/system-theme.sh &" &
 }
 
 application_launch() {
