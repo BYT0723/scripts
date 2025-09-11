@@ -1,6 +1,7 @@
 #!/bin/bash
 #
 dir=$(dirname $0)
+terminal="alacritty -o 'font.size=10'"
 
 #  Handle the statusBar click event
 #  see file config.h variable statuscmds
@@ -96,7 +97,7 @@ cpuHandler() {
 	1) ;;
 	2) ;;
 	3)
-		alacritty -e htop
+		eval "$terminal -e htop"
 		;;
 	esac
 }
@@ -107,7 +108,7 @@ netSpeedHandler() {
 	1) ;;
 	2) ;;
 	3)
-		alacritty -e speedtest
+		eval "$terminal -e speedtest"
 		;;
 	esac
 }
@@ -153,7 +154,7 @@ volumeHandler() {
 		;;
 	2) ;;
 	3)
-		alacritty -e ncpamixer
+		eval "$terminal -e ncpamixer"
 		;;
 	4)
 		$(dirname $0)/volume.sh up
@@ -172,10 +173,7 @@ mailHandler() {
 		;;
 	2) ;;
 	3)
-		# w3m configuration
-		# inline_img_protocol 4
-		# imgdisplay kitty
-		kitty -e aerc
+		eval "$terminal -e aerc"
 		if [ $(ps ax | grep mail.sh | wc -l) -le 1 ]; then
 			bash $dir/mail.sh &
 		fi
@@ -191,7 +189,7 @@ rssHandler() {
 		;;
 	2) ;;
 	3)
-		kitty -e newsboat &
+		eval "$terminal -e newsboat"
 		;;
 	esac
 }
