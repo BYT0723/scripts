@@ -65,7 +65,7 @@ ipinfo-openMeteo() {
 		;;
 	esac
 
-	echo "$WEATHER_ICON $TEMP($WEATHER_TEXT)"
+	echo "$WEATHER_ICON$TEMP ($WEATHER_TEXT)"
 }
 
 wttr.in() {
