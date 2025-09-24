@@ -23,8 +23,8 @@ icons["rss"]=" "
 # seconds
 weather_common_interval=1800 # 30 minute
 weather_retry_interval=1800  # 30 minute
-
 weather_path="/tmp/.weather"
+source $(dirname $0)/weather.sh
 
 # Datetime
 print_date() {
@@ -155,18 +155,8 @@ print_cpu() {
 
 # Update weather to $weather_path
 function update_weather() {
-	# 见: https://github.com/chubin/wttr.in#one-line-output
-	local url="https://wttr.in?format=%c%t+(%C)\n"
-	# 获取主机使用语言
-	local language=$(echo $LANG | awk -F '_' '{print $1}')
-	local response=$(curl -k -H "Accept-Language:"$language -i -s -m 5 "$url")
-
-	local code=$(echo "$response" | head -n 1 | awk '{print $2}')
-	if [ "$code" == "200" ]; then
-		local weather=$(echo "$response" | tail -n 1)
-		if [ ! -z "$weather" ]; then
-			echo $weather'?'$(date +'%Y-%m-%d %H:%M:%S') >$weather_path
-		fi
+	if weather=$(ipinfo-openMeteo); then
+		echo $weather'?'$(date +'%Y-%m-%d %H:%M:%S') >$weather_path
 	else
 		echo '?'$(date +'%Y-%m-%d %H:%M:%S') >$weather_path
 	fi
