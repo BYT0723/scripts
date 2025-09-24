@@ -6,7 +6,9 @@
 
 # wallpaper configuration file
 conf="$(dirname $0)/configs/wallpaper.conf"
-wallpaper_latest="$(dirname $0)/configs/wallpaper_latest"
+cache_wallpaper_dir="$HOME/.cache/byt0723/wallpaper/"
+mkdir -p "$cache_wallpaper_dir"
+wallpaper_latest="$(cache_wallpaper_dir)/wallpaper_latest"
 
 # Define the default configuration
 declare -A config
@@ -17,9 +19,6 @@ config["random_video_dir"]="~/Videos"
 config["random_depth"]=3
 config["duration"]=30
 cmd="feh --no-fehbg --bg-scale /usr/share/backgrounds/archlinux/small.png"
-
-cache_video_dir="$HOME/.cache/wallpapers/"
-mkdir -p "$cache_video_dir"
 
 source $(dirname $0)/monitor.sh
 
