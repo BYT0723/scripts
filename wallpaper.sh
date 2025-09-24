@@ -8,7 +8,7 @@
 conf="$(dirname $0)/configs/wallpaper.conf"
 cache_wallpaper_dir="$HOME/.cache/byt0723/wallpaper/"
 mkdir -p "$cache_wallpaper_dir"
-wallpaper_latest="$(cache_wallpaper_dir)/wallpaper_latest"
+wallpaper_latest="$cache_wallpaper_dir/wallpaper_latest"
 
 # Define the default configuration
 declare -A config
