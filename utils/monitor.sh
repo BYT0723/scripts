@@ -1,28 +1,11 @@
 #!/bin/bash
 
 # required
-# bc
-# xdotool
-# xrandr
-# arandr
+# 	bc
+# 	xdotool
+# 	xrandr
 
 # 不推荐使用，dwm有内置focusmon 和 tagmon方法
-
-read mouse_x mouse_y < <(xdotool getmouselocation | sed -n 's/.*x:\([0-9]*\).*y:\([0-9]*\).*/\1 \2/p')
-
-# TODO: monitor layout列表，选择不同的布局
-# list_layout() {
-# 	local dir="$HOME/.screenlayout"
-# 	if [ ! -d "$dir" ]; then
-# 		return
-# 	fi
-#
-# 	rofi
-#
-# 	for file in; do
-# 		echo $(basename $file)
-# 	done
-# }
 
 get_monitor_info() {
 	name=$1
@@ -40,6 +23,8 @@ get_monitor_info() {
 }
 
 get_current_monitor() {
+	read mouse_x mouse_y < <(xdotool getmouselocation | sed -n 's/.*x:\([0-9]*\).*y:\([0-9]*\).*/\1 \2/p')
+
 	xrandr --listactivemonitors | {
 		read
 		while read -r monitor; do
@@ -53,45 +38,3 @@ get_current_monitor() {
 		done
 	}
 }
-
-cycle_monitor() {
-	action=$1
-	if [ -z "$action" ]; then
-		echo "no action to do"
-		return
-	fi
-
-	monitors=($(xrandr | grep " connected " | awk '{print $1}'))
-
-	for i in "${!monitors[@]}"; do
-		read _ width height x y < <(get_monitor_info ${monitors[$i]})
-
-		if [ $(echo "$mouse_x - $x" | bc) -ge 0 ] && [ $(echo "$mouse_x - $x - $width" | bc) -le 0 ] && [ $(echo "$mouse_y - $y" | bc) -ge 0 ] && [ $(echo "$mouse_y - $y - $height" | bc) -le 0 ]; then
-			case "$action" in
-			"prev")
-				target_index=$(((i - 1 + ${#monitors[@]}) % ${#monitors[@]})) # 计算上一个监视器的索引
-				;;
-			"next")
-				target_index=$(((i + 1) % ${#monitors[@]})) # 计算下一个监视器的索引
-				;;
-			esac
-			echo ${monitors[$target_index]}
-
-			read _ target_width target_height target_x target_y < <(get_monitor_info ${monitors[$target_index]})
-			# 然后切换到目标monitor
-			new_x=$(echo $target_x + $target_width/2 | bc)
-			new_y=$(echo $target_y + $target_height/2 | bc)
-			xdotool mousemove $new_x $new_y
-			break
-		fi
-	done
-}
-
-case "$1" in
-"next")
-	cycle_monitor $1
-	;;
-"prev")
-	cycle_monitor $1
-	;;
-esac
