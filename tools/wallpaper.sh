@@ -1,11 +1,13 @@
 #!/bin/bash
 
+WORK_DIR=$(dirname "$(dirname "$0")")
+
 #
 # Focus: Do not use spaces in paths and filenames, unexpected consequences may occur
 #
 
 # wallpaper configuration file
-conf="$(dirname $0)/configs/wallpaper.conf"
+conf="$WORK_DIR/configs/wallpaper.conf"
 cache_wallpaper_dir="$HOME/.cache/byt0723/wallpaper/"
 mkdir -p "$cache_wallpaper_dir"
 wallpaper_latest="$cache_wallpaper_dir/wallpaper_latest"
@@ -20,7 +22,7 @@ config["random_depth"]=3
 config["duration"]=30
 cmd="feh --no-fehbg --bg-scale /usr/share/backgrounds/archlinux/small.png"
 
-source $(dirname $0)/monitor.sh
+source $WORK_DIR/utils/monitor.sh
 
 # Get single configuration
 getConfig() {

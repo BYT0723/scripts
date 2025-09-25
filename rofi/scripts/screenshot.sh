@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-dir=$(dirname $0)
+ROFI_DIR="$(dirname "$(dirname "$0")")"
 
 # Import Current Theme
-type="$dir/rofi/applets/type-1"
+type="$ROFI_DIR/applets/type-1"
 style='style-2.rasi'
 theme="$type/$style"
 appName="Screenshot"

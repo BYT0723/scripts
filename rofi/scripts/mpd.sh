@@ -5,10 +5,10 @@
 #
 ## Applets : MPD (music)
 
-dir=$(dirname $0)
+ROFI_DIR="$(dirname "$(dirname "$0")")"
 
 # Import Current Theme
-type="$dir/rofi/applets/type-2"
+type="$ROFI_DIR/applets/type-2"
 style='style-3.rasi'
 theme="$type/$style"
 

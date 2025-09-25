@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
-dir=$(dirname "$0")
+ROFI_DIR="$(dirname "$(dirname "$0")")"
+WORK_DIR="$(dirname "$ROFI_DIR")"
 
 # Import Current Theme
-type="$dir/rofi/applets/type-1"
+type="$ROFI_DIR/applets/type-1"
 style='style-2.rasi'
 theme="$type/$style"
 appName="Screencast"
@@ -20,7 +21,7 @@ FRAME_RATE=60
 prompt='Screencast'
 mesg="  $DIR"
 
-source "$(dirname "$0")"/monitor.sh
+source "$WORK_DIR"/utils/monitor.sh
 
 # countdown
 countdown() {

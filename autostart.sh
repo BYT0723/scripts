@@ -1,6 +1,7 @@
 #!/bin/bash
 
-dir=$(dirname "$0")
+WORK_DIR=$(dirname "$0")
+TOOLS_DIR="$WORK_DIR/tools"
 
 # 启动应用
 # $1 application name
@@ -33,19 +34,19 @@ xorg_setting() {
 			xset r rate 250 35
 		fi
 	fi
-	# 壁纸(不用判断是否存在，脚本中已判断)
-	/bin/bash "$dir"/wallpaper.sh -r &
-
-	# 状态栏信息
-	launch_monitor "[d]wm-status.sh" "/bin/bash $dir/dwm-status.sh &" &
+	# 壁纸(不使用launch_monitor是因为wallpaper每次启动都要使用新的instance, 移除旧的实例)
+	# wallpaper.sh内部实现了
+	/bin/bash "$TOOLS_DIR"/wallpaper.sh -r &
 	# 屏保
-	launch_monitor "[sc]reen.sh" "/bin/bash $dir/screen.sh &" &
+	launch_monitor "[sc]reen.sh" "/bin/bash $TOOLS_DIR/screen.sh &" &
+	# 状态栏信息
+	launch_monitor "[d]wm-status.sh" "/bin/bash $WORK_DIR/dwm-status.sh &" &
 }
 
 application_launch() {
 	# 窗口合成器 picom (window composer)
 	# picom --config $dir/configs/picom.conf -b --experimental-backends (开启试验功能)
-	launch picom "picom --config $dir/configs/picom.conf -b"
+	launch picom "picom --config $WORK_DIR/configs/picom.conf -b"
 	# 启动通知
 	launch dunst "dunst &"
 	# network manager 网络管理bar icon

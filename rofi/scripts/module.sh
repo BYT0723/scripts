@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-dir=$(dirname $0)
+ROFI_DIR="$(dirname "$(dirname "$0")")"
 
 # Import Current Theme
-type="$dir/rofi/applets/type-1"
+type="$ROFI_DIR/applets/type-1"
 style='style-3.rasi'
 theme="$type/$style"
 
-source $dir/util.sh
+source "$(dirname "$0")"/util.sh
 
 HistoryPopCount=10
 
@@ -21,12 +21,12 @@ fi
 
 # 配置文件路径
 declare -A confPath
-confPath["picom"]="$dir/configs/picom.conf"
-confPath["wallpaper"]="$dir/configs/wallpaper.conf"
+confPath["picom"]="$ROFI_DIR/configs/picom.conf"
+confPath["wallpaper"]="$ROFI_DIR/configs/wallpaper.conf"
 
 # 定义运行命令的Map
 declare -A applicationCmd
-applicationCmd["picom"]="picom --config $dir/configs/picom.conf -b"
+applicationCmd["picom"]="picom --config $ROFI_DIR/configs/picom.conf -b"
 # applicationCmd["picom"]="picom --config $dir/configs/picom.conf -b --experimental-backends"
 
 # Options

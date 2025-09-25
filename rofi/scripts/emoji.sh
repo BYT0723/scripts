@@ -15,10 +15,10 @@ if [ -z "$(rofi -h | grep emoji)" ]; then
 	exit 0
 fi
 
-dir=$(dirname $0)
+ROFI_DIR="$(dirname "$(dirname "$0")")"
 
 # Import Current Theme
-type="$dir/rofi/launchers/type-3"
+type="$ROFI_DIR/launchers/type-3"
 style='style-4.rasi'
 theme="$type/$style"
 efonts="Twemoji 40"

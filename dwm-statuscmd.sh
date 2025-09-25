@@ -1,6 +1,7 @@
 #!/bin/bash
 #
-dir=$(dirname $0)
+TOOLS_DIR="$(dirname $0)/tools"
+ROFI_SCRIPT_DIR="$(dirname $0)/rofi/scripts"
 terminal="alacritty -o 'font.size=10'"
 
 #  Handle the statusBar click event
@@ -16,7 +17,6 @@ dateHandler() {
 	buttonType=$1
 	case "$buttonType" in
 	1)
-		# bash $dir/notify.sh cal -s -y
 		notify-send \
 			-t 60000 \
 			-c status \
@@ -27,7 +27,6 @@ dateHandler() {
 		;;
 	2) ;;
 	3)
-		# bash $dir/notify.sh ccal -u
 		notify-send \
 			-t 60000 \
 			-c status \
@@ -42,7 +41,6 @@ batteryHandler() {
 	buttonType=$1
 	case "$buttonType" in
 	1)
-		# bash $dir/notify.sh acpi -i
 		notify-send -c status -i battery -h string:x-dunst-stack-tag:batteryInformation "Battery" "$(acpi -i)"
 		;;
 	2) ;;
@@ -58,10 +56,10 @@ ScreenSaver: $([ $screen_saver_timeout -gt 0 ] && echo "Enabled" || echo "Disabl
 DPMS:        $dpms_state"
 		;;
 	4)
-		$(dirname $0)/brightness.sh up
+		"$TOOLS_DIR"/brightness.sh up
 		;;
 	5)
-		$(dirname $0)/brightness.sh down
+		"$TOOLS_DIR"/brightness.sh down
 		;;
 	esac
 }
@@ -70,7 +68,6 @@ diskHandler() {
 	buttonType=$1
 	case "$buttonType" in
 	1)
-		# bash $dir/notify.sh df -h
 		notify-send \
 			-c status \
 			-h string:x-dunst-stack-tag:diskInformation \
@@ -123,7 +120,7 @@ mpdHandler() {
 		killall mpd
 		;;
 	3)
-		$(dirname $0)/mpd.sh
+		"$ROFI_SCRIPT_DIR"/mpd.sh
 		;;
 	esac
 }
@@ -150,17 +147,17 @@ volumeHandler() {
 	buttonType=$1
 	case "$buttonType" in
 	1)
-		$(dirname $0)/volume.sh toggle
+		"$TOOLS_DIR"/volume.sh toggle
 		;;
 	2) ;;
 	3)
 		eval "$terminal -e ncpamixer"
 		;;
 	4)
-		$(dirname $0)/volume.sh up
+		"$TOOLS_DIR"/volume.sh up
 		;;
 	5)
-		$(dirname $0)/volume.sh down
+		"$TOOLS_DIR"/volume.sh down
 		;;
 	esac
 }
@@ -175,7 +172,7 @@ mailHandler() {
 	3)
 		eval "$terminal -e aerc"
 		if [ $(ps ax | grep mail.sh | wc -l) -le 1 ]; then
-			bash $dir/mail.sh &
+			bash $TOOLS_DIR/mail.sh &
 		fi
 		;;
 	esac
