@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 ROFI_DIR="$(dirname "$(dirname "$0")")"
+WORK_DIR="$(dirname "$ROFI_DIR")"
 
 # Import Current Theme
 type="$ROFI_DIR/applets/type-1"
@@ -26,7 +27,7 @@ confPath["wallpaper"]="$ROFI_DIR/configs/wallpaper.conf"
 
 # 定义运行命令的Map
 declare -A applicationCmd
-applicationCmd["picom"]="picom --config $ROFI_DIR/configs/picom.conf -b"
+applicationCmd["picom"]="picom --config ROFI_DIR$WORK_DIR/configs/picom.conf -b"
 # applicationCmd["picom"]="picom --config $dir/configs/picom.conf -b --experimental-backends"
 
 # Options
