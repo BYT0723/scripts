@@ -24,7 +24,7 @@ icons["rss"]=" "
 weather_common_interval=1800 # 30 minute
 weather_retry_interval=1800  # 30 minute
 weather_path="/tmp/.weather"
-source $(dirname $0)/weather.sh
+source $(dirname $0)/utils/weather.sh
 
 # Datetime
 print_date() {
