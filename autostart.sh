@@ -22,7 +22,7 @@ launch_monitor() {
 	done
 }
 
-xorg_setting() {
+desktop_setting() {
 	# Set Xorg
 	if [ ! -z "$(pgrep Xorg)" ]; then
 		# Set Xorg Keyboard Configuration
@@ -37,10 +37,10 @@ xorg_setting() {
 	# 壁纸(不使用launch_monitor是因为wallpaper每次启动都要使用新的instance, 移除旧的实例)
 	# wallpaper.sh内部实现了
 	/bin/bash "$TOOLS_DIR"/wallpaper.sh -r &
-	# 屏保
-	launch_monitor "[sc]reen.sh" "/bin/bash $TOOLS_DIR/screen.sh &" &
 	# 状态栏信息
 	launch_monitor "[d]wm-status.sh" "/bin/bash $WORK_DIR/dwm-status.sh &" &
+	# 屏保
+	launch_monitor "[sc]reen.sh" "/bin/bash $TOOLS_DIR/screen.sh &" &
 }
 
 application_launch() {
@@ -63,5 +63,5 @@ application_launch() {
 	launch conky "conky -U -d"
 }
 
-xorg_setting
+desktop_setting
 application_launch
