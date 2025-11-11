@@ -22,8 +22,8 @@ fi
 
 # 配置文件路径
 declare -A confPath
-confPath["picom"]="$ROFI_DIR/configs/picom.conf"
-confPath["wallpaper"]="$ROFI_DIR/configs/wallpaper.conf"
+confPath["picom"]="$WORK_DIR/configs/picom.conf"
+confPath["wallpaper"]="$WORK_DIR/configs/wallpaper.conf"
 
 # 定义运行命令的Map
 declare -A applicationCmd
@@ -173,7 +173,7 @@ run_cmd() {
 		dunstctl close-all
 		;;
 	${optId[${wallpaperOpt[0]}]})
-		~/.dwm/wallpaper.sh -n
+		$WORK_DIR/tools/wallpaper.sh -n
 		;;
 	${optId[${wallpaperOpt[1]}]})
 		toggleConf wallpaper random number
