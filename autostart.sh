@@ -53,14 +53,14 @@ application_launch() {
 	launch nm-applet "nm-applet &"
 	# input method
 	launch fcitx5 "fcitx5 -d"
-	# 音频控制
-	launch easyeffects "easyeffects --gapplication-service &"
 	# auto mount
 	launch udiskie "udiskie -sn &"
 	# polkit (require lxsession or lxsession-gtk3) 鉴权
 	launch lxpolkit "lxpolkit &"
 	# conky (system monitor)
 	launch conky "conky -U -d"
+	# 音频控制 ( FIX: --hide-window在dwm中会偶尔失效)
+	launch easyeffects "easyeffects --service-mode --hide-window &"
 }
 
 desktop_setting
