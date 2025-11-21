@@ -21,7 +21,7 @@ ipinfo-openMeteo() {
 	case $CODE in
 	0)
 		WEATHER_TEXT="晴天"
-		WEATHER_ICON="🌞"
+		WEATHER_ICON=""
 		;;
 	1)
 		WEATHER_TEXT="少量多云"
