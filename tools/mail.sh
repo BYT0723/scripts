@@ -1,11 +1,10 @@
 #!/bin/bash
 
-# output=$(offlineimap -o >>/dev/null)
-# if [ ! -z "$output" ]; then
-# 	notify-send -u critical -i mail-unread-symbolic "同步失败："$output
-# 	exit 0
-# fi
-offlineimap -o >>/dev/null
+output=$(offlineimap -o >>/dev/null)
+if [ ! -z "$output" ]; then
+	notify-send -u critical -i mail-unread-symbolic "同步失败："$output
+	exit 0
+fi
 
 if [ ! -z $(command -v notmuch) ]; then
 	notmuch new
