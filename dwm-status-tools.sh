@@ -33,7 +33,7 @@ mpd_show_name=0
 print_date() {
 	timeIcons=('' '' '' '' '' '' '' '' '' '' '' '')
 	# date '+ %m/%d(%a) '${timeIcons[$(echo $(date '+%l')'%12' | bc)]}' %R'
-	date '+%y/%m/%d(%a) '${timeIcons[$(echo $(date '+%l')'%12' | bc)]}' %R'
+	date '+%Y-%m-%d(%a) '${timeIcons[$(echo $(date '+%l')'%12' | bc)]}' %R'
 }
 
 print_battery() {
