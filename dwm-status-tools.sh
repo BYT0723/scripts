@@ -16,7 +16,7 @@ icons["disk"]=" "
 icons["memory"]=" "
 icons["cpu"]=" "
 icons["temp"]=" "
-icons["mpd"]=" "
+icons["mpd"]=""
 icons["mail"]=" "
 icons["rss"]=" "
 
@@ -26,13 +26,14 @@ weather_retry_interval=1800  # 30 minute
 weather_path="/tmp/.weather"
 source $(dirname $0)/utils/weather.sh
 
+# MPD
+mpd_show_name=0
+
 # Datetime
 print_date() {
 	timeIcons=('' '' '' '' '' '' '' '' '' '' '' '')
-	# colorscheme
-	printf "\x01^b$green^^c$grey^"
-	# date '+ %m/%d(%a) '${timeIcons[$(echo $(date '+%l') | bc)]}' %R'
-	date '+ %m/%d(%a) '${timeIcons[$(echo $(date '+%l')'%12' | bc)]}' %R'
+	# date '+ %m/%d(%a) '${timeIcons[$(echo $(date '+%l')'%12' | bc)]}' %R'
+	date '+%y/%m/%d(%a) '${timeIcons[$(echo $(date '+%l')'%12' | bc)]}' %R'
 }
 
 print_battery() {
@@ -46,9 +47,9 @@ print_battery() {
 	# duration=$(acpi -b | awk '{print $5}')
 
 	if $(acpi -b | head -n 1 | grep --quiet Discharging); then
-		printf "\x02^c$white^^b$grey^"
+		printf "^c$white^"
 	else
-		printf "\x02^c$yellow^^b$grey^"
+		printf "^c$yellow^"
 	fi
 
 	# printf "$icon $percent"
@@ -56,8 +57,6 @@ print_battery() {
 }
 
 print_volume() {
-	printf "\x03^c$white^^b$grey^"
-
 	volume="$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)%\].*/\1/')"
 	status="$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)\].*/\1/')"
 
@@ -94,8 +93,14 @@ print_wifi() {
 print_disk() {
 	# root disk space value
 	local disk_root=$(df -h | grep '/$' | awk '{print $4}')
-	# colorscheme
-	printf "\x06^c$white^^b$black^"
+	# root disk usage
+	local disk_root_usage=$(df -h | grep '/$' | awk '{print $5}' | cut -d "%" -f1)
+
+	if [ "$disk_root_usage" -gt 90 ]; then
+		printf "^c$yellow^"
+	else
+		printf "^c$white^"
+	fi
 	# output
 	printf "${icons[disk]}$disk_root"
 }
@@ -103,9 +108,15 @@ print_disk() {
 # Memory usage
 print_mem() {
 	# memory value
-	local mem_val=$(free -h | awk 'NR==2 {print $3}' | sed s/i//g)
-	# colorscheme
-	printf "\x07^c$blue^^b$black^"
+	local mem_val=$(LANG=en_US.UTF-8 free -h | awk '/Mem:/ {print $3}' | sed s/i//g)
+	# memory percent
+	local mem_usage=$(LANG=en_US.UTF-8 free | awk '/Mem:/ {printf("%.2f", 100*(1-$7/$2))}')
+
+	if [ "$mem_usage" -gt 80 ]; then
+		printf "^c$yellow^"
+	else
+		printf "^c$white^"
+	fi
 	# output
 	printf "${icons[memory]}$mem_val"
 }
@@ -117,14 +128,16 @@ print_cpu() {
 
 	# colorscheme
 	if [ $(echo "$cpu_val > $(nproc)" | bc) -eq 1 ]; then
-		printf "\x08^c$black^^b$red^"
+		printf "^c$yellow^"
 	else
-		printf "\x08^c$white^^b$black^"
+		printf "^c$white^"
 	fi
 	# output
 	# printf "${icons[cpu]}$cpu_percent%%"
 	printf "${icons[cpu]}$cpu_val"
+}
 
+print_temperature() {
 	vendor=$(cat /proc/cpuinfo | grep "vendor_id" | head -n 1 | awk -F ':' '{print $2}' | xargs)
 	case $vendor in
 	"GenuineIntel")
@@ -145,12 +158,11 @@ print_cpu() {
 	esac
 
 	if [ ! -z "$temp" ] && [ $temp -ge 70 ]; then
-		printf "\x08^c$black^^b$red^"
+		printf "^c$yellow^"
 	else
-		printf "\x08^c$white^^b$black^"
+		printf "^c$white^"
 	fi
 	printf "${icons["temp"]}${temp}°C"
-
 }
 
 # Update weather to $weather_path
@@ -165,7 +177,6 @@ function update_weather() {
 print_weather() {
 	IFS='?' read weather stamp <<<$(cat $weather_path)
 
-	printf "\x09^c$blue^^b$grey^"
 	printf "$weather"
 
 	if [ -z "$weather" ]; then
@@ -188,22 +199,27 @@ print_mpd() {
 		return
 	fi
 
-	songName=$(mpc -f "%title% - %artist%" current)
-
-	maxLen=16
-
-	if [ ${#songName} -gt $maxLen ]; then
-		songName=${songName:0:$(($maxLen - 2))}'..'
-	fi
-
 	# mpd play status
 	if [[ $(mpc status) == *"[playing]"* ]]; then
-		printf "\x0a^c$black^^b$darkblue^"
+		printf "^c$darkblue^"
 	else
-		printf "\x0a^c$blue^^b$grey^"
+		printf "^c$white^"
 	fi
-	# output
-	printf "${icons[mpd]}$songName"
+
+	if [ $mpd_show_name -gt 0 ]; then
+		songName=$(mpc -f "%title% - %artist%" current)
+
+		maxLen=16
+
+		if [ ${#songName} -gt $maxLen ]; then
+			songName=${songName:0:$(($maxLen - 2))}'..'
+		fi
+
+		printf "${icons[mpd]} $songName"
+	else
+		printf "${icons[mpd]}"
+	fi
+
 }
 
 # Only fcitx and fcitx5 are supported
@@ -235,7 +251,6 @@ print_im() {
 print_mail() {
 	unread=$(notmuch count tag:unread)
 	if [[ $unread > 0 ]]; then
-		printf "\x0c^c$yellow^^b$grey^"
 		printf "${icons[mail]}$unread"
 	fi
 }
@@ -243,7 +258,6 @@ print_mail() {
 print_rss() {
 	unread=$(newsboat -x print-unread | awk '{print $1}')
 	if [[ $unread > 0 ]]; then
-		printf "\x0d^c$yellow^^b$grey^"
 		printf "${icons[rss]}$unread"
 	fi
 }

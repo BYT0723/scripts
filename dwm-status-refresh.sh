@@ -2,6 +2,7 @@
 
 # statusBar Environment
 source $(dirname $0)/dwm-status-tools.sh
+source $(dirname $0)/tools/monitor.sh
 
 function get_bytes {
 	# Find active network interface
@@ -48,22 +49,32 @@ print_speed() {
 	# define the calculated upper and lower symbols
 	local recvIcon=""
 	local transIcon=""
-	# colorscheme
-	printf "\x0b^b$grey^^c$white^"
 	# output
 	printf "${recvIcon} $vel_recv ${transIcon} $vel_trans"
 }
 
 print_core() {
-	printf "$(print_cpu)$(print_mem)$(print_disk)"
+	printf "^b$black^"
+	printf "\x08^(^$(print_cpu)$(print_temperature)"
+	printf "\x07$(print_mem)"
+	printf "\x06$(print_disk)"
+	printf "^)^"
 }
 
 print_system_tools() {
-	printf "$(print_date)$(print_volume)$(print_battery)"
+	printf "^b$grey^"
+	printf "\x0a^b$grey^^(^$(print_mpd)"
+	printf "\x0d^c$yellow^$(print_rss)"
+	printf "\x0c^c$yellow^$(print_mail)"
+	printf "\x03^c$white^$(print_volume)"
+	printf "\x02$(print_battery)"
+	printf "^)^"
+	printf "\x01^b$green^^c$grey^^(^$(print_date)^)^"
 }
 
 print_other_tools() {
-	printf "$(print_speed)$(print_weather)$(print_mail)$(print_rss)$(print_mpd)"
+	printf "\x0b^b$grey^^c$white^^(^$(print_speed)^)^"
+	printf "\x09^c$blue^^b$grey^^(^$(print_weather)^)^"
 }
 
 xsetroot -name "$(print_other_tools)$(print_core)$(print_system_tools)"
