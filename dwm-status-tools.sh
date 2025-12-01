@@ -60,9 +60,9 @@ print_volume() {
 	volume="$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)%\].*/\1/')"
 	status="$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)\].*/\1/')"
 
-	if [ "$volume" -eq 0 ]; then
-		icon=""
-	elif [ "$status" == "off" ]; then
+	if [ "$status" == "off" ]; then
+		icon=""
+	elif [ "$volume" -eq 0 ]; then
 		icon=""
 	else
 		icon=""
