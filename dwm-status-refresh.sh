@@ -74,7 +74,10 @@ print_system_tools() {
 
 print_other_tools() {
 	printf "\x0b^b$grey^^c$white^^(^$(print_speed)^)^"
-	printf "\x09^c$blue^^b$grey^^(^$(print_weather)^)^"
+	weather=$(print_weather)
+	if [[ ! -z "$weather" ]]; then
+		printf "\x09^c$blue^^b$grey^^(^$weather^)^"
+	fi
 }
 
 xsetroot -name "$(print_other_tools)$(print_core)$(print_system_tools)"

@@ -12,13 +12,13 @@ darkblue=#668ee3
 
 # Icons initial
 declare -A icons
-icons["disk"]=" "
-icons["memory"]=" "
-icons["cpu"]=" "
-icons["temp"]=" "
+icons["disk"]=""
+icons["memory"]=""
+icons["cpu"]=""
+icons["temp"]=""
 icons["mpd"]=""
-icons["mail"]=" "
-icons["rss"]=" "
+icons["mail"]=""
+icons["rss"]=""
 
 # seconds
 weather_common_interval=1800 # 30 minute
@@ -102,7 +102,7 @@ print_disk() {
 		printf "^c$white^"
 	fi
 	# output
-	printf "${icons[disk]}$disk_root"
+	printf "${icons[disk]} $disk_root"
 }
 
 # Memory usage
@@ -118,7 +118,7 @@ print_mem() {
 		printf "^c$white^"
 	fi
 	# output
-	printf "${icons[memory]}$mem_val"
+	printf "${icons[memory]} $mem_val"
 }
 
 print_cpu() {
@@ -134,7 +134,7 @@ print_cpu() {
 	fi
 	# output
 	# printf "${icons[cpu]}$cpu_percent%%"
-	printf "${icons[cpu]}$cpu_val"
+	printf "${icons[cpu]} $cpu_val"
 }
 
 print_temperature() {
@@ -162,7 +162,7 @@ print_temperature() {
 	else
 		printf "^c$white^"
 	fi
-	printf "${icons["temp"]}${temp}°C"
+	printf "${icons["temp"]} ${temp}°C"
 }
 
 # Update weather to $weather_path
@@ -251,13 +251,13 @@ print_im() {
 print_mail() {
 	unread=$(notmuch count tag:unread)
 	if [[ $unread > 0 ]]; then
-		printf "${icons[mail]}$unread"
+		printf "${icons[mail]} $unread"
 	fi
 }
 
 print_rss() {
 	unread=$(newsboat -x print-unread | awk '{print $1}')
 	if [[ $unread > 0 ]]; then
-		printf "${icons[rss]}$unread"
+		printf "${icons[rss]} $unread"
 	fi
 }
