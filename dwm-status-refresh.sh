@@ -2,7 +2,6 @@
 
 # statusBar Environment
 source $(dirname $0)/dwm-status-tools.sh
-source $(dirname $0)/tools/monitor.sh
 
 function get_bytes {
 	# Find active network interface
@@ -69,7 +68,7 @@ print_system_tools() {
 	printf "\x03^c$white^$(print_volume)"
 	printf "\x02$(print_battery)"
 	printf "^)^"
-	printf "\x01^b$green^^c$grey^^(^$(print_date)^)^"
+	printf "\x01^b$black^^c$white^^(^$(print_date)^)^"
 }
 
 print_other_tools() {
