@@ -27,7 +27,7 @@ confPath["wallpaper"]="$WORK_DIR/configs/wallpaper.conf"
 
 # 定义运行命令的Map
 declare -A applicationCmd
-applicationCmd["picom"]="picom --config ROFI_DIR$WORK_DIR/configs/picom.conf -b"
+applicationCmd["picom"]="picom --config $WORK_DIR/configs/picom.conf -b"
 # applicationCmd["picom"]="picom --config $dir/configs/picom.conf -b --experimental-backends"
 
 # Options
