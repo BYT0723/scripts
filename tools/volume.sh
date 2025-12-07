@@ -2,6 +2,10 @@
 
 msgTag="volume"
 
+source "$(dirname $0)/../utils/notify.sh"
+
+[ -z "$(command -v amixer)" ] && system-notify critical "Tool Not Found" "please install amixer" && exit
+
 case "$1" in
 'toggle')
 	icon="audio-volume-high-symbolic"

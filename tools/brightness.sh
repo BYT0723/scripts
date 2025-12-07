@@ -8,6 +8,10 @@
 #
 msgTag="brightness"
 
+source "$(dirname $0)/../utils/notify.sh"
+
+[ -z "$(command -v light)" ] && system-notify critical "Tool Not Found" "please install light-git from archlinuxcn" && exit
+
 curr=$(printf '%.0f' $(light -G))
 
 case "$1" in

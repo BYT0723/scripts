@@ -2,8 +2,10 @@
 #
 TOOLS_DIR="$(dirname $0)/tools"
 ROFI_SCRIPT_DIR="$(dirname $0)/rofi/scripts"
-terminal="WINIT_X11_SCALE_FACTOR=1 alacritty"
+terminal="WINIT_X11_SCALE_FACTOR=1 alacritty -o 'font.size=10'"
 float_terminal="WINIT_X11_SCALE_FACTOR=1 alacritty --config-file $HOME/.config/alacritty/alacritty-float.toml -o 'font.size=12'"
+
+source "$(dirname "$0")/utils/notify.sh"
 
 #  Handle the statusBar click event
 #  see file config.h variable statuscmds
@@ -18,6 +20,7 @@ dateHandler() {
 	buttonType=$1
 	case "$buttonType" in
 	1)
+		[ -z "$(command -v cal)" ] && system-notify normal "Tool Not Found" "please install cal" && return
 		notify-send \
 			-t 60000 \
 			-c status \
@@ -28,6 +31,7 @@ dateHandler() {
 		;;
 	2) ;;
 	3)
+		[ -z "$(command -v ccal)" ] && system-notify normal "Tool Not Found" "please install ccal" && return
 		notify-send \
 			-t 60000 \
 			-c status \
@@ -95,7 +99,10 @@ cpuHandler() {
 	1) ;;
 	2) ;;
 	3)
-		eval "$terminal -e htop"
+		[ ! -z "$(command -v htop)" ] && eval "$terminal -e htop" && return
+		[ ! -z "$(command -v btop)" ] && eval "$terminal -e btop" && return
+		[ ! -z "$(command -v top)" ] && eval "$terminal -e top" && return
+		system-notify normal "Tool Not Found" "please install one of btop,htop,top"
 		;;
 	esac
 }
@@ -106,7 +113,8 @@ netSpeedHandler() {
 	1) ;;
 	2) ;;
 	3)
-		eval "$terminal -e speedtest"
+		[ ! -z "$(command -v speedtest)" ] && eval "$terminal -e speedtest" && return
+		system-notify normal "Tool Not Found" "please install speedtest-cli"
 		;;
 	esac
 }
@@ -118,10 +126,11 @@ mpdHandler() {
 		"$ROFI_SCRIPT_DIR"/mpd.sh
 		;;
 	2)
-		killall mpd
+		mpd --kill
 		;;
 	3)
-		eval "$float_terminal -e rmpc"
+		[ ! -z "$(command -v rmpc)" ] && eval "$float_terminal -e rmpc" && return
+		system-notify normal "Tool Not Found" "please install rmpc"
 		;;
 	esac
 }
@@ -152,7 +161,8 @@ volumeHandler() {
 		;;
 	2) ;;
 	3)
-		eval "$terminal -e ncpamixer"
+		[ ! -z "$(command -v ncpamixer)" ] && eval "$float_terminal -e ncpamixer" && return
+		system-notify normal "Tool Not Found" "please install ncpamixer"
 		;;
 	4)
 		"$TOOLS_DIR"/volume.sh up
@@ -167,14 +177,16 @@ mailHandler() {
 	buttonType=$1
 	case "$buttonType" in
 	1)
-		notify-send -i mail-unread-symbolic "新邮件" "$(notmuch search --output=files tag:unread | cut -d/ -f5 | sort | uniq -c | awk '{print "[" $2 "] \t" $1 "封新邮件"}')"
+		notify-send -i mail-unread-symbolic "New Mail" "$(notmuch search --output=files tag:unread | cut -d/ -f5 | sort | uniq -c | awk '{print "[" $2 "] \t" $1 "new mail"}')"
 		;;
 	2) ;;
 	3)
-		eval "$terminal -e aerc"
-		if [ $(ps ax | grep mail.sh | wc -l) -le 1 ]; then
-			bash $TOOLS_DIR/mail.sh &
+		if [ ! -z "$(command -v aerc)" ]; then
+			eval "$terminal -e aerc"
+			[ -z "$(pgrep -f "bash $TOOLS_DIR/mail.sh")" ] && bash $TOOLS_DIR/mail.sh &
+			return
 		fi
+		system-notify normal "Tool Not Found" "please install aerc"
 		;;
 	esac
 }
@@ -183,11 +195,13 @@ rssHandler() {
 	buttonType=$1
 	case "$buttonType" in
 	1)
-		notify-send -i rss "$(newsboat -x print-unread)"
+		[ ! -z "$(command -v newsboat)" ] && notify-send -i rss "$(newsboat -x print-unread)" && return
+		system-notify normal "Tool Not Found" "please install newsboat"
 		;;
 	2) ;;
 	3)
-		eval "$terminal -e newsboat"
+		[ ! -z "$(command -v newsboat)" ] && eval "$terminal -e newsboat" && return
+		system-notify normal "Tool Not Found" "please install newsboat"
 		;;
 	esac
 }
