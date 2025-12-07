@@ -24,6 +24,7 @@ icons["rss"]=""
 weather_common_interval=1800 # 30 minute
 weather_retry_interval=1800  # 30 minute
 weather_path="/tmp/.weather"
+weather_sync="/tmp/.weather_sync"
 source $(dirname $0)/utils/weather.sh
 
 # MPD
@@ -110,7 +111,7 @@ print_mem() {
 	# memory value
 	local mem_val=$(LANG=en_US.UTF-8 free -h | awk '/Mem:/ {print $3}' | sed s/i//g)
 	# memory percent
-	local mem_usage=$(LANG=en_US.UTF-8 free | awk '/Mem:/ {printf("%.2f", 100*(1-$7/$2))}')
+	local mem_usage=$(LANG=en_US.UTF-8 free | awk '/Mem:/ {printf("%.2f\n", 100*(1-$7/$2))}')
 
 	if [ "$mem_usage" -gt 80 ]; then
 		printf "^c$yellow^"
@@ -167,11 +168,13 @@ print_temperature() {
 
 # Update weather to $weather_path
 function update_weather() {
+	touch $weather_sync
 	if weather=$(ipinfo-openMeteo); then
 		echo $weather'?'$(date +'%Y-%m-%d %H:%M:%S') >$weather_path
 	else
 		echo '?'$(date +'%Y-%m-%d %H:%M:%S') >$weather_path
 	fi
+	rm -f $weather_sync
 }
 
 print_weather() {
@@ -189,7 +192,9 @@ print_weather() {
 	# 如果时间间隔超过$weather_interval秒,则更新天气状态
 	local duration=$(($(date +%s) - $(date -d "$stamp" +%s)))
 	if [ ! -f $weather_path ] || [ -z "$stamp" ] || [ $duration -gt $weather_interval ]; then
-		update_weather
+		if [ ! -f $weather_sync ]; then
+			update_weather &
+		fi
 	fi
 }
 
