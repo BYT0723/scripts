@@ -33,7 +33,8 @@ rofi_cmd() {
 		-p "Uptime: $uptime" \
 		-mesg "Uptime: $uptime" \
 		-monitor -4 \
-		-theme ${dir}/${theme}.rasi
+		-theme ${dir}/${theme}.rasi \
+		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }
 
 # Confirmation CMD
@@ -46,7 +47,8 @@ confirm_cmd() {
 		-dmenu \
 		-p 'Confirmation' \
 		-mesg 'Are you Sure?' \
-		-theme ${dir}/${theme}.rasi
+		-theme ${dir}/${theme}.rasi \
+		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }
 
 # Ask for confirmation

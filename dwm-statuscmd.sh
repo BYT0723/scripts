@@ -2,7 +2,8 @@
 #
 TOOLS_DIR="$(dirname $0)/tools"
 ROFI_SCRIPT_DIR="$(dirname $0)/rofi/scripts"
-terminal="alacritty -o 'font.size=10'"
+terminal="WINIT_X11_SCALE_FACTOR=1 alacritty"
+float_terminal="WINIT_X11_SCALE_FACTOR=1 alacritty --config-file $HOME/.config/alacritty/alacritty-float.toml -o 'font.size=12'"
 
 #  Handle the statusBar click event
 #  see file config.h variable statuscmds
@@ -114,13 +115,13 @@ mpdHandler() {
 	buttonType=$1
 	case "$buttonType" in
 	1)
-		mpc toggle
+		"$ROFI_SCRIPT_DIR"/mpd.sh
 		;;
 	2)
 		killall mpd
 		;;
 	3)
-		"$ROFI_SCRIPT_DIR"/mpd.sh
+		eval "$float_terminal -e rmpc"
 		;;
 	esac
 }

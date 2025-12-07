@@ -51,7 +51,8 @@ rofi_cmd() {
 		-p "$prompt" \
 		-mesg "$mesg" \
 		-markup-rows \
-		-theme ${theme}
+		-theme ${theme} \
+		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }
 
 # Pass variables to rofi dmenu
