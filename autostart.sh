@@ -59,7 +59,7 @@ application_launch() {
 	launch lxpolkit "lxpolkit &"
 	# conky (system monitor)
 	launch conky "conky -U -d"
-	# 音频控制 ( FIX: --hide-window在dwm中会偶尔失效)
+	# 音频控制
 	launch easyeffects "easyeffects --service-mode --hide-window &"
 }
 
