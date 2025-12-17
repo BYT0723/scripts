@@ -23,17 +23,6 @@ launch_monitor() {
 }
 
 desktop_setting() {
-	# Set Xorg
-	if [ ! -z "$(pgrep Xorg)" ]; then
-		# Set Xorg Keyboard Configuration
-		if [ ! -z "$(command -v setxkbmap)" ]; then
-			# For other keymaps, see: `/usr/share/X11/xkb/rules/base.lst`
-			setxkbmap -option "caps:swapescape,altwin:swap_lalt_lwin" # setxkbmap need `xorg-xkb-utils` package
-		fi
-		if [ ! -z "$(command -v xset)" ]; then
-			xset r rate 250 35
-		fi
-	fi
 	# 壁纸(不使用launch_monitor是因为wallpaper每次启动都要使用新的instance, 移除旧的实例)
 	# wallpaper.sh内部实现了
 	/bin/bash "$TOOLS_DIR"/wallpaper.sh -r &
@@ -63,5 +52,6 @@ application_launch() {
 	launch easyeffects "easyeffects --service-mode --hide-window &"
 }
 
+source "$WORK_DIR/keyboard.sh"
 desktop_setting
 application_launch
