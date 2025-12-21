@@ -23,25 +23,29 @@
    - `network-manager-applet`(可选), networkmanager 的系统托盘图标.
    - ...
 
-| Name                  | Detail                             | Required                                                                                            |
-| :-------------------- | :--------------------------------- | :-------------------------------------------------------------------------------------------------- |
-| app.sh                | applications launcher by rofi      | rofi                                                                                                |
-| autostart.sh          | dwm autostart script               | picom-git / lxsession / xautolock / slock / network-manager-applet / udiskie / fcitx5-im            |
-| brightness.sh         | Screen backlight control           | light                                                                                               |
-| clock.sh              | alarm clock by crontab             | libnotify                                                                                           |
-| dwm-status-tools.sh   | dwm status bar toolkit             | acpi / alsa-utils / light / networkmanager / mpc / mpd                                              |
-| dwm-status-refresh.sh | dwm status composer                | bc                                                                                                  |
-| dwm-status.sh         | dwm status refresher               |                                                                                                     |
-| module.sh             | system module manager by rofi      | rofi / networkmanager / bluez / bluez-utils / libnotify                                             |
-| mpd.sh                | mpd manager by rofi                | mpd / mpc / libnotify                                                                               |
-| powermenu.sh          | powermenu by rofi                  | rofi / betterlockscreen / alsa-utils                                                                |
-| quicklinks.sh         | quick links by rofi                | firefox or chromium                                                                                 |
-| statuscmd.sh          | dwm status bar click event handler | libnotify / alacritty                                                                               |
-| term.sh               | terminal launcher                  | st / alacritty                                                                                      |
-| touchpad-toggle.sh    | touchpad switcher                  | libnotify                                                                                           |
-| volume.sh             | volume controller                  | alsa-utils                                                                                          |
-| wallpaper.sh          | wallpaper controller               | feh / xwinwrap / mpv / archlinux-wallpaper / [tabbed](https://github.com/BYT0723/tabbed.git) / surf |
-| screenshot.sh         | screen shot tools                  | maim / feh / viewnior / xdotool                                                                     |
+| Name                       | Detail                                                                                                                      | Required                                                                                            |
+| :--------------------      | :---------------------------------                                                                                          | :-------------------------------------------------------------------------------------------------- |
+| autostart.sh               | dwm autostart script                                                                                                        | picom-git / lxsession / xautolock / slock / network-manager-applet / udiskie / fcitx5-im            |
+| dwm-status-tools.sh        | dwm status bar toolkit                                                                                                      | acpi / alsa-utils / light / networkmanager / mpc / mpd                                              |
+| dwm-status-refresh.sh      | dwm status composer                                                                                                         | bc                                                                                                  |
+| dwm-status.sh              | dwm status refresher                                                                                                        |                                                                                                     |
+| dwm-statuscmd.sh           | dwm status bar click event handler                                                                                          | libnotify / alacritty                                                                               |
+| dwm-launcher.sh            | launcher by rofi (include terminal /applications / powermenu / mpd / module / screenshot / screencast / quicklinks / emoji) | rofi                                                                                                |
+| keyboard.sh                | keyboard setting in autostart                                                                                               | setxkbmap / xset                                                                                    |
+| monitor-conf.sh            | use xrandr set display in lightdm start                                                                                     | xrandr                                                                                              |
+| tools/brightness.sh        | Screen backlight control                                                                                                    | light                                                                                               |
+| tools/clock.sh             | alarm clock by crontab                                                                                                      | libnotify                                                                                           |
+| tools/mail.sh              | mail sync                                                                                                                   | notmuch / offlineimap                                                                               |
+| tools/random_file.sh       | mpv randomly opens 10 video files in the specified directory                                                                | notmuch/offlineimap                                                                                 |
+| tools/screen.sh            | dpms auto set                                                                                                               | xautolock / xset                                                                                    |
+| tools/touchpad.sh          | touchpad switcher                                                                                                           | libnotify                                                                                           |
+| tools/volume.sh            | volume controller                                                                                                           | alsa-utils                                                                                          |
+| tools/wallpaper.sh         | wallpaper controller                                                                                                        | feh / xwinwrap / mpv / archlinux-wallpaper / [tabbed](https://github.com/BYT0723/tabbed.git) / surf |
+| rofi/scripts/module.sh     | system module manager by rofi                                                                                               | rofi / networkmanager / bluez / bluez-utils / libnotify                                             |
+| rofi/scripts/mpd.sh        | mpd manager by rofi                                                                                                         | mpd / mpc / libnotify                                                                               |
+| rofi/scripts/quicklinks.sh | quick links by rofi                                                                                                         | firefox or chromium                                                                                 |
+| rofi/scripts/screenshot.sh | screen shot tools                                                                                                           | maim / feh / viewnior / xdotool                                                                     |
+| rofi/scripts/screencast.sh | screen cast tools                                                                                                           | ffmpeg / feh / viewnior / xdotool                                                                   |
 
 > Tips
 >

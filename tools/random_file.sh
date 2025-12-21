@@ -1,29 +1,22 @@
 #!/bin/bash
 
-dir=$1
-len=$2
+set -euo pipefail
 
-if [[ -z $dir ]]; then
-	echo "Usage: $0 <dir> [len]"
-	exit 0
-fi
+dir=${1:-}
+len=${2:-10}
 
-# 检查dir是否是绝对路径
-if [[ $dir != /* ]]; then
-	dir=$(realpath $dir)
-fi
+[ -z "$dir" ] && echo "Usage: $(basename $0) <dir> [len]" && exit 1
+[ ! -d "$dir" ] && echo "$dir is not a directory" && exit 1
 
-if [[ ! -d $dir ]]; then
-	echo "$dir is not a directory"
-	exit 1
-fi
-
-if [[ -z $len ]]; then
-	len=10
-fi
-
-cd "$dir"
-
-mpv \
-	--really-quiet \
-	--playlist=<(find "$dir" -type f \( -iname "*.mp4" -o -iname "*.avi" -o -iname "*.mkv" -o -iname "*.mov" \) | shuf -n $len)
+(
+	cd "$dir"
+	mpv \
+		--really-quiet \
+		--playlist=<(
+			find "$dir" -type f \
+				\( -iname "*.mp4" -o -iname "*.avi" -o -iname "*.mkv" -o -iname "*.mov" \) \
+				-print0 |
+				shuf -z -n "$len" |
+				tr '\0' '\n'
+		)
+)
