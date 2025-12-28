@@ -28,7 +28,6 @@ confPath["wallpaper"]="$WORK_DIR/configs/wallpaper.conf"
 # 定义运行命令的Map
 declare -A applicationCmd
 applicationCmd["picom"]="picom --config $WORK_DIR/configs/picom.conf -b"
-# applicationCmd["picom"]="picom --config $dir/configs/picom.conf -b --experimental-backends"
 
 # Options
 layout=$(cat ${theme} | grep 'USE_ICON' | cut -d'=' -f2)
@@ -43,7 +42,6 @@ if [[ "$layout" == 'NO' ]]; then
 	)
 	picomOpt=(
 		"蘒 Toggle                       $(icon toggle app picom)"
-		"󰗘 Animations                   $(icon toggle conf picom animations bool)"
 	)
 	notificationOpt=(
 		"Pop                            $(dunstctl count history)"
@@ -63,7 +61,6 @@ else
 	)
 	picomOpt=(
 		"蘒$(icon toggle app picom)"
-		"󰗘 $(icon conf confPath["picom"] animations bool)"
 	)
 	notificationOpt=(
 		"Pop $(dunstctl count history)"
@@ -161,9 +158,6 @@ run_cmd() {
 	case "$1" in
 	${optId[${picomOpt[0]}]})
 		toggleApplication picom
-		;;
-	${optId[${picomOpt[1]}]})
-		toggleConf picom animations bool
 		;;
 	${optId[${notificationOpt[0]}]})
 		for ((i = 0; i < $HistoryPopCount; i++)); do
