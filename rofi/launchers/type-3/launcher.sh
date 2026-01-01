@@ -16,7 +16,7 @@ theme='style-5'
 ## Run
 rofi \
 	-icon-theme $(grep -oP 'gtk-icon-theme-name="\K[^"]+' ~/.gtkrc-2.0) \
-	-show drun \
+	-show combi \
 	-monitor -4 \
 	-theme ${dir}/${theme}.rasi \
 	-hover-select -me-select-entry '' -me-accept-entry MousePrimary

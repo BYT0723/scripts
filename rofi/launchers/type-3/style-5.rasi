@@ -9,13 +9,24 @@
 
 /*****----- Configuration -----*****/
 configuration {
-	modi:                       "drun,run,ssh,window";
+	modi:                       "combi,calc";
+	combi-modes: 				"drun,run";
+	combi-hide-mode-prefix: 	true;
     show-icons:                 true;
-    display-drun:               " ";
-    display-run:                " ";
-    display-window:             " ";
-    display-ssh:                " ";
-	drun-display-format:        "{name}";
+    display-combi:              " ";
+    display-calc:               " ";
+    calc {
+        no-bold: false;
+        terse: false;
+        no-history: false;
+        no-persist-history: false;
+        automatic-save-to-history: false;
+        calc-command-history: true;
+        calc-error-color: "Green";
+        calc-command: "echo -n '{result}' | xclip -selection clipboard";
+        hint-result: "Result: ";
+		hint-welcome: "calculate something...";
+    }
 }
 
 /*****----- Global Properties -----*****/
@@ -52,7 +63,7 @@ mainbox {
     border-radius:               0px 0px 0px 0px;
     border-color:                @selected;
     background-color:            transparent;
-    children:                    [ "inputbar", "listview" ];
+    children:                    [ "inputbar", "message", "listview" ];
 }
 
 /*****----- Inputbar -----*****/
@@ -102,7 +113,6 @@ listview {
     reverse:                     false;
     fixed-height:                true;
     fixed-columns:               true;
-    
     spacing:                     0px;
     margin:                      0px;
     padding:                     0px;
@@ -169,10 +179,10 @@ error-message {
     background-color:            black / 10%;
     text-color:                  @foreground;
 }
+message {
+    background-color:            transparent;
+}
 textbox {
     background-color:            transparent;
-    text-color:                  @foreground;
-    vertical-align:              0.5;
-    horizontal-align:            0.0;
-    highlight:                   none;
+    text-color:                  @selected;
 }
