@@ -1,19 +1,11 @@
-/**
- *cyberpunk
- * Author : Aditya Shakya (adi1090x)
- * Github : @adi1090x
- * 
- * Rofi Theme File
- * Rofi Version: 1.7.3
- **/
-
 /*****----- Configuration -----*****/
 configuration {
 	modi:                       "combi,calc";
-	combi-modes: 				"drun,run";
-	combi-hide-mode-prefix: 	true;
+	combi-modes:                "drun,run";
     show-icons:                 true;
     display-combi:              " ";
+    display-drun:               " ";
+    display-run:                " ";
     display-calc:               " ";
     calc {
         no-bold: false;
