@@ -111,7 +111,7 @@ print_mem() {
 	# memory value
 	local mem_val=$(LANG=en_US.UTF-8 free -h | awk '/Mem:/ {print $3}' | sed s/i//g)
 	# memory percent
-	local mem_usage=$(LANG=en_US.UTF-8 free | awk '/Mem:/ {printf("%.2f\n", 100*(1-$7/$2))}')
+	local mem_usage=$(LANG=en_US.UTF-8 free | awk '/Mem:/ {printf("%.0f\n", 100*(1-$7/$2))}')
 
 	if [ "$mem_usage" -gt 80 ]; then
 		printf "^c$yellow^"

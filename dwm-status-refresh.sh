@@ -52,34 +52,40 @@ print_speed() {
 	printf "${recvIcon} $vel_recv ${transIcon} $vel_trans"
 }
 
-print_core() {
-	printf "^b$black^"
-	printf "\x08^(^$(print_cpu)$(print_temperature)"
-	printf "\x07$(print_mem)"
-	printf "\x06$(print_disk)"
-	printf "^)^"
+DWM_STATUS_LEFT_RADIUS="^(^"
+DWM_STATUS_RIGHT_RADIUS="^)^"
+
+# $1: background color
+# ${@:2} tools...
+new_pane() {
+	fg=$1
+	shift
+
+	if [[ $1 =~ ^(\\x[0-9a-fA-F]{2})(.*) ]]; then
+		first_status_code="${BASH_REMATCH[1]}" # 控制字符
+		first_text="${BASH_REMATCH[2]}"        # 剩余内容
+	else
+		first_text=$1
+	fi
+	shift
+
+	printf "%s" "^b$fg^$first_status_code$DWM_STATUS_LEFT_RADIUS$first_text$@$DWM_STATUS_RIGHT_RADIUS"
 }
 
-print_system_tools() {
-	printf "^b$grey^"
-	printf "\x0a^b$grey^^(^$(print_mpd)"
-	printf "\x0d^c$yellow^$(print_rss)"
-	printf "\x0c^c$yellow^$(print_mail)"
-	printf "\x03^c$white^$(print_volume)"
-	printf "\x02$(print_battery)"
-	printf "^)^"
-	printf "\x01^b$black^^c$white^^(^$(print_date)^)^"
-}
-
-print_other_tools() {
-	printf "\x0b^b$grey^^c$white^^(^$(print_speed)^)^"
+panes() {
+	local panes
+	panes+="$(new_pane $grey "\x0b^c$white^$(print_speed)")"
 	weather=$(print_weather)
 	if [[ ! -z "$weather" ]]; then
-		printf "\x09^c$blue^^b$grey^^(^$weather^)^"
+		panes+="$(new_pane $grey "\x09^c$blue^$weather")"
 	fi
+	panes+="$(new_pane $grey "\x08$(print_cpu)$(print_temperature)" "\x07$(print_mem)" "\x06$(print_disk)")"
+	panes+="$(new_pane $grey "\x0a$(print_mpd)" "\x0d^c$yellow^$(print_rss)" "\x0c^c$yellow^$(print_mail)" "\x03^c$white^$(print_volume)" "\x02$(print_battery)")"
+	panes+="$(new_pane $green "\x01^c$black^$(print_date)")"
+	echo -e "$panes"
 }
 
-xsetroot -name "$(print_other_tools)$(print_core)$(print_system_tools)"
+xsetroot -name "$(panes)"
 
 # Update old values to perform new calculation
 old_received_bytes=$received_bytes
