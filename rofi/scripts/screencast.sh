@@ -198,14 +198,14 @@ fi
 rofi_cmd() {
 	rofi -theme-str "window {width: $win_width;}" \
 		-theme-str "listview {columns: $list_col; lines: $list_row;}" \
-		-theme-str 'textbox-prompt-colon {str: " ";}' \
+		-theme-str 'textbox-prompt-colon {str: " ";}' \
 		-dmenu \
 		-p "$prompt" \
-		-mesg "$mesg" \
 		-markup-rows \
 		-monitor -4 \
 		-theme "$theme" \
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
+	# -mesg "$mesg" \
 }
 
 # Pass variables to rofi dmenu

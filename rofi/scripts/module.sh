@@ -34,33 +34,28 @@ layout=$(cat ${theme} | grep 'USE_ICON' | cut -d'=' -f2)
 
 if [[ "$layout" == 'NO' ]]; then
 	firstOpt=(
-		" Picom                         $(icon active app picom)"
-		" Network                       $(icon active app NetworkManager)"
-		" Bluetooth                     $(icon active service bluetooth)"
-		" Notification                  $(icon active app dunst)"
-		" Wallpaper                     $(icon active cmd 'wallpaper.sh -r')"
-	)
-	picomOpt=(
-		"蘒 Toggle                       $(icon toggle app picom)"
+		"󰋩 Picom                         $(icon toggle app picom)"
+		"󰈀 Network                       $(icon active app NetworkManager)"
+		"󰂯 Bluetooth                     $(icon active service bluetooth)"
+		"󰍨 Notification                  $(icon active app dunst)"
+		"󰸉 Wallpaper                     $(icon active cmd 'wallpaper.sh -r')"
 	)
 	notificationOpt=(
-		"Pop                            $(dunstctl count history)"
-		"CloseAll                       $(dunstctl count displayed)"
+		"Pop                             $(dunstctl count history)"
+		"CloseAll                        $(dunstctl count displayed)"
 	)
 	wallpaperOpt=(
-		"next"
-		"random                         $(icon toggle conf wallpaper random number)"
-		"random_type                 $(getConfig wallpaper random_type)"
+		"Next"
+		"Random                          $(icon toggle conf wallpaper random number)"
+		"Random Type                  $(getConfig wallpaper random_type)"
 	)
 else
 	firstOpt=(
-		" $(icon active app picom)"
-		" $(icon active app NetworkManager)"
-		" $(icon active service bluetooth)"
-		" $(icon active app dunst)"
-	)
-	picomOpt=(
-		"蘒$(icon toggle app picom)"
+		"󰋩 $(icon active app picom)"
+		"󰈀 $(icon active app NetworkManager)"
+		"󰂯 $(icon active service bluetooth)"
+		"󰍨 $(icon active app dunst)"
+		"󰸉 $(icon active cmd 'wallpaper.sh -r')"
 	)
 	notificationOpt=(
 		"Pop $(dunstctl count history)"
@@ -74,8 +69,6 @@ optId[${firstOpt[1]}]="--opt2"
 optId[${firstOpt[2]}]="--opt3"
 optId[${firstOpt[3]}]="--opt4"
 optId[${firstOpt[4]}]="--opt5"
-
-optId[${picomOpt[0]}]="--picomOpt1"
 
 optId[${notificationOpt[0]}]="--notificationOpt1"
 optId[${notificationOpt[1]}]="--notificationOpt2"
@@ -102,21 +95,22 @@ run_rofi() {
 	if [[ "$1" == ${optId[${firstOpt[0]}]} ]]; then
 		prompt='Picom'
 		mesg="Windows Composer"
-		opts=("${picomOpt[@]}")
+		toggleApplication picom
+		return
 	elif [[ "$1" == ${optId[${firstOpt[1]}]} ]]; then
 		prompt='Network'
 		mesg=""
-		eth="$(nmcli connection show -active | grep -E 'eth' | awk '{print $1}')"
-		wifi="$(nmcli connection show -active | grep -E 'wifi' | awk '{print $1}')"
+		eth="$(nmcli -t -f DEVICE,TYPE,STATE dev status | awk -F: '$2=="ethernet" && $3=="connected" {print $1}')"
+		wifi="$(nmcli -t -f IN-USE,SSID,SIGNAL dev wifi list | grep '^*' | awk -F : '{printf "%s(%s%%)", $2, $3}')"
 		if [ "$eth" != "" ]; then
 			mesg="  $eth"
 		fi
 		if [[ "$wifi" != "" ]]; then
 			if [ "$mesg" != "" ]; then
 				mesg="$mesg
-  $wifi [Connected]"
+  $wifi"
 			else
-				mesg="  $wifi [Connected]"
+				mesg="  $wifi"
 			fi
 		fi
 		opts=$(nmcli device wifi list --rescan auto | awk 'NR!=1 {print substr($0,9)}' | awk '{print $8," ",$2}' | awk '!a[$0]++')
@@ -124,8 +118,7 @@ run_rofi() {
 		prompt='Bluetooth'
 		connected_device=$(bluetoothctl devices Connected | awk '{print substr($0,25)}')
 		if [ "$connected_device" != "" ]; then
-			mesg="Connected:
-$connected_device"
+			mesg="Connected:$connected_device"
 		else
 			mesg="No device connected"
 		fi
@@ -156,9 +149,6 @@ $connected_device"
 # Execute Command
 run_cmd() {
 	case "$1" in
-	${optId[${picomOpt[0]}]})
-		toggleApplication picom
-		;;
 	${optId[${notificationOpt[0]}]})
 		for ((i = 0; i < $HistoryPopCount; i++)); do
 			dunstctl history-pop

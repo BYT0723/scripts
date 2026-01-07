@@ -14,7 +14,7 @@ theme="$type/$style"
 
 # Theme Elements
 prompt='Quick Links'
-mesg="Using '$BROWSER' Open Link"
+mesg="Using '$(xdg-settings get default-web-browser | cut -d . -f 1)'"
 
 if [[ ("$theme" == *'type-1'*) || ("$theme" == *'type-3'*) || ("$theme" == *'type-5'*) ]]; then
 	list_col='1'
@@ -49,10 +49,10 @@ rofi_cmd() {
 		-theme-str "element-text {font: \"$efonts\";}" \
 		-dmenu \
 		-p "$prompt" \
-		-mesg "$mesg" \
 		-markup-rows \
 		-theme ${theme} \
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
+	# -mesg "$mesg" \
 }
 
 # Pass variables to rofi dmenu

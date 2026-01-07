@@ -63,11 +63,11 @@ rofi_cmd() {
 		-theme-str 'textbox-prompt-colon {str: " ";}' \
 		-dmenu \
 		-p "$prompt" \
-		-mesg "$mesg" \
 		-markup-rows \
 		-monitor -4 \
 		-theme ${theme} \
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
+	# -mesg "$mesg" \
 }
 
 # Pass variables to rofi dmenu
