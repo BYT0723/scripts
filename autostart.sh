@@ -3,6 +3,8 @@
 WORK_DIR=$(dirname "$0")
 TOOLS_DIR="$WORK_DIR/tools"
 
+bash $TOOLS_DIR/monitor-conf.sh
+
 # 启动应用
 # $1 application name
 # $2 command
@@ -15,6 +17,7 @@ launch() {
 # $1 script name
 # $2 command
 launch_monitor() {
+	[ ! -z "$(pgrep -f "$1")" ] && kill $(pgrep -f "$1")
 	while true; do
 		[ "$(pgrep -f "$1")" = "" ] && eval "$2" || true
 		# 每分钟

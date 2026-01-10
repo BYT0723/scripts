@@ -71,10 +71,10 @@ run_cmd() {
 		elif [[ $1 == '--reboot' ]]; then
 			systemctl reboot
 		elif [[ $1 == '--suspend' ]]; then
+			$HOME/.dwm/tools/lock.sh
 			mpc -q pause
 			amixer set Master mute
 			systemctl suspend
-			dm-tool lock
 		elif [[ $1 == '--logout' ]]; then
 			if [[ "$DESKTOP_SESSION" == 'dwm' ]]; then
 				kill $(pgrep dwm)
@@ -103,9 +103,9 @@ $reboot)
 	run_cmd --reboot
 	;;
 $lock)
-	dm-tool lock
-	sleep 1
-	xset dpms force off
+	$HOME/.dwm/tools/lock.sh
+	mpc -q pause
+	amixer set Master mute
 	;;
 $suspend)
 	run_cmd --suspend

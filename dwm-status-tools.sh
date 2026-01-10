@@ -109,9 +109,9 @@ print_disk() {
 # Memory usage
 print_mem() {
 	# memory value
-	local mem_val=$(LANG=en_US.UTF-8 free -h | awk '/Mem:/ {print $3}' | sed s/i//g)
+	local mem_val=$(LANG= free -h | awk '/Mem:/ {print $3}' | sed s/i//g)
 	# memory percent
-	local mem_usage=$(LANG=en_US.UTF-8 free | awk '/Mem:/ {printf("%.0f\n", 100*(1-$7/$2))}')
+	local mem_usage=$(LANG= free | awk '/Mem:/ {printf("%.0f\n", 100*(1-$7/$2))}')
 
 	if [ "$mem_usage" -gt 80 ]; then
 		printf "^c$yellow^"
@@ -200,7 +200,7 @@ print_weather() {
 
 # Music Player Daemon
 print_mpd() {
-	if [[ -z "$(mpc status)" ]]; then
+	if [[ -z "$(mpc status 2>/dev/null)" ]]; then
 		return
 	fi
 
