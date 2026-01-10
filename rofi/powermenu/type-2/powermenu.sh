@@ -71,10 +71,14 @@ run_cmd() {
 		elif [[ $1 == '--reboot' ]]; then
 			systemctl reboot
 		elif [[ $1 == '--suspend' ]]; then
-			$HOME/.dwm/tools/lock.sh
-			mpc -q pause
-			amixer set Master mute
+			mpd_status=$(mpc status | awk 'NR==2 {print $1}')
+			volume_status=$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)\].*/\1/')
+			[ "$mpd_status" == "[playing]" ] && mpc -q toggle
+			[ "$volume_status" == "on" ] && amixer set Master off >>/dev/null
 			systemctl suspend
+			$HOME/.dwm/tools/lock.sh -n
+			[ "$mpd_status" == "[playing]" ] && mpc -q toggle
+			[ "$volume_status" == "on" ] && amixer set Master on >>/dev/null
 		elif [[ $1 == '--logout' ]]; then
 			if [[ "$DESKTOP_SESSION" == 'dwm' ]]; then
 				kill $(pgrep dwm)
@@ -103,9 +107,13 @@ $reboot)
 	run_cmd --reboot
 	;;
 $lock)
-	$HOME/.dwm/tools/lock.sh
-	mpc -q pause
-	amixer set Master mute
+	mpd_status=$(mpc status | awk 'NR==2 {print $1}')
+	volume_status=$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)\].*/\1/')
+	[ "$mpd_status" == "[playing]" ] && mpc -q toggle
+	[ "$volume_status" == "on" ] && amixer set Master off >>/dev/null
+	$HOME/.dwm/tools/lock.sh -n
+	[ "$mpd_status" == "[playing]" ] && mpc -q toggle
+	[ "$volume_status" == "on" ] && amixer set Master on >>/dev/null
 	;;
 $suspend)
 	run_cmd --suspend

@@ -61,4 +61,4 @@ i3lock \
 	--ring-width=10 \
 	--pass-media-keys \
 	--pass-screen-keys \
-	--pass-volume-keys
+	--pass-volume-keys $@
