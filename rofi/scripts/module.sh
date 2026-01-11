@@ -39,6 +39,7 @@ if [[ "$layout" == 'NO' ]]; then
 		"󰂯 Bluetooth                     $(icon active service bluetooth)"
 		"󰍨 Notification                  $(icon active app dunst)"
 		"󰸉 Wallpaper                     $(icon active cmd 'wallpaper.sh -r')"
+		" Setting"
 	)
 	notificationOpt=(
 		"Pop                             $(dunstctl count history)"
@@ -56,6 +57,7 @@ else
 		"󰂯 $(icon active service bluetooth)"
 		"󰍨 $(icon active app dunst)"
 		"󰸉 $(icon active cmd 'wallpaper.sh -r')"
+		" "
 	)
 	notificationOpt=(
 		"Pop $(dunstctl count history)"
@@ -69,6 +71,7 @@ optId[${firstOpt[1]}]="--opt2"
 optId[${firstOpt[2]}]="--opt3"
 optId[${firstOpt[3]}]="--opt4"
 optId[${firstOpt[4]}]="--opt5"
+optId[${firstOpt[5]}]="--opt6"
 
 optId[${notificationOpt[0]}]="--notificationOpt1"
 optId[${notificationOpt[1]}]="--notificationOpt2"
@@ -179,6 +182,10 @@ run_cmd() {
 			exit
 		fi
 		bluetoothctl disconnect $(bluetoothctl devices Connected | grep "$chosen" | awk '{print $2}')
+		;;
+	${optId[${firstOpt[5]}]})
+		/bin/bash $ROFI_DIR/scripts/setting.sh
+		return
 		;;
 	*)
 		chosen="$(run_rofi $1)"
