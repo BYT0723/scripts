@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+TERM=${TERMINAL:-alacritty}
+
 ROFI_DIR="$(dirname "$(dirname "$0")")"
 WORK_DIR="$(dirname "$ROFI_DIR")"
 
@@ -114,11 +116,11 @@ run_cmd() {
 		return
 		;;
 	${optId[${sddmOpt[2]}]})
-		exec "$TERMINAL" -e sudo -E nvim "$(eval "$SDDM_SCRIPT curp")"
+		exec "$TERM" -e sudo -E nvim "$(eval "$SDDM_SCRIPT curp")"
 		return
 		;;
 	${optId[${sddmOpt[3]}]})
-		exec "$TERMINAL" -e bash -c "$(curl -fsSL https://raw.githubusercontent.com/keyitdev/sddm-astronaut-theme/master/setup.sh)"
+		exec "$TERM" -e bash -c "$(curl -fsSL https://raw.githubusercontent.com/keyitdev/sddm-astronaut-theme/master/setup.sh)"
 		return
 		;;
 	esac
