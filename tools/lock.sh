@@ -1,10 +1,13 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 source "$(dirname $0)/../utils/notify.sh"
 
 [ -z "$(command -v i3lock)" ] && system-notify critical "Tool Not Found" "please install i3lock-color and archlinux-wallpaper for aur" && exit
 
+LANG=en_US.UTF-8
+
 alpha='cc'
+ringAlpha='88'
 base03='#002b36'
 base02='#073642'
 base01='#586e75'
@@ -22,16 +25,21 @@ blue='#268bd2'
 cyan='#2aa198'
 green='#859900'
 
+wallpaperDir=/usr/share/backgrounds
+wallpaper=$(find $wallpaperDir -maxdepth 1 -type f -regextype posix-extended -regex ".*\.(jpg|png|jpeg)" | shuf -n 1)
+
 i3lock \
-	-i /usr/share/backgrounds/archlinux/archwave.png \
+	-i "$wallpaper" \
+	-F \
+	--color=00000000 \
 	--insidever-color=$base02$alpha \
 	--insidewrong-color=$base02$alpha \
 	--inside-color=$base02$alpha \
-	--ringver-color=$green$alpha \
-	--ringwrong-color=$red$alpha \
-	--ringver-color=$green$alpha \
-	--ringwrong-color=$red$alpha \
-	--ring-color=$blue$alpha \
+	--ringver-color=$green$ringAlpha \
+	--ringwrong-color=$red$ringAlpha \
+	--ringver-color=$green$ringAlpha \
+	--ringwrong-color=$red$ringAlpha \
+	--ring-color=$blue$ringAlpha \
 	--line-uses-ring \
 	--keyhl-color=$magenta$alpha \
 	--bshl-color=$orange$alpha \
@@ -43,6 +51,7 @@ i3lock \
 	--time-color=$blue \
 	--clock \
 	--indicator \
+	--ignore-empty-password \
 	--time-str="%H:%M:%S" \
 	--date-str="%A, %Y-%m-%d" \
 	--verif-text="Verifying..." \
@@ -52,7 +61,7 @@ i3lock \
 	--lockfailed="Lock Failed" \
 	--time-font="ComicShannsMono Nerd Font Mono" \
 	--time-size=50 \
-	--date-font="Xiaolai Mono SC" \
+	--date-font="Xiaolai SC" \
 	--date-size=20 \
 	--layout-font="ComicShannsMono Nerd Font Mono" \
 	--verif-font="ComicShannsMono Nerd Font Mono" \
