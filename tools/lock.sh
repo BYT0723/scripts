@@ -6,8 +6,10 @@ source "$(dirname $0)/../utils/notify.sh"
 
 LANG=en_US.UTF-8
 
+backAlpha='dd'
 alpha='cc'
 ringAlpha='88'
+back='#000000'
 base03='#002b36'
 base02='#073642'
 base01='#586e75'
@@ -31,7 +33,7 @@ green='#859900'
 # PERF: use --image，keypress and keyrelease handle will be slow
 
 i3lock \
-	--color=000000dd \
+	--color=$back$backAlpha \
 	--insidever-color=$base02$alpha \
 	--insidewrong-color=$base02$alpha \
 	--inside-color=$base02$alpha \
