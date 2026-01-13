@@ -159,10 +159,10 @@ set_wallpaper() {
 		fi
 
 		for position in $(xrandr | grep " connected " | grep -oP '\d+x\d+\+\d+\+\d+'); do
-			xwinwrap -d -ov -g $position -- tabbed -w WID -g $(echo $position | sed -E 's/^([0-9]+x[0-9]+).*/\1/') -r 2 surf -e '' $arg 2>&1 >~/.wallpaper.log 2>&1 >~/.wallpaper.log
+			xwinwrap -ov -g $position -- tabbed -w WID -g $(echo $position | sed -E 's/^([0-9]+x[0-9]+).*/\1/') -r 2 surf -e '' $arg 2>&1 >~/.wallpaper.log 2>&1 >~/.wallpaper.log &
 		done
 
-		echo "$args" >$wallpaper_latest
+		echo "$arg" >$wallpaper_latest
 		;;
 	esac
 }
