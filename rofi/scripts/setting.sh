@@ -116,11 +116,12 @@ run_cmd() {
 		return
 		;;
 	${optId[${sddmOpt[2]}]})
-		exec "$TERM" -e sudo -E nvim "$(eval "$SDDM_SCRIPT curp")"
+		"$TERM" -e sudo -E nvim "$(eval "$SDDM_SCRIPT curp")"
 		return
 		;;
 	${optId[${sddmOpt[3]}]})
-		exec "$TERM" -e bash -c "$(curl -fsSL https://raw.githubusercontent.com/keyitdev/sddm-astronaut-theme/master/setup.sh)"
+		"$TERM" -e bash -c "$(curl -fsSL https://raw.githubusercontent.com/keyitdev/sddm-astronaut-theme/master/setup.sh)"
+		rm -rf $HOME/sddm-astronaut-theme
 		return
 		;;
 	esac
