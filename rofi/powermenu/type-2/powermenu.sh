@@ -111,6 +111,7 @@ $lock)
 	volume_status=$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)\].*/\1/')
 	[ "$mpd_status" == "[playing]" ] && mpc -q toggle
 	[ "$volume_status" == "on" ] && amixer set Master off >>/dev/null
+	sleep 1 && xset dpms force off &
 	$HOME/.dwm/tools/lock.sh -n
 	[ "$mpd_status" == "[playing]" ] && mpc -q toggle
 	[ "$volume_status" == "on" ] && amixer set Master on >>/dev/null

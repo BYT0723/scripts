@@ -27,12 +27,17 @@ blue='#268bd2'
 cyan='#2aa198'
 green='#859900'
 
-# wallpaperDir=/usr/share/backgrounds/archlinux
-# wallpaper=$(find $wallpaperDir -maxdepth 1 -type f -regextype posix-extended -regex ".*\.(jpg|png|jpeg)" | shuf -n 1)
+wallpaperDir=$HOME/Desktop/Wallpapers/images/common
+wallpaper=$(find $wallpaperDir -maxdepth 1 -type f -regextype posix-extended -regex ".*\.(jpg|png|jpeg)" | shuf -n 1)
 
 # PERF: use --image，keypress and keyrelease handle will be slow
+# or use https://github.com/BYT0723/i3lock-color (i3lock-color fork)
 
 i3lock \
+	-i "$wallpaper" \
+	--slideshow-interval 60 \
+	--slideshow-random-selection \
+	-F \
 	--color=$back$backAlpha \
 	--insidever-color=$base02$alpha \
 	--insidewrong-color=$base02$alpha \
