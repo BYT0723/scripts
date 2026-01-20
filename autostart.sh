@@ -55,6 +55,11 @@ application_launch() {
 	launch easyeffects "easyeffects --service-mode --hide-window &"
 }
 
-source "$WORK_DIR/keyboard.sh"
+keyboard_setting() {
+	bash $TOOLS_DIR/keyboard.sh set delay 250
+	bash $TOOLS_DIR/keyboard.sh set rate 35
+}
+
 desktop_setting
 application_launch
+keyboard_setting
