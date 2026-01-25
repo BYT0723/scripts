@@ -2,8 +2,8 @@
 #
 TOOLS_DIR="$(dirname $0)/tools"
 ROFI_SCRIPT_DIR="$(dirname $0)/rofi/scripts"
-terminal="WINIT_X11_SCALE_FACTOR=1 alacritty -o 'font.size=12'"
-float_terminal="WINIT_X11_SCALE_FACTOR=1 alacritty --config-file $HOME/.config/alacritty/alacritty-float.toml -o 'font.size=12'"
+terminal="kitty"
+float_terminal="kitty --class float-term -o font_size=10 -o initial_window_width=120c -o initial_window_height=36c"
 
 source "$(dirname "$0")/utils/notify.sh"
 
