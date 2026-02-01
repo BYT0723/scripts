@@ -55,11 +55,13 @@ set() {
 		layout=${2:-$cur_layout}
 		setxkbmap $layout
 		;;
-	"set-option")
+	"option-set")
+		shift
 		setxkbmap $cur_layout -option ""
 		setxkbmap $cur_layout -option "$@"
 		;;
-	"add-option")
+	"option-add")
+		shift
 		setxkbmap $cur_layout -option "$@"
 		;;
 	*)
@@ -67,8 +69,8 @@ set() {
 		echo "    delay"
 		echo "    rate"
 		echo "    layout"
-		echo "    set-option"
-		echo "    add-option"
+		echo "    option-add"
+		echo "    option-set"
 		;;
 	esac
 }

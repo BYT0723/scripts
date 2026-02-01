@@ -59,6 +59,7 @@ application_launch() {
 keyboard_setting() {
 	bash $TOOLS_DIR/keyboard.sh set delay 250
 	bash $TOOLS_DIR/keyboard.sh set rate 35
+	bash $TOOLS_DIR/keyboard.sh set option-set "caps:escape,altwin:swap_lalt_lwin"
 }
 
 desktop_setting
