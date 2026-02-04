@@ -11,7 +11,8 @@ term() {
 		kitty --class float-term \
 			-o font_size=8 \
 			-o initial_window_width=160c \
-			-o initial_window_height=48c &
+			-o initial_window_height=48c \
+			tmux new -s "float-term-$RANDOM" -n main \; set destroy-unattached on &
 		;;
 	*)
 		# WINIT_X11_SCALE_FACTOR=1 alacritty $@ &
