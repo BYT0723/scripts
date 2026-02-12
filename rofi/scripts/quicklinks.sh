@@ -24,6 +24,12 @@ trim() {
 	printf '%s' "$s"
 }
 
+is_url() {
+	[[ "$1" =~ ^https?:// ]] && return 0
+	[[ "$1" =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,} ]] && return 0
+	return 1
+}
+
 build_menu() {
 	for entry in "${links[@]}"; do
 		IFS='|' read -r icon name url <<<"$entry"
@@ -75,6 +81,13 @@ run_cmd() {
 			exit
 		fi
 	done
+
+	# Direct URL
+	if is_url "$chosen"; then
+		[[ "$chosen" =~ ^https?:// ]] || chosen="https://$chosen"
+		xdg-open "$chosen"
+		exit
+	fi
 
 	xdg-open "$search_engine$chosen"
 }
