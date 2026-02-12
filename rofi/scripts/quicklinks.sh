@@ -48,13 +48,17 @@ rofi_cmd() {
 		-markup-rows \
 		-theme ${theme} \
 		-mesg "$mesg" \
-		-matching fuzzy -i \
+		-i \
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }
 
 run_rofi() {
 	build_menu | rofi_cmd
 }
+
+google_search=https://www.google.com/search?q=
+bing_search=https://cn.bing.com/search?q=
+search_engine=$google_search
 
 run_cmd() {
 	chosen="$1"
@@ -66,15 +70,13 @@ run_cmd() {
 		name=$(trim "$name")
 		url=$(trim "$url")
 
-		echo "'$chosen' == '$icon $name'"
-
-		match="$icon  $name"
-
-		if [[ "$chosen" == "$match" ]]; then
+		if [[ "$chosen" == "$icon  $name" ]]; then
 			xdg-open "$url"
 			exit
 		fi
 	done
+
+	xdg-open "$search_engine$chosen"
 }
 
 chosen="$(run_rofi)"
