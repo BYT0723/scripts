@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env /bin/bash
 
 WORK_DIR=$(dirname "$(dirname "$0")")
 
@@ -7,7 +7,7 @@ WORK_DIR=$(dirname "$(dirname "$0")")
 #
 
 # wallpaper configuration file
-conf="$WORK_DIR/configs/wallpaper.conf"
+conf="${XDG_CONFIG_HOME:-$HOME/.config}/dwm/wallpaper.conf"
 cache_wallpaper_dir="$HOME/.cache/byt0723/wallpaper/"
 mkdir -p "$cache_wallpaper_dir"
 wallpaper_latest="$cache_wallpaper_dir/wallpaper_latest"
@@ -106,6 +106,11 @@ set_wallpaper() {
 			return
 		fi
 
+		local keymapConf=$(getConfig video_keymap_conf)
+
+		keymapConf=$(printf '%s\n' "$keymapConf" | envsubst)
+		keymapConf="${keymapConf/#\~/$HOME}"
+
 		for position in $(xrandr | grep " connected " | grep -oP '\d+x\d+\+\d+\+\d+'); do
 			xwinwrap -d -ov -g $position -- mpv -wid WID "$arg" \
 				--no-config \
@@ -128,7 +133,7 @@ set_wallpaper() {
 				--no-sub \
 				--demuxer-max-bytes=256MiB \
 				--demuxer-readahead-secs=20 \
-				--input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
+				--input-conf=$keymapConf 2>&1 >~/.wallpaper.log
 		done
 
 		# write command to configuration
@@ -179,8 +184,12 @@ next_wallpaper() {
 
 		local dir=$(getConfig random_video_dir)
 
-		if ! [ -d $dir ]; then
-			error "No target directory "$dir
+		# 展开环境变量
+		dir=$(printf '%s\n' "$dir" | envsubst)
+		dir="${dir/#\~/$HOME}"
+
+		if [[ ! -d "$dir" ]]; then
+			error "No target directory $dir"
 			return
 		fi
 
@@ -194,6 +203,10 @@ next_wallpaper() {
 		# Randomly get a video wallpaper
 		random=$(($RANDOM % $len + 1))
 		filename=$(find $dir -maxdepth $depth -type f -regextype posix-extended -regex ".*\.(mp4|avi|mkv)" | head -n $random | tail -n 1)
+
+		local keymapConf=$(getConfig video_keymap_conf)
+		keymapConf=$(printf '%s\n' "$keymapConf" | envsubst)
+		keymapConf="${keymapConf/#\~/$HOME}"
 
 		for name in $(xrandr | grep " connected " | awk '{print $1}'); do
 			read _ target_width target_height target_x target_y < <(get_monitor_info $name)
@@ -223,7 +236,7 @@ next_wallpaper() {
 				--no-sub \
 				--demuxer-max-bytes=256MiB \
 				--demuxer-readahead-secs=20 \
-				--input-conf=$(getConfig video_keymap_conf) 2>&1 >~/.wallpaper.log
+				--input-conf=$keymapConf 2>&1 >~/.wallpaper.log
 		done
 
 		xdotool mousemove $mouse_x $mouse_y
@@ -233,8 +246,12 @@ next_wallpaper() {
 	"image")
 		local dir=$(getConfig random_image_dir)
 
-		if ! [ -d $dir ]; then
-			error "No target directory "$dir
+		# 展开环境变量
+		dir=$(printf '%s\n' "$dir" | envsubst)
+		dir="${dir/#\~/$HOME}"
+
+		if [[ ! -d "$dir" ]]; then
+			error "No target directory $dir"
 			return
 		fi
 

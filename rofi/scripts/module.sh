@@ -20,10 +20,12 @@ elif [[ ("$theme" == *'type-2'*) || ("$theme" == *'type-4'*) ]]; then
 	list_row='1'
 fi
 
+CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}/dwm"
+
 # 配置文件路径
 declare -A confPath
-confPath["picom"]="$WORK_DIR/configs/picom.conf"
-confPath["wallpaper"]="$WORK_DIR/configs/wallpaper.conf"
+confPath["picom"]="$CONFIG_HOME/picom.conf"
+confPath["wallpaper"]="$CONFIG_HOME/wallpaper.conf"
 
 # 定义运行命令的Map
 declare -A applicationCmd

@@ -11,7 +11,7 @@ theme="$type/$style"
 font="JetBrains Mono Nerd Font 16"
 mesg="Using '$(xdg-settings get default-web-browser | cut -d . -f 1)' Open Link"
 
-CONFIG="$(dirname $ROFI_DIR)/configs/quicklinks.conf"
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/dwm/quicklinks.conf"
 
 mapfile -t links < <(
 	grep -v '^\s*#' "$CONFIG" | grep -v '^\s*$'

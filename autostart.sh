@@ -40,8 +40,7 @@ desktop_setting() {
 
 application_launch() {
 	# 窗口合成器 picom (window composer)
-	# picom --config $dir/configs/picom.conf -b --experimental-backends (开启试验功能)
-	launch picom "picom --config $WORK_DIR/configs/picom.conf -b"
+	launch picom "picom --config "${XDG_CONFIG_HOME:-$HOME/.config}/dwm/picom.conf" -b"
 	# 启动通知
 	launch dunst "dunst &"
 	# network manager 网络管理bar icon
