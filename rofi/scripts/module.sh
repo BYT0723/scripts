@@ -27,7 +27,7 @@ confPath["wallpaper"]="$WORK_DIR/configs/wallpaper.conf"
 
 # 定义运行命令的Map
 declare -A applicationCmd
-applicationCmd["picom"]="picom --config $WORK_DIR/configs/picom.conf -b"
+applicationCmd["picom"]="picom --config ${confPath["picom"]} -b"
 
 # Options
 layout=$(cat ${theme} | grep 'USE_ICON' | cut -d'=' -f2)
