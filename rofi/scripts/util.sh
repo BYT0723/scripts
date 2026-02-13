@@ -152,3 +152,70 @@ if [ ! -d \"$(dirname $remote_auth_path)\" ] || [ ! -f \"$remote_auth_path\" ] |
     mkdir -p \"$(dirname $remote_auth_path)\" && touch \"$remote_auth_path\" && echo \"$pk\" | tee -a \"$remote_auth_path\"; \
 fi" >>/dev/null
 }
+
+# trim: 去掉字符串首尾空白（空格 / tab / 换行等）
+# 使用 bash 参数展开实现，不调用外部进程（比 sed/awk 快）
+trim() {
+	local s="$*"
+
+	# ---------- 去除前导空白 ----------
+	# ${s%%[![:space:]]*}
+	#   从开头匹配：直到遇到第一个“非空白字符”为止
+	#   结果就是：整段前导空白
+	#
+	# ${s#"pattern"}
+	#   从字符串开头删除该 pattern
+	#
+	# 组合效果：
+	#   删除 s 开头所有空白字符
+	s="${s#"${s%%[![:space:]]*}"}"
+
+	# ---------- 去除尾随空白 ----------
+	# ${s##*[![:space:]]}
+	#   从后往前匹配：直到最后一个非空白字符之后的部分
+	#   结果就是：尾部所有空白
+	#
+	# ${s%"pattern"}
+	#   从字符串尾部删除该 pattern
+	#
+	# 组合效果：
+	#   删除 s 末尾所有空白字符
+	s="${s%"${s##*[![:space:]]}"}"
+
+	# 输出结果（不换行）
+	printf '%s' "$s"
+}
+
+# is_url: 粗略判断一个字符串是否“看起来像 URL / 域名”
+# 仅做启发式判断，不保证 RFC 完整合法性
+is_url() {
+
+	# 匹配 http:// 或 https:// 开头
+	# 典型完整 URL
+	if [[ "$1" =~ ^https?:// ]]; then
+		return 0
+	fi
+
+	# 匹配类似 example.com 的结构
+	#
+	# 规则解释：
+	#   ^                    开头
+	#   [a-zA-Z0-9.-]+      域名主体
+	#   \.                   点
+	#   [a-zA-Z]{2,}         TLD 至少2字符 (.com/.io)
+	#
+	# 能匹配：
+	#   google.com
+	#   foo.bar.org
+	#
+	# 不保证：
+	#   子路径
+	#   端口
+	#   IPv6
+	if [[ "$1" =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,} ]]; then
+		return 0
+	fi
+
+	# 都不匹配 → 认为不是 URL
+	return 1
+}

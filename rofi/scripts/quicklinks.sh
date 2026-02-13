@@ -2,6 +2,8 @@
 
 ROFI_DIR="$(dirname "$(dirname "$0")")"
 
+source "$(dirname "$0")"/util.sh
+
 # Import Current Theme
 type="$ROFI_DIR/launchers/type-1"
 style='style-5.rasi'
@@ -15,30 +17,13 @@ mapfile -t links < <(
 	grep -v '^\s*#' "$CONFIG" | grep -v '^\s*$'
 )
 
-trim() {
-	local s="$*"
-	# 去前导空白
-	s="${s#"${s%%[![:space:]]*}"}"
-	# 去尾随空白
-	s="${s%"${s##*[![:space:]]}"}"
-	printf '%s' "$s"
-}
-
-is_url() {
-	[[ "$1" =~ ^https?:// ]] && return 0
-	[[ "$1" =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,} ]] && return 0
-	return 1
-}
-
 build_menu() {
 	for entry in "${links[@]}"; do
 		IFS='|' read -r icon name url <<<"$entry"
 
-		icon=$(trim "$icon")
 		name=$(trim "$name")
-		url=$(trim "$url")
 
-		echo "$icon  $name"
+		echo "$icon $name"
 	done
 }
 
@@ -67,18 +52,16 @@ bing_search=https://cn.bing.com/search?q=
 search_engine=$google_search
 
 run_cmd() {
-	chosen="$1"
+	local chosen="$1"
 
 	for entry in "${links[@]}"; do
 		IFS="|" read -r icon name url <<<"$entry"
 
-		icon=$(trim "$icon")
 		name=$(trim "$name")
-		url=$(trim "$url")
 
-		if [[ "$chosen" == "$icon  $name" ]]; then
-			xdg-open "$url"
-			exit
+		if [[ "$chosen" == "$icon $name" ]]; then
+			chosen=$(trim "$url")
+			break
 		fi
 	done
 
