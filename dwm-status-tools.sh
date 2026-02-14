@@ -1,5 +1,8 @@
 #!/bin/bash
 
+source "$(dirname $0)/utils/weather.sh"
+source "$(dirname $0)/utils/notify.sh"
+
 # colorscheme
 black=#1e222a
 yellow=#ffff00
@@ -20,12 +23,15 @@ icons["mpd"]=""
 icons["mail"]=""
 icons["rss"]=""
 
-# seconds
-weather_common_interval=1800 # 30 minute
-weather_retry_interval=1800  # 30 minute
-weather_path="/tmp/.weather"
-weather_sync="/tmp/.weather_sync"
-source $(dirname $0)/utils/weather.sh
+cache_dir="/tmp/dwm-status"
+mkdir -p $cache_dir
+
+cpu_usage_path="$cache_dir/cpu_usage"
+weather_path="$cache_dir/weather"
+traffic_rx_path="$cache_dir/network-traffic-rx"
+traffic_tx_path="$cache_dir/network-traffic-tx"
+mail_unread_path="$cache_dir/mail-unread"
+rss_unread_path="$cache_dir/rss-unread"
 
 # MPD
 mpd_show_name=0
@@ -123,19 +129,16 @@ print_mem() {
 }
 
 print_cpu() {
-	# cpu load value
-	local cpu_val=$(grep -o "^[^ ]*" /proc/loadavg)
-	# local cpu_percent=$(printf "%2.0f" $(iostat -c 1 2 | awk 'NR==9 {print $1}'))
+	local cpu_usage=$(cat "$cpu_usage_path")
 
-	# colorscheme
-	if [ $(echo "$cpu_val > $(nproc)" | bc) -eq 1 ]; then
+	if ((cpu_usage >= 80)); then
 		printf "^c$yellow^"
 	else
 		printf "^c$white^"
 	fi
+
 	# output
-	# printf "${icons[cpu]}$cpu_percent%%"
-	printf "${icons[cpu]} $cpu_val"
+	printf "${icons[cpu]} %2d%%" "$cpu_usage"
 }
 
 print_temperature() {
@@ -166,36 +169,9 @@ print_temperature() {
 	printf "${icons["temp"]} ${temp}°C"
 }
 
-# Update weather to $weather_path
-function update_weather() {
-	touch $weather_sync
-	if weather=$(ipinfo-openMeteo); then
-		echo $weather'?'$(date +'%Y-%m-%d %H:%M:%S') >$weather_path
-	else
-		echo '?'$(date +'%Y-%m-%d %H:%M:%S') >$weather_path
-	fi
-	rm -f $weather_sync
-}
-
 print_weather() {
-	IFS='?' read weather stamp <<<$(cat $weather_path)
-
-	printf "$weather"
-
-	if [ -z "$weather" ]; then
-		local weather_interval=$weather_retry_interval
-	else
-		local weather_interval=$weather_common_interval
-	fi
-
-	# 计算两次请求时间间隔
-	# 如果时间间隔超过$weather_interval秒,则更新天气状态
-	local duration=$(($(date +%s) - $(date -d "$stamp" +%s)))
-	if [ ! -f $weather_path ] || [ -z "$stamp" ] || [ $duration -gt $weather_interval ]; then
-		if [ ! -f $weather_sync ]; then
-			update_weather &
-		fi
-	fi
+	weather=$(cat $weather_path)
+	[ ! -z "$weather" ] && printf "$weather"
 }
 
 # Music Player Daemon
@@ -227,6 +203,24 @@ print_mpd() {
 
 }
 
+human_speed() {
+	local bytes=$1
+
+	if ((bytes < 1024)); then
+		printf "%5d B/s" "$bytes"
+	elif ((bytes < 1024000)); then
+		printf "%5.1f K/s" "$(bc -l <<<"$bytes/1024")"
+	else
+		printf "%5.1f M/s" "$(bc -l <<<"$bytes/1024000")"
+	fi
+}
+
+# Network traffic
+print_speed() {
+	# output
+	printf " $(human_speed $(cat $traffic_rx_path))  $(human_speed $(cat $traffic_tx_path))"
+}
+
 # Only fcitx and fcitx5 are supported
 print_im() {
 	if [ -x fcitx-remote ]; then
@@ -254,15 +248,138 @@ print_im() {
 }
 
 print_mail() {
-	unread=$(notmuch count tag:unread)
+	unread=$(cat "$mail_unread_path")
 	if [[ $unread > 0 ]]; then
 		printf "${icons[mail]} $unread"
 	fi
 }
 
 print_rss() {
-	unread=$(newsboat -x print-unread | awk '{print $1}')
+	unread=$(cat "$rss_unread_path")
 	if [[ $unread > 0 ]]; then
 		printf "${icons[rss]} $unread"
 	fi
+}
+
+update_cpu() {
+	local interval=${1:-2}
+
+	# 保存上一次采样
+	local prev_total=0
+	local prev_idle=0
+
+	while true; do
+		# 读取第一行 cpu 汇总
+		read -r _ user nice system idle iowait irq softirq steal _ </proc/stat
+
+		# idle 时间
+		local idle_time=$((idle + iowait))
+
+		# 总时间
+		local total_time=$((user + nice + system + idle + iowait + irq + softirq + steal))
+
+		# 第一次调用只初始化
+		if ((prev_total == 0)); then
+			prev_total=$total_time
+			prev_idle=$idle_time
+			echo 0 >"$cpu_usage_path"
+
+			sleep $interval
+			continue
+		fi
+
+		# 差值
+		local delta_total=$((total_time - prev_total))
+		local delta_idle=$((idle_time - prev_idle))
+
+		# 保存
+		prev_total=$total_time
+		prev_idle=$idle_time
+
+		((delta_total == 0)) && sleep $interval && continue
+
+		# 计算使用率
+		local usage=$(((100 * (delta_total - delta_idle)) / delta_total))
+
+		echo $usage >"$cpu_usage_path"
+
+		sleep $interval
+	done
+}
+
+update_traffic() {
+	local interval=${1:-1}
+	local iface prev_rx prev_tx now_rx now_tx
+
+	while true; do
+		iface=$(ip route get 8.8.8.8 2>/dev/null | awk '{print $5}' | head -n1)
+
+		if [[ -z $iface ]]; then
+			sleep 1
+			continue
+		fi
+
+		[ -z $prev_rx ] && read prev_rx </sys/class/net/$iface/statistics/rx_bytes
+		[ -z $prev_tx ] && read prev_tx </sys/class/net/$iface/statistics/tx_bytes
+
+		sleep $interval
+
+		read now_rx </sys/class/net/$iface/statistics/rx_bytes
+		read now_tx </sys/class/net/$iface/statistics/tx_bytes
+
+		echo $((now_rx - prev_rx)) >"$traffic_rx_path"
+		echo $((now_tx - prev_tx)) >"$traffic_tx_path"
+
+		prev_rx=$now_rx
+		prev_tx=$now_tx
+	done
+}
+
+update_weather() {
+	local interval=${1:-300}
+	while true; do
+		weather=$(wttr.in)
+		[ -z "$weather" ] && weather=$(ipinfo-openMeteo)
+		echo "$weather" >"$weather_path"
+		sleep $interval
+	done
+
+}
+
+update_mail() {
+	local interval=${1:-300}
+
+	[ -z "$(command -v offlineimap)" ] && system-notify critical "Tool Not Found" "please install offlineimap" && return
+	[ -z "$(command -v notmuch)" ] && system-notify critical "Tool Not Found" "please install notmuch" && return
+
+	while true; do
+		output=$(offlineimap -o >>/dev/null)
+		if [ ! -z "$output" ]; then
+			notify-send -u critical -i mail-unread-symbolic "Mailbox synchronization failed:"$output
+			sleep $interval
+			continue
+		fi
+
+		notmuch new
+		unread=$(notmuch count tag:unread)
+
+		echo $unread >"$mail_unread_path"
+
+		if [ $unread -gt 0 ]; then
+			notify-send -i mail-unread-symbolic "$(notmuch search --output=files tag:unread | cut -d/ -f5 | sort | uniq -c | awk '{print "[" $2 "] \t" $1 "封新邮件"}')"
+		fi
+
+		sleep $interval
+	done
+}
+
+update_rss() {
+	local interval=${1:-300}
+
+	[ -z "$(command -v newsboat)" ] && system-notify critical "Tool Not Found" "please install newsboat" && return
+
+	while true; do
+		echo "$(newsboat -x print-unread | awk '{print $1}')" >"$rss_unread_path"
+		sleep $interval
+	done
 }

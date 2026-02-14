@@ -29,6 +29,7 @@ layout=$(cat ${theme} | grep 'USE_ICON' | cut -d'=' -f2)
 if [[ "$layout" == 'NO' ]]; then
 	firstOpt=(
 		"SDDM"
+		"StatusBar"
 	)
 	sddmOpt=(
 		"Set Theme"
@@ -36,9 +37,13 @@ if [[ "$layout" == 'NO' ]]; then
 		"Edit Theme"
 		"Install Themes"
 	)
+	statusBarOpt=(
+		"Reboot"
+	)
 else
 	firstOpt=(
 		"SDDM"
+		"StatusBar"
 	)
 	sddmOpt=(
 		"Cur"
@@ -46,15 +51,21 @@ else
 		"Edit"
 		"Install"
 	)
+	statusBarOpt=(
+		"Reboot"
+	)
 fi
 
 declare -A optId
 optId[${firstOpt[0]}]="--opt1"
+optId[${firstOpt[1]}]="--opt2"
 
 optId[${sddmOpt[0]}]="--sddmOpt1"
 optId[${sddmOpt[1]}]="--sddmOpt2"
 optId[${sddmOpt[2]}]="--sddmOpt3"
 optId[${sddmOpt[3]}]="--sddmOpt4"
+
+optId[${statusBarOpt[0]}]="--statusBarOpt1"
 
 # Rofi CMD
 rofi_cmd() {
@@ -76,6 +87,11 @@ run_rofi() {
 		prompt='SDDM'
 		mesg="Current Theme: $(eval "$WORK_DIR/tools/sddm.sh cur")"
 		opts=("${sddmOpt[@]}")
+		;;
+	${optId[${firstOpt[1]}]})
+		prompt='StatusBar'
+		mesg="DWM Status Bar Daemon Script"
+		opts=("${statusBarOpt[@]}")
 		;;
 	${optId[${sddmOpt[0]}]})
 		prompt='SDDM Themes'
@@ -106,8 +122,14 @@ run_cmd() {
 		run_cmd ${optId[$chosen]}
 		return
 		;;
+	${optId[${firstOpt[1]}]})
+		chosen="$(run_rofi $1)"
+		run_cmd ${optId[$chosen]}
+		return
+		;;
 	${optId[${sddmOpt[0]}]})
 		chosen="$(run_rofi $1)"
+		[ -z "$chosen" ] && return
 		pkexec "$SDDM_SCRIPT" set $chosen
 		return
 		;;
@@ -123,6 +145,9 @@ run_cmd() {
 		"$TERM" -e bash -c "$(curl -fsSL https://raw.githubusercontent.com/keyitdev/sddm-astronaut-theme/master/setup.sh)"
 		rm -rf $HOME/sddm-astronaut-theme
 		return
+		;;
+	${optId[${statusBarOpt[0]}]})
+		bash $HOME/.dwm/dwm-status.sh reboot
 		;;
 	esac
 }
