@@ -138,7 +138,7 @@ print_cpu() {
 	fi
 
 	# output
-	printf "${icons[cpu]} %2d%%" "$cpu_usage"
+	printf "${icons[cpu]}%3d%%" "$cpu_usage"
 }
 
 print_temperature() {
