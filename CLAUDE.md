@@ -14,7 +14,7 @@ This repository contains configuration scripts and utilities for the **dwm (Dyna
 - `dwm-statuscmd.sh` – Handles click events on the status‑bar segments.
 - `dwm-launcher.sh` – Unified rofi‑based launcher for terminals, applications, power menu, etc.
 - `dwm-layoutmenu.sh` – Layout menu script.
-- `configs/` – Default configuration files (quicklinks, wallpaper, key mappings).
+- `configs/` – **Example/default configuration files** (quicklinks, wallpaper, key mappings). The actual configuration files used by the system are in `~/.config/dwm/`. Copy files from `configs/` to `~/.config/dwm/` and modify them as needed.
 - `tools/` – System utilities (brightness, volume, wallpaper, lock screen, monitor configuration).
 - `utils/` – Helper scripts (weather, notifications, printing, monitoring).
 - `rofi/` – Rofi configuration and scripts (launchers, power menu, applets, modules).
@@ -80,7 +80,7 @@ Ensure `autostart.sh` is executed when dwm starts (typically from `~/.xinitrc` o
 
 - `tools/wallpaper.sh` is a sophisticated controller that can set images, videos, or web pages as wallpapers.
 - Uses `feh` for images, `xwinwrap` + `mpv` for videos, and `tabbed` + `surf` for web pages.
-- Configuration in `configs/wallpaper_default.conf` and `configs/wallpaperKeyMap_default.conf`.
+- Configuration files: `configs/wallpaper_default.conf` and `configs/wallpaperKeyMap_default.conf` are example configurations. The actual configuration files are `~/.config/dwm/wallpaper.conf` and `~/.config/dwm/wallpaperKeyMap.conf`.
 
 ### Module System
 
@@ -94,7 +94,7 @@ Ensure `autostart.sh` is executed when dwm starts (typically from `~/.xinitrc` o
 
 ## Configuration
 
-- Configuration files are expected in `${XDG_CONFIG_HOME:-$HOME/.config}/dwm/`. The `configs/` directory contains default versions.
+- **Actual configuration files are stored in `~/.config/dwm/`** (or `${XDG_CONFIG_HOME}/dwm/` if set). The `configs/` directory in this repository contains **example/default versions only**. To configure the system, copy the needed files from `configs/` to `~/.config/dwm/` and edit them there.
 - Fonts must be installed system‑wide or in `~/.local/share/fonts/`. The scripts assume **JetBrains Mono Nerd Font** and **Iosevka Nerd Font** are available.
 - Many scripts rely on standard Arch Linux packages (see the table in `README.md` for a full list of dependencies).
 - The main `README.md` is written in Chinese; many script comments are also in Chinese. Key configuration parameters are often indicated with English variable names.
