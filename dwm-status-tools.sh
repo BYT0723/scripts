@@ -309,26 +309,35 @@ update_cpu() {
 
 update_traffic() {
 	local interval=${1:-1}
-	local iface prev_rx prev_tx now_rx now_tx
+	local iface last_iface prev_rx prev_tx now_rx now_tx
 
 	while true; do
-		iface=$(ip route get 8.8.8.8 2>/dev/null | awk '{print $5}' | head -n1)
+		iface=$(ip route get 8.8.8.8 2>/dev/null | awk '{print $5; exit}')
 
-		if [[ -z $iface ]]; then
-			sleep 1
+		if [[ -z $iface || ! -e /sys/class/net/$iface/statistics/rx_bytes ]]; then
+			sleep "$interval"
 			continue
 		fi
 
-		[ -z $prev_rx ] && read prev_rx </sys/class/net/$iface/statistics/rx_bytes
-		[ -z $prev_tx ] && read prev_tx </sys/class/net/$iface/statistics/tx_bytes
+		# 接口变化重置
+		if [[ "$iface" != "$last_iface" ]]; then
+			read prev_rx </sys/class/net/$iface/statistics/rx_bytes
+			read prev_tx </sys/class/net/$iface/statistics/tx_bytes
+			last_iface=$iface
+			sleep "$interval"
+			continue
+		fi
 
-		sleep $interval
+		[ -z "$prev_rx" ] && read prev_rx </sys/class/net/$iface/statistics/rx_bytes
+		[ -z "$prev_tx" ] && read prev_tx </sys/class/net/$iface/statistics/tx_bytes
+
+		sleep "$interval"
 
 		read now_rx </sys/class/net/$iface/statistics/rx_bytes
 		read now_tx </sys/class/net/$iface/statistics/tx_bytes
 
-		echo $((now_rx - prev_rx)) >"$traffic_rx_path"
-		echo $((now_tx - prev_tx)) >"$traffic_tx_path"
+		echo $((now_rx >= prev_rx ? (now_rx - prev_rx) / interval : 0)) >"$traffic_rx_path"
+		echo $((now_tx >= prev_tx ? (now_tx - prev_tx) / interval : 0)) >"$traffic_tx_path"
 
 		prev_rx=$now_rx
 		prev_tx=$now_tx
