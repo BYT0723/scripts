@@ -9,7 +9,7 @@ type="$ROFI_DIR/launchers/type-1"
 style='style-5.rasi'
 theme="$type/$style"
 font="JetBrains Mono Nerd Font 16"
-mesg="Using '$(xdg-settings get default-web-browser | cut -d . -f 1)' Open Link"
+mesg="Using '"$(get_default_browser_name)"' Open Link"
 
 CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/dwm/quicklinks.conf"
 

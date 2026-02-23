@@ -219,3 +219,20 @@ is_url() {
 	# 都不匹配 → 认为不是 URL
 	return 1
 }
+
+get_default_browser_name() {
+	local desktop path lang
+
+	desktop=$(xdg-settings get default-web-browser)
+	path=$(fd "$desktop" /usr/share/applications ~/.local/share/applications 2>/dev/null | head -n1)
+
+	[ -z "$path" ] && return 1
+
+	lang=$(echo $LANG | cut -d. -f1)
+
+	name=$(grep -m1 "^Name\[$lang\]=" "$path" | cut -d= -f2)
+
+	[ -z "$name" ] && name=$(grep -m1 "^Name=" "$path" | cut -d= -f2)
+
+	echo $name
+}
