@@ -1,19 +1,14 @@
 #!/bin/bash
 
-set -euo pipefail
-
-dir=${1:-}
-len=${2:-10}
-recent_day=${3:-90}
-
-[ -z "$dir" ] && echo "Usage: $(basename $0) <dir> [len]" && exit 1
-[ ! -d "$dir" ] && echo "$dir is not a directory" && exit 1
-
-[[ "$dir" != /* ]] && dir=$(realpath "$dir")
-
 random() {
 	local dir=$1
-	local len=$2
+	local len=${2:-10}
+
+	[ -z "$dir" ] && echo "Usage: $(basename $0) <dir> [len]" && exit 1
+	[ ! -d "$dir" ] && echo "$dir is not a directory" && exit 1
+
+	[[ "$dir" != /* ]] && dir=$(realpath "$dir")
+
 	cd $dir
 	mpv \
 		--really-quiet \
@@ -28,8 +23,13 @@ random() {
 
 recency_random() {
 	local dir=$1
-	local len=$2
-	local recent_day=$3
+	local len=${2:-10}
+	local recent_day=${3:-90}
+
+	[ -z "$dir" ] && echo "Usage: $(basename $0) <dir> [len]" && exit 1
+	[ ! -d "$dir" ] && echo "$dir is not a directory" && exit 1
+
+	[[ "$dir" != /* ]] && dir=$(realpath "$dir")
 
 	cd $dir
 
@@ -82,4 +82,12 @@ recency_random() {
 	mpv --really-quiet --playlist=<(echo "$playlist")
 }
 
-recency_random $dir $len $recent_day
+case "$1" in
+"recent")
+	shift
+	recency_random $@
+	;;
+*)
+	random $@
+	;;
+esac
