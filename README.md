@@ -5,13 +5,11 @@
 ## required
 
 1. 字体
-
    - rofi 中的字体配置为`JetBrains Mono Nerd Font`以及`Iosevka Nerd Font`,两个字体均可在 Arch 源中安装,`ttf-jetbrains-mono-nerd`和`ttf-iosevka-nerd`
    - 中文字体,如果习惯了思源黑体安装`wqy-zenhei`,如果有其他需求可是配置 archlinuxcn 源，其中有很多中文字体，这边推荐个霞鹜楷体`ttf-lxgw-wenkai`,以及他的等宽字体`ttf-lxgw-wenkai-mono`
    - 以及`rofi/fonts`中的字体,copy 到`~/.local/share/fonts/`中
 
 2. 如下是一些基本依赖
-
    - `rofi`,类似 dmenu 的一种程序启动启动器,当然还有其他作用.
    - `picom`,窗口合成器，管理桌面中的窗口效果和动画等,初始版`picom`和`picom-git`,只有窗口效果和一些渐变效果,动画这些需要安装 fork 版本,都在 AUR 中,例如`picom-jonaburg-git`和`picom-animation-git`.如果你使用的 fork 版本记得根据 github 中的文档修改`autostart.sh`和`moduel.sh`中 picom 的启动项
    - 通知, 系统通知的统一接口库`libnotify`，无论你安装何种通知程序，都可调用 notify-send 发送通知.当然平铺窗口还是推荐 `dunst`.
@@ -24,7 +22,7 @@
    - ...
 
 | Name                       | Detail                                                                                                                      | Required                                                                                            |
-| :--------------------      | :---------------------------------                                                                                          | :-------------------------------------------------------------------------------------------------- |
+| :------------------------- | :-------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------- |
 | autostart.sh               | dwm autostart script                                                                                                        | picom-git / lxsession / xautolock / slock / network-manager-applet / udiskie / fcitx5-im            |
 | dwm-status-tools.sh        | dwm status bar toolkit                                                                                                      | acpi / alsa-utils / light / networkmanager / mpc / mpd                                              |
 | dwm-status-refresh.sh      | dwm status composer                                                                                                         | bc                                                                                                  |
@@ -54,4 +52,12 @@
 
 For details, see the comment documentation in the script
 
-<!-- ## previews -->
+## Firefox hide tab button
+
+```css
+#TabsToolbar {
+  #alltabs-button {
+    display: none !important;
+  }
+}
+```
