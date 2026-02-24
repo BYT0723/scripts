@@ -22,6 +22,7 @@ icons["temp"]=""
 icons["mpd"]=""
 icons["mail"]=""
 icons["rss"]=""
+icons["ssl-conn"]="󰕞"
 
 cache_dir="/tmp/dwm-status"
 mkdir -p $cache_dir
@@ -80,14 +81,12 @@ print_volume() {
 
 print_brightness() {
 	icon="󰃟 "
-	printf "\x04^c$white^^b$black^"
 	printf "%s%2d" $icon $(xbacklight -get)
 }
 
 print_wifi() {
 	wifi=$(nmcli connection show -active | grep -E 'wifi' | awk '{print $1}')
 
-	printf "\x05^b$black^^c$darkblue^"
 	if [ "$wifi" == "" ]; then
 		printf "󰖪"
 	else
@@ -259,6 +258,24 @@ print_rss() {
 	if [[ $unread > 0 ]]; then
 		printf "${icons[rss]} $unread"
 	fi
+}
+
+print_ssl_count() {
+	local host=$1
+	local desc=${2:-"ssl count"}
+	local count=$(ss -tan dst "$host" | wc -l)
+
+	((count > 1)) && printf "$desc $((count - 1))"
+}
+
+get_sing_box_outbound_host() {
+	local cfg_path=${1}
+	local tag=${2}
+	jq -r '.outbounds[] | select(.tag=="'$tag'") | .server + ":" + (.server_port|tostring)' "/etc/sing-box/config.json" |
+		while IFS=: read host port; do
+			ip=$(getent ahostsv4 "$host" | awk '{print $1; exit}')
+			echo "${ip:-$host}:$port"
+		done
 }
 
 update_cpu() {

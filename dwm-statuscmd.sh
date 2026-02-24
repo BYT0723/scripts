@@ -1,4 +1,9 @@
 #!/bin/bash
+
+#
+#  Handle the statusBar click event
+#  see file config.h variable statuscmds
+#
 #
 TOOLS_DIR="$(dirname $0)/tools"
 ROFI_SCRIPT_DIR="$(dirname $0)/rofi/scripts"
@@ -6,15 +11,6 @@ terminal="kitty"
 float_terminal="kitty --class float-term -o font_size=10 -o initial_window_width=120c -o initial_window_height=36c"
 
 source "$(dirname "$0")/utils/notify.sh"
-
-#  Handle the statusBar click event
-#  see file config.h variable statuscmds
-
-cmdType=$1
-# 1 left button
-# 2 middle button
-# 3 right button
-buttonType=$2
 
 dateHandler() {
 	buttonType=$1
@@ -206,39 +202,46 @@ rssHandler() {
 	esac
 }
 
-# route by $cmdType
-case "$cmdType" in
-date)
-	dateHandler $2
+cmdIndex=$1
+shift
+
+# next param: button type
+# 1 left button
+# 2 middle button
+# 3 right button
+
+case "$cmdIndex" in
+1)
+	dateHandler $@
 	;;
-battery)
-	batteryHandler $2
+2)
+	batteryHandler $@
 	;;
-volume)
-	volumeHandler $2
+3)
+	volumeHandler $@
 	;;
-disk-root)
-	diskHandler $2
+6)
+	diskHandler $@
 	;;
-memory)
-	memoryHandler $2
+7)
+	memoryHandler $@
 	;;
-cpu)
-	cpuHandler $2
+8)
+	cpuHandler $@
 	;;
-netSpeed)
-	netSpeedHandler $2
+11)
+	netSpeedHandler $@
 	;;
-mpd)
-	mpdHandler $2
+10)
+	mpdHandler $@
 	;;
-weather)
-	weatherHandler $2
+9)
+	weatherHandler $@
 	;;
-mail)
-	mailHandler $2
+12)
+	mailHandler $@
 	;;
-rss)
-	rssHandler $2
+13)
+	rssHandler $@
 	;;
 esac
