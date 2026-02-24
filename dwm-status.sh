@@ -32,7 +32,7 @@ panes() {
 	if [ -f "$SING_BOX_CONFIG" ]; then
 		host=$(get_sing_box_outbound_host $SING_BOX_CONFIG "trojan-out")
 		ssl_conns=$(print_ssl_count "$host" "")
-		[[ ! -z "$ssl_conns" ]] && panes+="$(new_pane $grey "^c$yellow^$ssl_conns")"
+		[[ ! -z "$ssl_conns" ]] && panes+="$(new_pane $grey "\x0e^c$yellow^$ssl_conns")"
 	fi
 
 	panes+="$(new_pane $grey "\x08$(print_cpu)$(print_temperature)" "\x07$(print_mem)" "\x06$(print_disk)")"

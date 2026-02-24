@@ -202,6 +202,10 @@ rssHandler() {
 	esac
 }
 
+sing_box_summary() {
+	xdg-open "http://127.0.0.1:9090/ui"
+}
+
 cmdIndex=$1
 shift
 
@@ -243,5 +247,8 @@ case "$cmdIndex" in
 	;;
 13)
 	rssHandler $@
+	;;
+14)
+	sing_box_summary $@
 	;;
 esac
