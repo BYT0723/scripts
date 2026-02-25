@@ -3,6 +3,10 @@
 WORK_DIR=$(dirname "$0")
 TOOLS_DIR="$WORK_DIR/tools"
 
+# conky 是否自启动
+CONKY_AUTOSTART=0
+
+# 显示器布局初始化
 bash $TOOLS_DIR/monitor-conf.sh
 
 # 启动应用
@@ -30,7 +34,7 @@ desktop_setting() {
 	launch_monitor "[d]wm-status.sh" "/bin/bash $WORK_DIR/dwm-status.sh &" &
 	# conky (system monitor) (conky must be before wallpaper)
 	# 如果壁纸在conky之前就会导致壁纸沉入xwinwrap之下，导致无法看到conky窗口(针对video/page壁纸)
-	launch conky "conky -U -d"
+	((CONKY_AUTOSTART > 0)) && conky -U -d &
 	# 壁纸(不使用launch_monitor是因为wallpaper每次启动都要使用新的instance, 移除旧的实例)
 	# wallpaper.sh内部实现了
 	/bin/bash "$TOOLS_DIR"/wallpaper.sh -r &

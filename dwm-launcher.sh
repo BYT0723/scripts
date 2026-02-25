@@ -53,6 +53,11 @@ emoji() {
 	/bin/bash "$WORKDIR"/rofi/scripts/emoji.sh
 }
 
+toggle_conky() {
+	[ ! -z "$(pgrep conky)" ] && pkill conky && return
+	conky -U -d
+}
+
 case "$1" in
 "term")
 	term $2
@@ -80,5 +85,8 @@ case "$1" in
 	;;
 "emoji")
 	emoji
+	;;
+"conky")
+	toggle_conky
 	;;
 esac
