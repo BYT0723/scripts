@@ -111,30 +111,30 @@ set_wallpaper() {
 		keymapConf=$(printf '%s\n' "$keymapConf" | envsubst)
 		keymapConf="${keymapConf/#\~/$HOME}"
 
-		for position in $(xrandr | grep " connected " | grep -oP '\d+x\d+\+\d+\+\d+'); do
-			xwinwrap -d -ov -g $position -- mpv -wid WID "$arg" \
-				--no-config \
-				--load-scripts=no \
-				--no-keepaspect \
-				--mute \
-				--no-osc \
-				--loop \
-				--vid=1 \
-				--no-ytdl \
-				--no-terminal \
-				--really-quiet \
-				--cursor-autohide=no \
-				--player-operation-mode=cplayer \
-				--no-input-default-bindings \
-				--cache \
-				--framedrop=decoder \
-				--speed=0.75 \
-				--vf=scale=2560:-1,fps=60 \
-				--no-sub \
-				--demuxer-max-bytes=256MiB \
-				--demuxer-readahead-secs=20 \
-				--input-conf=$keymapConf 2>&1 >~/.wallpaper.log
-		done
+		read index name width height x y < <(get_current_monitor)
+
+		xwinwrap -d -ov -g ${width}x${height}+${x}+${y} -- mpv -wid WID "$arg" \
+			--no-config \
+			--load-scripts=no \
+			--no-keepaspect \
+			--mute \
+			--no-osc \
+			--loop \
+			--vid=1 \
+			--no-ytdl \
+			--no-terminal \
+			--really-quiet \
+			--cursor-autohide=no \
+			--player-operation-mode=cplayer \
+			--no-input-default-bindings \
+			--cache \
+			--framedrop=decoder \
+			--speed=0.75 \
+			--vf=scale=2560:-1,fps=60 \
+			--no-sub \
+			--demuxer-max-bytes=256MiB \
+			--demuxer-readahead-secs=20 \
+			--input-conf=$keymapConf 2>&1 >~/.wallpaper.log
 
 		# write command to configuration
 		echo "$arg" >$wallpaper_latest
@@ -208,14 +208,8 @@ next_wallpaper() {
 		keymapConf=$(printf '%s\n' "$keymapConf" | envsubst)
 		keymapConf="${keymapConf/#\~/$HOME}"
 
-		for name in $(xrandr | grep " connected " | awk '{print $1}'); do
-			read _ target_width target_height target_x target_y < <(get_monitor_info $name)
-
-			new_x=$(echo $target_x + $target_width/2 | bc)
-			new_y=$(echo $target_y + $target_height/2 | bc)
-			xdotool mousemove $new_x $new_y
-
-			xwinwrap -d -ov -g $target_width"x"$target_height"+"$target_x"+"$target_y -- mpv -wid WID "$filename" \
+		for position in $(xrandr | grep " connected " | grep -oP '\d+x\d+\+\d+\+\d+'); do
+			xwinwrap -d -ov -g $position -- mpv -wid WID "$filename" \
 				--no-config \
 				--load-scripts=no \
 				--no-keepaspect \
@@ -238,8 +232,6 @@ next_wallpaper() {
 				--demuxer-readahead-secs=20 \
 				--input-conf=$keymapConf 2>&1 >~/.wallpaper.log
 		done
-
-		xdotool mousemove $mouse_x $mouse_y
 
 		echo $filename >$wallpaper_latest
 		;;
