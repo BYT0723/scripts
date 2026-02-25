@@ -8,9 +8,10 @@ WORK_DIR=$(dirname "$(dirname "$0")")
 
 # wallpaper configuration file
 conf="${XDG_CONFIG_HOME:-$HOME/.config}/dwm/wallpaper.conf"
-cache_wallpaper_dir="$HOME/.cache/byt0723/wallpaper/"
+cache_wallpaper_dir="$HOME/.cache/wallpaper"
 mkdir -p "$cache_wallpaper_dir"
 wallpaper_latest="$cache_wallpaper_dir/wallpaper_latest"
+wallpaper_pid="$cache_wallpaper_dir/wallpaper_latest_pid"
 
 # Define the default configuration
 declare -A config
@@ -52,27 +53,45 @@ echo_help() {
 	echo "      -n | --next            random next wallpaper"
 }
 
-clean_lastest() {
-	# kill existing xwinwrap
-	while [[ -n "$(pgrep xwinwrap)" ]]; do
-		kill $(pgrep xwinwrap)
-		sleep 0.3
+clean_latest() {
+	local monitor_index=${1:-}
+
+	# 开启 nullglob，保证通配符为空时不会报错
+	shopt -s nullglob
+
+	local files=()
+
+	if [ -n "$monitor_index" ]; then
+		files=("${wallpaper_pid}_${monitor_index}")
+	else
+		files=("${wallpaper_pid}"_*)
+	fi
+
+	# 遍历每个匹配文件
+	for f in "${files[@]}"; do
+		[ ! -f $f ] && continue
+
+		pid=$(cat $f)
+		[ ! -z "$pid" ] && kill $pid
+		rm -f "$f"
 	done
 }
 
 # set wallpaper
 set_wallpaper() {
-	if [ -z "$1" ]; then
-		error "invalid wallpaper path"
-		return
-	fi
+	local filepath="$@"
 
-	args=("$@")        # 将所有参数存储到数组中
-	arg="${args[@]:1}" # 获取从索引1开始的3个参数作为切片
+	# TODO: 优化monitor selector theme
+	select_monitor=$(xrandr --listactivemonitors | awk 'NR>1 {print $0}' | rofi -dmenu)
 
-	clean_lastest
+	[ -z "$select_monitor" ] && return
 
-	baseFilename=$(basename "${arg// /_}")
+	select_monitor_name=$(echo $select_monitor | awk '{print $NF}')
+	read monitor_index width height x y < <(get_monitor_info "$select_monitor_name")
+
+	clean_latest $monitor_index
+
+	baseFilename=$(basename "${filepath// /_}")
 
 	# get file suffix
 	Type="${baseFilename##*.}"
@@ -111,9 +130,7 @@ set_wallpaper() {
 		keymapConf=$(printf '%s\n' "$keymapConf" | envsubst)
 		keymapConf="${keymapConf/#\~/$HOME}"
 
-		read index name width height x y < <(get_current_monitor)
-
-		xwinwrap -d -ov -g ${width}x${height}+${x}+${y} -- mpv -wid WID "$arg" \
+		xwinwrap -ov -g "${width}x${height}+${x}+${y}" -- mpv -wid WID "$filepath" \
 			--no-config \
 			--load-scripts=no \
 			--no-keepaspect \
@@ -129,15 +146,17 @@ set_wallpaper() {
 			--no-input-default-bindings \
 			--cache \
 			--framedrop=decoder \
-			--speed=0.75 \
 			--vf=scale=2560:-1,fps=60 \
 			--no-sub \
 			--demuxer-max-bytes=256MiB \
 			--demuxer-readahead-secs=20 \
-			--input-conf=$keymapConf 2>&1 >~/.wallpaper.log
+			--input-conf=$keymapConf 2>&1 >~/.wallpaper.log &
+
+		# 获取上一个命令的pid
+		echo "$!" >"${wallpaper_pid}_${monitor_index}"
 
 		# write command to configuration
-		echo "$arg" >$wallpaper_latest
+		echo "$filepath" >"${wallpaper_latest}_${monitor_index}"
 
 		;;
 	"image")
@@ -147,12 +166,11 @@ set_wallpaper() {
 			return
 		fi
 
-		feh --bg-scale --no-fehbg "$arg" >~/.wallpaper.log
+		feh --bg-scale --no-fehbg "$filepath" >~/.wallpaper.log
 		# write command to configuration
-		echo "$arg" >$wallpaper_latest
+		echo "$filepath" >"${wallpaper_latest}_${monitor_index}"
 		;;
 	"page")
-
 		# command detection
 		if ! [[ -n $(command -v xwinwrap) ]]; then
 			echo "set video to wallpaper need xwinwrap, install xwinwrap(https://github.com/BYT0723/xwinwrap) package"
@@ -163,18 +181,19 @@ set_wallpaper() {
 			return
 		fi
 
-		for position in $(xrandr | grep " connected " | grep -oP '\d+x\d+\+\d+\+\d+'); do
-			xwinwrap -ov -g $position -- tabbed -w WID -g $(echo $position | sed -E 's/^([0-9]+x[0-9]+).*/\1/') -r 2 surf -e '' $arg 2>&1 >~/.wallpaper.log 2>&1 >~/.wallpaper.log &
-		done
+		xwinwrap -ov -g "${width}x${height}+${x}+${y}" -- tabbed -w WID -g $(echo $position | sed -E 's/^([0-9]+x[0-9]+).*/\1/') -r 2 surf -e '' $filepath 2>&1 >~/.wallpaper.log 2>&1 >~/.wallpaper.log &
 
-		echo "$arg" >$wallpaper_latest
+		# 获取上一个命令的pid
+		echo "$!" >"${wallpaper_pid}_${monitor_index}"
+
+		echo "$filepath" >"${wallpaper_latest}_${monitor_index}"
 		;;
 	esac
 }
 
 # next random wallpaper
 next_wallpaper() {
-	clean_lastest
+	clean_latest
 
 	depth=$(getConfig random_depth)
 
@@ -208,8 +227,9 @@ next_wallpaper() {
 		keymapConf=$(printf '%s\n' "$keymapConf" | envsubst)
 		keymapConf="${keymapConf/#\~/$HOME}"
 
-		for position in $(xrandr | grep " connected " | grep -oP '\d+x\d+\+\d+\+\d+'); do
-			xwinwrap -d -ov -g $position -- mpv -wid WID "$filename" \
+		for name in $(xrandr --listactivemonitors | awk 'NR>1 {print $NF}'); do
+			read index width height x y < <(get_monitor_info "$name")
+			xwinwrap -ov -g "${width}x${height}+${x}+${y}" -- mpv -wid WID "$filename" \
 				--no-config \
 				--load-scripts=no \
 				--no-keepaspect \
@@ -225,15 +245,15 @@ next_wallpaper() {
 				--no-input-default-bindings \
 				--cache \
 				--framedrop=decoder \
-				--speed=0.75 \
 				--vf=scale=2560:-1,fps=60 \
 				--no-sub \
 				--demuxer-max-bytes=256MiB \
 				--demuxer-readahead-secs=20 \
-				--input-conf=$keymapConf 2>&1 >~/.wallpaper.log
-		done
+				--input-conf=$keymapConf 2>&1 >~/.wallpaper.log &
 
-		echo $filename >$wallpaper_latest
+			echo $! >"${wallpaper_pid}_${index}"
+			echo $filename >"${wallpaper_latest}_${index}"
+		done
 		;;
 	"image")
 		local dir=$(getConfig random_image_dir)
@@ -258,19 +278,23 @@ next_wallpaper() {
 		random=$(($RANDOM % $len + 1))
 		filename=$(find $dir -maxdepth $depth -type f -regextype posix-extended -regex ".*\.(jpeg|jpg|png)" | head -n $random | tail -n 1)
 
+		for name in $(xrandr --listactivemonitors | awk 'NR>1 {print $NF}'); do
+			read index width height x y < <(get_monitor_info "$name")
+			echo $filename >"${wallpaper_latest}_${index}"
+		done
+
 		feh --bg-scale --no-fehbg "$filename" >~/.wallpaper.log
-		echo $filename >$wallpaper_latest
 		;;
 	esac
 }
 
-set_lastest() {
+set_latest() {
 	# clean lastest wallpaper process (like xwinwrap)
-	clean_lastest
+	# clean_latest
 
 	# PERF: 将文件名获取网址存入cmdf中，使用脚本启动，这样启动不会做预备
 	if [ -f $wallpaper_latest ]; then
-		set_wallpaper -s "$(cat $wallpaper_latest)"
+		set_wallpaper "$(cat $wallpaper_latest)"
 	else
 		$cmd
 	fi
@@ -289,7 +313,7 @@ launch_wallpaper() {
 		done
 	fi
 
-	set_lastest
+	set_latest
 
 	local duration=$(($(getConfig duration) * 60))
 	while true; do
@@ -316,8 +340,11 @@ op=$1
 
 case "$op" in
 '-r' | '--run') launch_wallpaper ;;
-'-s' | '--set') set_wallpaper $* ;;
-'-l' | '--last') set_lastest ;;
+'-s' | '--set')
+	shift
+	set_wallpaper $@
+	;;
+'-l' | '--last') set_latest ;;
 '-n' | '--next') next_wallpaper ;;
 '-h' | '--help') echo_help ;;
 *)

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env /bin/bash
 
 # required
 # 	bc
@@ -22,8 +22,22 @@ get_monitor_info() {
 	echo $index $width $height $x $y
 }
 
+get_monitor_info_by_index() {
+	local idx="$1"
+	name=$(xrandr --listactivemonitors | grep "${idx}:" | awk '{print $NF}')
+	get_monitor_info $name
+}
+
 get_current_monitor() {
-	read mouse_x mouse_y < <(xdotool getmouselocation | sed -n 's/.*x:\([0-9]*\).*y:\([0-9]*\).*/\1 \2/p')
+	# 先尝试获取当前focus窗口ID
+	local win=$(xdotool getwindowfocus)
+	local use_mouse=$((win == 0 || win == 1 ? 1 : 0))
+
+	if [ "$use_mouse" = 0 ]; then
+		read px py < <(xdotool getwindowgeometry "$win" | awk 'NR==2 {print $2}' | awk -F ',' '{print $1 " " $2}')
+	else
+		read px py < <(xdotool getmouselocation | awk -F'[: ]' '{print $2, $4}')
+	fi
 
 	xrandr --listactivemonitors | {
 		read
@@ -31,7 +45,7 @@ get_current_monitor() {
 			name=$(echo $monitor | awk '{print $NF}')
 			read index width height x y < <(get_monitor_info "$name")
 
-			if [ $(expr $mouse_x - $x) -ge 0 ] && [ $(expr $mouse_x - $x - $width) -le 0 ] && [ $(expr $mouse_y - $y) -ge 0 ] && [ $(expr $mouse_y - $y - $height) -le 0 ]; then
+			if [ $(expr $px - $x) -ge 0 ] && [ $(expr $px - $x - $width) -le 0 ] && [ $(expr $py - $y) -ge 0 ] && [ $(expr $py - $y - $height) -le 0 ]; then
 				echo "$index $name $width $height $x $y"
 				return
 			fi
