@@ -31,8 +31,8 @@ panes() {
 
 	if [ -f "$SING_BOX_CONFIG" ]; then
 		host=$(get_sing_box_outbound_host $SING_BOX_CONFIG "trojan-out")
-		ssl_conns=$(print_ssl_count "$host" "")
-		[[ ! -z "$ssl_conns" ]] && panes+="$(new_pane $grey "\x0e^c$yellow^$ssl_conns")"
+		tls_conns=$(print_tls_count "$host" "")
+		[[ ! -z "$tls_conns" ]] && panes+="$(new_pane $grey "\x0e^c$yellow^$tls_conns")"
 	fi
 
 	panes+="$(new_pane $grey "\x08$(print_cpu)$(print_temperature)" "\x07$(print_mem)" "\x06$(print_disk)")"
@@ -54,7 +54,7 @@ refresh_status() {
 launch() {
 	update_cpu &
 	update_traffic &
-	update_mail &
+	# update_mail &
 	update_weather &
 	update_rss &
 	refresh_status

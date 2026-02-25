@@ -22,7 +22,7 @@ icons["temp"]=""
 icons["mpd"]=""
 icons["mail"]=""
 icons["rss"]=""
-icons["ssl-conn"]="󰕞"
+icons["tls-conn"]="󰕞"
 
 cache_dir="/tmp/dwm-status"
 mkdir -p $cache_dir
@@ -260,9 +260,9 @@ print_rss() {
 	fi
 }
 
-print_ssl_count() {
+print_tls_count() {
 	local host=$1
-	local desc=${2:-"ssl count"}
+	local desc=${2:-"tls count"}
 	local count=$(ss -tan dst "$host" | wc -l)
 
 	((count > 1)) && printf "$desc $((count - 1))"
