@@ -11,7 +11,7 @@ conf="${XDG_CONFIG_HOME:-$HOME/.config}/dwm/wallpaper.conf"
 cache_wallpaper_dir="$HOME/.cache/wallpaper"
 mkdir -p "$cache_wallpaper_dir"
 wallpaper_latest="$cache_wallpaper_dir/wallpaper_latest"
-wallpaper_pid="$cache_wallpaper_dir/wallpaper_latest_pid"
+wallpaper_pid="$cache_wallpaper_dir/wallpaper_pid"
 
 # Define the default configuration
 declare -A config
@@ -79,15 +79,35 @@ clean_latest() {
 
 # set wallpaper
 set_wallpaper() {
-	local filepath="$@"
+	local filepath=""
+	local monitor_index=""
 
-	# TODO: 优化monitor selector theme
-	select_monitor=$(xrandr --listactivemonitors | awk 'NR>1 {print $0}' | rofi -dmenu)
+	# 解析短参数 -m
+	while getopts "m:" opt; do
+		case "$opt" in
+		m) monitor_index="$OPTARG" ;;
+		esac
+	done
 
-	[ -z "$select_monitor" ] && return
+	shift $((OPTIND - 1)) # 剩下的参数就是 filepath
+	filepath="$@"
 
-	select_monitor_name=$(echo $select_monitor | awk '{print $NF}')
-	read monitor_index width height x y < <(get_monitor_info "$select_monitor_name")
+	if [ -n "$monitor_index" ]; then
+		read monitor_index width height x y < <(get_monitor_info_by_index "$monitor_index")
+	else
+		if [ $(xrandr --listactivemonitors | wc -l) = 2 ]; then
+			select_monitor=$(xrandr --listactivemonitors | tail -n1)
+		else
+			# TODO: 优化monitor selector theme
+			select_monitor=$(xrandr --listactivemonitors | awk 'NR>1 {print $0}' | rofi -dmenu)
+			[ -z "$select_monitor" ] && return
+		fi
+
+		select_monitor_name=$(echo $select_monitor | awk '{print $NF}')
+		read monitor_index width height x y < <(get_monitor_info "$select_monitor_name")
+	fi
+
+	echo $monitor_index $width $height $x $y
 
 	clean_latest $monitor_index
 
@@ -289,15 +309,13 @@ next_wallpaper() {
 }
 
 set_latest() {
-	# clean lastest wallpaper process (like xwinwrap)
-	# clean_latest
-
-	# PERF: 将文件名获取网址存入cmdf中，使用脚本启动，这样启动不会做预备
-	if [ -f $wallpaper_latest ]; then
-		set_wallpaper "$(cat $wallpaper_latest)"
-	else
-		$cmd
-	fi
+	local files=()
+	files=("${wallpaper_latest}"_*)
+	# 遍历每个匹配文件
+	for f in "${files[@]}"; do
+		local monitor_index=$(echo $f | awk -F '_' '{print $NF}')
+		set_wallpaper -m${monitor_index} "$(cat $f)" &
+	done
 }
 
 # wallpaper launch_wallpaper
