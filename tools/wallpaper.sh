@@ -306,20 +306,6 @@ next_wallpaper() {
 	esac
 }
 
-# select_wallpaper() {
-# 	local dir
-# 	case "$(getConfig random_type)" in
-# 	"video")
-# 		dir=$(getConfig random_video_dir)
-# 		;;
-# 	"image")
-# 		dir=$(getConfig random_image_dir)
-# 		;;
-# 	esac
-#
-# 	$TERM yazi "$dir"
-# }
-
 select_wallpaper() {
 	local dir file tmp=$(mktemp)
 
@@ -335,7 +321,7 @@ select_wallpaper() {
 
 set_latest() {
 	local files=()
-	files=("${wallpaper_latest}"_*)
+	files=("${wallpaper_latest}"_[0-9]*)
 	# 遍历每个匹配文件
 	for f in "${files[@]}"; do
 		local monitor_index=$(echo $f | awk -F '_' '{print $NF}')
