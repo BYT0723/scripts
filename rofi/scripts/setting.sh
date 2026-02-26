@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-TERM=${TERMINAL:-alacritty}
+TERM=${TERMINAL:-kitty}
 
 ROFI_DIR="$(dirname "$(dirname "$0")")"
 WORK_DIR="$(dirname "$ROFI_DIR")"

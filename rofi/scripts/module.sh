@@ -25,7 +25,6 @@ CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}/dwm"
 # 配置文件路径
 declare -A confPath
 confPath["picom"]="$CONFIG_HOME/picom.conf"
-confPath["wallpaper"]="$CONFIG_HOME/wallpaper.conf"
 
 # 定义运行命令的Map
 declare -A applicationCmd
@@ -46,11 +45,6 @@ if [[ "$layout" == 'NO' ]]; then
 	notificationOpt=(
 		"Pop                             $(dunstctl count history)"
 		"CloseAll                        $(dunstctl count displayed)"
-	)
-	wallpaperOpt=(
-		"Next"
-		"Random                          $(icon toggle conf wallpaper random number)"
-		"Random Type                  $(getConfig wallpaper random_type)"
 	)
 else
 	firstOpt=(
@@ -77,10 +71,6 @@ optId[${firstOpt[5]}]="--opt6"
 
 optId[${notificationOpt[0]}]="--notificationOpt1"
 optId[${notificationOpt[1]}]="--notificationOpt2"
-
-optId[${wallpaperOpt[0]}]="--wallpaperOpt1"
-optId[${wallpaperOpt[1]}]="--wallpaperOpt2"
-optId[${wallpaperOpt[2]}]="--wallpaperOpt3"
 
 # Rofi CMD
 rofi_cmd() {
@@ -132,10 +122,6 @@ run_rofi() {
 		prompt='Notification'
 		mesg="Dunst Notification Manager"
 		opts=("${notificationOpt[@]}")
-	elif [[ "$1" == ${optId[${firstOpt[4]}]} ]]; then
-		prompt='Wallpaper'
-		mesg="Setting Wallpaper"
-		opts=("${wallpaperOpt[@]}")
 	else
 		prompt='Module'
 		mesg="Manage Module Of System"
@@ -159,18 +145,6 @@ run_cmd() {
 			dunstctl history-pop
 		done
 		;;
-	${optId[${notificationOpt[1]}]})
-		dunstctl close-all
-		;;
-	${optId[${wallpaperOpt[0]}]})
-		$WORK_DIR/tools/wallpaper.sh -n
-		;;
-	${optId[${wallpaperOpt[1]}]})
-		toggleConf wallpaper random number
-		;;
-	${optId[${wallpaperOpt[2]}]})
-		toggleConf wallpaper random_type wallpaper_type
-		;;
 	${optId[${firstOpt[1]}]})
 		chosen="$(run_rofi $1)"
 		if [[ "$chosen" == "" || "$chosen" == "$(nmcli connection show -active | grep -E 'wifi' | awk '{print $1}')" ]]; then
@@ -184,6 +158,10 @@ run_cmd() {
 			exit
 		fi
 		bluetoothctl disconnect $(bluetoothctl devices Connected | grep "$chosen" | awk '{print $2}')
+		;;
+	${optId[${firstOpt[4]}]})
+		/bin/bash $ROFI_DIR/scripts/wallpaper.sh
+		return
 		;;
 	${optId[${firstOpt[5]}]})
 		/bin/bash $ROFI_DIR/scripts/setting.sh

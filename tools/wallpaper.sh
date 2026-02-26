@@ -23,6 +23,8 @@ config["random_depth"]=3
 config["duration"]=30
 cmd="feh --no-fehbg --bg-scale /usr/share/backgrounds/archlinux/small.png"
 
+TERM=${TERMINAL:-"kitty --class float-term -o font_size=8 -o initial_window_width=160c -o initial_window_height=48c"}
+
 source $WORK_DIR/utils/monitor.sh
 
 # Get single configuration
@@ -104,8 +106,6 @@ set_wallpaper() {
 
 		read monitor_index width height x y < <(get_monitor_info "$select_monitor_name")
 	fi
-
-	echo $monitor_index $width $height $x $y
 
 	clean_latest $monitor_index
 
@@ -306,6 +306,33 @@ next_wallpaper() {
 	esac
 }
 
+# select_wallpaper() {
+# 	local dir
+# 	case "$(getConfig random_type)" in
+# 	"video")
+# 		dir=$(getConfig random_video_dir)
+# 		;;
+# 	"image")
+# 		dir=$(getConfig random_image_dir)
+# 		;;
+# 	esac
+#
+# 	$TERM yazi "$dir"
+# }
+
+select_wallpaper() {
+	local dir file tmp=$(mktemp)
+
+	case "$(getConfig random_type)" in
+	video) dir=$(getConfig random_video_dir) ;;
+	image) dir=$(getConfig random_image_dir) ;;
+	esac
+
+	$TERM yazi "$dir" --chooser-file="$tmp"
+	[ -s "$tmp" ] && set_wallpaper "$(cat $tmp)"
+	rm -f "$tmp"
+}
+
 set_latest() {
 	local files=()
 	files=("${wallpaper_latest}"_*)
@@ -362,6 +389,7 @@ case "$op" in
 	;;
 '-l' | '--last') set_latest ;;
 '-n' | '--next') next_wallpaper ;;
+'-S' | '--select') select_wallpaper ;;
 '-h' | '--help') echo_help ;;
 *)
 	echo -e "\033[31mbad operator\033[0m"
