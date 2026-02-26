@@ -96,14 +96,12 @@ set_wallpaper() {
 		read monitor_index width height x y < <(get_monitor_info_by_index "$monitor_index")
 	else
 		if [ $(xrandr --listactivemonitors | wc -l) = 2 ]; then
-			select_monitor=$(xrandr --listactivemonitors | tail -n1)
+			select_monitor_name=$(xrandr --listactivemonitors | awk 'END{print $NF}')
 		else
-			# TODO: 优化monitor selector theme
-			select_monitor=$(xrandr --listactivemonitors | awk 'NR>1 {print $0}' | rofi -dmenu)
-			[ -z "$select_monitor" ] && return
+			select_monitor_name=$(xrandr --listactivemonitors | awk 'NR>1 {print $NF}' | bash $WORK_DIR/rofi/scripts/common_list.sh "Wallpaper" "Select a monitor")
+			[ -z "$select_monitor_name" ] && return
 		fi
 
-		select_monitor_name=$(echo $select_monitor | awk '{print $NF}')
 		read monitor_index width height x y < <(get_monitor_info "$select_monitor_name")
 	fi
 
