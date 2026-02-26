@@ -10,8 +10,6 @@ theme="$type/$style"
 
 source "$(dirname "$0")"/util.sh
 
-HistoryPopCount=10
-
 if [[ ("$theme" == *'type-1'*) || ("$theme" == *'type-3'*) || ("$theme" == *'type-5'*) ]]; then
 	list_col='1'
 	list_row='6'

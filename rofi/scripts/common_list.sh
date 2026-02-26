@@ -9,6 +9,7 @@ style='style-2.rasi'
 theme="$type/$style"
 
 font="JetBrains Mono Nerd Font 16"
+element_font="JetBrains Mono Nerd Font 24"
 prompt=${1:-"Setting"}
 mesg=${2:-"Setting Something..."}
 
@@ -17,6 +18,7 @@ rofi_cmd() {
 	rofi -theme-str 'textbox-prompt-colon {str: " ";}' \
 		-theme-str 'window {width: 600px;}' \
 		-theme-str "* {font: \"$font\";}" \
+		-theme-str "element-text {font: \"$element_font\";}" \
 		-dmenu \
 		-p "$prompt" \
 		-mesg "$mesg" \
