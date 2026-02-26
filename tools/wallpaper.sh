@@ -184,9 +184,16 @@ set_wallpaper() {
 			return
 		fi
 
-		feh --bg-scale --no-fehbg "$filepath" >~/.wallpaper.log
 		# write command to configuration
 		echo "$filepath" >"${wallpaper_latest}_${monitor_index}"
+
+		local wallpapers=()
+
+		for f in "${wallpaper_latest}"_[0-9]*; do
+			[ -f "$f" ] && read -r w < "$f" && wallpapers+=("$w")
+		done
+
+		feh --bg-scale --no-fehbg "${wallpapers[@]}" > ~/.wallpaper.log
 		;;
 	"page")
 		# command detection
