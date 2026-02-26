@@ -58,35 +58,20 @@ toggle_conky() {
 	conky -U -d
 }
 
+wallpaper() {
+	/bin/bash "$WORKDIR"/rofi/scripts/wallpaper.sh
+}
+
 case "$1" in
-"term")
-	term $2
-	;;
-"apps")
-	apps
-	;;
-"powermenu")
-	powermenu
-	;;
-"modules")
-	modules
-	;;
-"mpd")
-	mpd
-	;;
-"screenshot")
-	screenshot
-	;;
-"screencast")
-	screencast
-	;;
-"quicklinks")
-	quicklinks
-	;;
-"emoji")
-	emoji
-	;;
-"conky")
-	toggle_conky
-	;;
+"term") term $2 ;;
+"apps") apps ;;
+"powermenu") powermenu ;;
+"modules") modules ;;
+"mpd") mpd ;;
+"screenshot") screenshot ;;
+"screencast") screencast ;;
+"quicklinks") quicklinks ;;
+"emoji") emoji ;;
+"conky") toggle_conky ;;
+"wallpaper") wallpaper ;;
 esac

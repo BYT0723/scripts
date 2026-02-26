@@ -31,15 +31,15 @@ layout=$(cat ${theme} | grep 'USE_ICON' | cut -d'=' -f2)
 
 if [[ "$layout" == 'NO' ]]; then
 	firstOpt=(
+		"Next"
 		"Select"
-		"Next Random"
 		"Random                          $(icon toggle conf wallpaper random number)"
 		"Random Type                  $(getConfig wallpaper random_type)"
 	)
 else
 	firstOpt=(
-		"Select"
 		"Next"
+		"Select"
 		"$(icon toggle conf wallpaper random number)"
 		"$(getConfig wallpaper random_type)"
 	)
@@ -83,10 +83,10 @@ run_rofi() {
 run_cmd() {
 	case "$1" in
 	${optId[${firstOpt[0]}]})
-		$WORK_DIR/tools/wallpaper.sh -S
+		$WORK_DIR/tools/wallpaper.sh -n
 		;;
 	${optId[${firstOpt[1]}]})
-		$WORK_DIR/tools/wallpaper.sh -n
+		$WORK_DIR/tools/wallpaper.sh -S
 		;;
 	${optId[${firstOpt[2]}]})
 		toggleConf wallpaper random number
