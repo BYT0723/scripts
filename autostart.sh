@@ -57,8 +57,6 @@ application_launch() {
 	launch lxpolkit "lxpolkit &"
 	# 音频控制
 	launch easyeffects "easyeffects --service-mode --hide-window &"
-	# VNC (krfb)
-	[ ! -z "$(command -v krfb)" ]launch krfb "krfb --nodialog &"
 }
 
 keyboard_setting() {

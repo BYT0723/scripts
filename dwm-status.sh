@@ -30,9 +30,9 @@ panes() {
 	[[ ! -z "$weather" ]] && panes+="$(new_pane $grey "\x09^c$blue^$weather")"
 
 	if [ -f "$SING_BOX_CONFIG" ]; then
-		host=$(get_sing_box_outbound_host $SING_BOX_CONFIG "trojan-out")
-		tls_conns=$(print_tls_count "$host" "")
-		[[ ! -z "$tls_conns" ]] && panes+="$(new_pane $grey "\x0e^c$yellow^$tls_conns")"
+		trojan_tls_conns=$(print_tls_count "$(get_sing_box_outbound_host $SING_BOX_CONFIG "trojan-out")" "")
+		anytls_conns=$(print_tls_count "$(get_sing_box_outbound_host $SING_BOX_CONFIG "anytls-out")" "󰕞")
+		[[ ! -z "$trojan_tls_conns" ]] && panes+="$(new_pane $grey "\x0e^c$green^$trojan_tls_conns $anytls_conns")"
 	fi
 
 	panes+="$(new_pane $grey "\x08$(print_cpu)$(print_temperature)" "\x07$(print_mem)" "\x06$(print_disk)")"
@@ -54,7 +54,7 @@ refresh_status() {
 launch() {
 	update_cpu &
 	update_traffic &
-	# update_mail &
+	update_mail &
 	update_weather &
 	update_rss &
 	refresh_status
