@@ -2,6 +2,9 @@
 
 WORK_DIR=$(dirname "$(dirname "$0")")
 
+source $WORK_DIR/utils/monitor.sh
+source "$WORK_DIR/utils/notify.sh"
+
 #
 # Focus: Do not use spaces in paths and filenames, unexpected consequences may occur
 #
@@ -25,8 +28,6 @@ cmd="feh --no-fehbg --bg-scale /usr/share/backgrounds/archlinux/small.png"
 
 TERM=${TERMINAL:-"kitty --class float-term -o font_size=8 -o initial_window_width=160c -o initial_window_height=48c"}
 
-source $WORK_DIR/utils/monitor.sh
-
 # Get single configuration
 getConfig() {
 	if [ -f $conf ]; then
@@ -49,14 +50,13 @@ error() {
 echo_help() {
 	echo -e "Help Message"
 	echo "      -r | --run             run wallpaper"
-	echo ""
 	echo "      -s | --set <path>      set wallpaper"
-	echo ""
 	echo "      -n | --next            random next wallpaper"
+	echo "      -S | --select          use yazi select wallpaper to set"
 }
 
 clean_latest() {
-	local monitor_index=${1:-}
+	local monitor_index=$1
 
 	# 开启 nullglob，保证通配符为空时不会报错
 	shopt -s nullglob
@@ -80,32 +80,14 @@ clean_latest() {
 }
 
 # set wallpaper
-set_wallpaper() {
-	local filepath=""
-	local monitor_index=""
+set_wallpaper_to_monitor() {
+	local monitor_index=${1}
+	shift
+	local filepath="$@"
 
-	# 解析短参数 -m
-	while getopts "m:" opt; do
-		case "$opt" in
-		m) monitor_index="$OPTARG" ;;
-		esac
-	done
+	[ -z "$monitor_index" ] && return
 
-	shift $((OPTIND - 1)) # 剩下的参数就是 filepath
-	filepath="$@"
-
-	if [ -n "$monitor_index" ]; then
-		read monitor_index width height x y < <(get_monitor_info_by_index "$monitor_index")
-	else
-		if [ $(xrandr --listactivemonitors | wc -l) = 2 ]; then
-			select_monitor_name=$(xrandr --listactivemonitors | awk 'END{print $NF}')
-		else
-			select_monitor_name=$(xrandr --listactivemonitors | awk 'NR>1 {print $NF}' | bash $WORK_DIR/rofi/scripts/common_list.sh "Wallpaper" "Select a monitor")
-			[ -z "$select_monitor_name" ] && return
-		fi
-
-		read monitor_index width height x y < <(get_monitor_info "$select_monitor_name")
-	fi
+	read monitor_index width height x y < <(get_monitor_info_by_index "$monitor_index")
 
 	clean_latest $monitor_index
 
@@ -188,7 +170,6 @@ set_wallpaper() {
 		echo "$filepath" >"${wallpaper_latest}_${monitor_index}"
 
 		local wallpapers=()
-
 		for f in "${wallpaper_latest}"_[0-9]*; do
 			[ -f "$f" ] && read -r w < "$f" && wallpapers+=("$w")
 		done
@@ -216,11 +197,9 @@ set_wallpaper() {
 	esac
 }
 
-# next random wallpaper
-next_wallpaper() {
-	clean_latest
-
-	depth=$(getConfig random_depth)
+# reutrn random wallpaper filepath
+random_wallpaper() {
+	local depth=$(getConfig random_depth)
 
 	# run different command according to the `random_type` in the configuration
 	case "$(getConfig random_type)" in
@@ -246,39 +225,7 @@ next_wallpaper() {
 
 		# Randomly get a video wallpaper
 		random=$(($RANDOM % $len + 1))
-		filename=$(find $dir -maxdepth $depth -type f -regextype posix-extended -regex ".*\.(mp4|avi|mkv)" | head -n $random | tail -n 1)
-
-		local keymapConf=$(getConfig video_keymap_conf)
-		keymapConf=$(printf '%s\n' "$keymapConf" | envsubst)
-		keymapConf="${keymapConf/#\~/$HOME}"
-
-		for name in $(xrandr --listactivemonitors | awk 'NR>1 {print $NF}'); do
-			read index width height x y < <(get_monitor_info "$name")
-			xwinwrap -ov -g "${width}x${height}+${x}+${y}" -- mpv -wid WID "$filename" \
-				--no-config \
-				--load-scripts=no \
-				--no-keepaspect \
-				--mute \
-				--no-osc \
-				--loop \
-				--vid=1 \
-				--no-ytdl \
-				--no-terminal \
-				--really-quiet \
-				--cursor-autohide=no \
-				--player-operation-mode=cplayer \
-				--no-input-default-bindings \
-				--cache \
-				--framedrop=decoder \
-				--vf=scale=2560:-1,fps=60 \
-				--no-sub \
-				--demuxer-max-bytes=256MiB \
-				--demuxer-readahead-secs=20 \
-				--input-conf=$keymapConf 2>&1 >~/.wallpaper.log &
-
-			echo $! >"${wallpaper_pid}_${index}"
-			echo $filename >"${wallpaper_latest}_${index}"
-		done
+		echo "$(find $dir -maxdepth $depth -type f -regextype posix-extended -regex ".*\.(mp4|avi|mkv)" | head -n $random | tail -n 1)"
 		;;
 	"image")
 		local dir=$(getConfig random_image_dir)
@@ -301,29 +248,44 @@ next_wallpaper() {
 
 		# Randomly get a video wallpaper
 		random=$(($RANDOM % $len + 1))
-		filename=$(find $dir -maxdepth $depth -type f -regextype posix-extended -regex ".*\.(jpeg|jpg|png)" | head -n $random | tail -n 1)
-
-		for name in $(xrandr --listactivemonitors | awk 'NR>1 {print $NF}'); do
-			read index width height x y < <(get_monitor_info "$name")
-			echo $filename >"${wallpaper_latest}_${index}"
-		done
-
-		feh --bg-scale --no-fehbg "$filename" >~/.wallpaper.log
+		echo "$(find $dir -maxdepth $depth -type f -regextype posix-extended -regex ".*\.(jpeg|jpg|png)" | head -n $random | tail -n 1)"
 		;;
 	esac
 }
 
 select_wallpaper() {
-	local dir file tmp=$(mktemp)
+	local dir tmp=$(mktemp)
 
 	case "$(getConfig random_type)" in
 	video) dir=$(getConfig random_video_dir) ;;
 	image) dir=$(getConfig random_image_dir) ;;
 	esac
 
-	$TERM yazi "$dir" --chooser-file="$tmp"
-	[ -s "$tmp" ] && set_wallpaper "$(cat $tmp)"
+	YAZI_CONFIG_HOME=$HOME/.config/yazi_wallpaper $TERM yazi "$dir" --chooser-file="$tmp"
+
+	echo "$(cat $tmp)"
 	rm -f "$tmp"
+}
+
+set_wallpaper() {
+	local select_file=${1}
+	local skip_select=${2:false}
+
+	if [ $(xrandr --listactivemonitors | wc -l) = 2 ]; then
+		select_monitor_name=$(xrandr --listactivemonitors | awk 'END{print $NF}')
+	elif [[ $skip_select = true ]]; then
+		select_monitor_name="ALL"
+	else
+		monitors="ALL\n"$(xrandr --listactivemonitors | awk 'NR>1 {print $NF}')
+		select_monitor_name=$(echo -e "$monitors" | bash $WORK_DIR/rofi/scripts/common_list.sh "Wallpaper" "Select a monitor")
+	fi
+	[ -z "$select_monitor_name" ] && return
+
+	xrandr --listactivemonitors | awk 'NR>1 {sub(":","",$1); print $1,$NF}' | while read -r monitor_index monitor_name; do
+		if [[ $select_monitor_name = "ALL" ]] || [[ $select_monitor_name = "$monitor_name" ]]; then
+			set_wallpaper_to_monitor "$monitor_index" "$select_file"
+		fi
+	done
 }
 
 set_latest() {
@@ -332,42 +294,21 @@ set_latest() {
 	# 遍历每个匹配文件
 	for f in "${files[@]}"; do
 		local monitor_index=$(echo $f | awk -F '_' '{print $NF}')
-		set_wallpaper -m${monitor_index} "$(cat $f)" &
+		set_wallpaper_to_monitor "$monitor_index" "$(cat $f)" &
 	done
 }
 
 # wallpaper launch_wallpaper
 launch_wallpaper() {
 	# kill last daemon
-	if [[ "$$" != "$(pgrep -f $(basename $0))" ]]; then
-		pgrep -f $(basename $0) | while read -r pid; do
-			if [[ "$$" == "$pid" ]]; then
-				continue
-			else
-				kill $pid
-			fi
-		done
-	fi
+	script=$(readlink -f "$0")
+	pgrep -f "$script" | grep -vx "$$" | xargs -r kill
 
 	set_latest
 
-	local duration=$(($(getConfig duration) * 60))
 	while true; do
-		sleep $duration
-		if [ $(getConfig random) -eq 1 ]; then
-			next_wallpaper
-		fi
-
-		# # 当cmd文件最后一次更改时间小于duration,使用新的cmdf
-		# # FIX: 如果cmdf是脚本自己修改的如何判断呢？
-		# local lastChangeDur=$(($(date +%s) - $(date -d $(stat -c %y "$conf") +%s)))
-		# if [ $lastChangeDur -lt $duration ]; then
-		# 	while [[ -n $(pgrep xwinwrap) ]]; do
-		# 		killall xwinwrap
-		# 		sleep 0.3
-		# 	done
-		# 	bash $cmdf
-		# fi
+		sleep "$(($(getConfig duration) * 60))"
+		[ "$(getConfig random)" -eq 1 ] && set_wallpaper "$(random_wallpaper)" true
 	done
 }
 
@@ -380,9 +321,11 @@ case "$op" in
 	shift
 	set_wallpaper $@
 	;;
-'-l' | '--last') set_latest ;;
-'-n' | '--next') next_wallpaper ;;
-'-S' | '--select') select_wallpaper ;;
+'-n' | '--next') set_wallpaper "$(random_wallpaper)" true ;;
+'-S' | '--select')
+	select_file="$(select_wallpaper)"
+	[ -n "$select_file" ] && set_wallpaper "$select_file"
+	;;
 '-h' | '--help') echo_help ;;
 *)
 	echo -e "\033[31mbad operator\033[0m"

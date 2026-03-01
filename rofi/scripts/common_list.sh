@@ -9,7 +9,7 @@ style='style-2.rasi'
 theme="$type/$style"
 
 font="JetBrains Mono Nerd Font 16"
-element_font="JetBrains Mono Nerd Font 24"
+element_font="JetBrains Mono Nerd Font 20"
 prompt=${1:-"Setting"}
 mesg=${2:-"Setting Something..."}
 
