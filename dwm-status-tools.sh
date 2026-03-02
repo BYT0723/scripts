@@ -265,7 +265,7 @@ print_tls_count() {
 	local desc=${2:-"tls count"}
 	local count=$(ss -tan dst "$host" | wc -l)
 
-	((count > 1)) && printf "$desc $((count - 1))"
+	printf "$desc $((count - 1))"
 }
 
 get_sing_box_outbound_host() {
