@@ -7,33 +7,35 @@
 #
 TOOLS_DIR="$(dirname $0)/tools"
 ROFI_SCRIPT_DIR="$(dirname $0)/rofi/scripts"
+WORK_DIR=$(dirname $0)
 terminal="kitty"
 float_terminal="kitty --class float-term -o font_size=10 -o initial_window_width=120c -o initial_window_height=36c"
 
-source "$(dirname "$0")/utils/notify.sh"
+source "$WORK_DIR/utils/notify.sh"
 
 dateHandler() {
 	buttonType=$1
 	case "$buttonType" in
 	1)
-		[ -z "$(command -v cal)" ] && system-notify normal "Tool Not Found" "please install cal" && return
-		notify-send \
-			-t 60000 \
-			-c status \
-			-h string:x-dunst-stack-tag:calendar \
-			-h string:body-markup:no \
-			"Calendar" \
-			"$(LANG=en_US.UTF-8 cal -s | sed -E "s|($(date +%e))|<b><u>\1</u></b>|")"
+		$WORK_DIR/tools/calendar.sh
+		# notify-send \
+		# 	-t 60000 \
+		# 	-c status \
+		# 	-h string:x-dunst-stack-tag:calendar \
+		# 	-h string:body-markup:no \
+		# 	"Calendar" \
+		# 	"<span size='16384'>$(LC_ALL=en_US.UTF-8 cal -s | sed -E "s|($(date +%e))|<b><u>\1</u></b>|")</span>"
 		;;
 	2) ;;
 	3)
-		[ -z "$(command -v ccal)" ] && system-notify normal "Tool Not Found" "please install ccal" && return
-		notify-send \
-			-t 60000 \
-			-c status \
-			-h string:x-dunst-stack-tag:calendar-lunar \
-			"Calendar (Lunar)" \
-			"<span font_family='LXGW WenKai Mono'>$(LANG=en_US.UTF-8 ccal -u | sed 's/\x1b\[[1-9;]*m/<b><u>/g' | sed 's|\x1b\[[0;]*m|</u></b>|g')</span>"
+		$WORK_DIR/tools/calendar.sh lunar
+		# notify-send \
+		# 	-t 60000 \
+		# 	-c status \
+		# 	-h string:x-dunst-stack-tag:calendar-lunar \
+		# 	"Calendar (Lunar)" \
+		# 	"<span font_family='LXGW WenKai Mono' size='16384'>$(LANG=en_US.UTF-8 ccal -u | sed 's/\x1b\[[1-9;]*m/<b><u>/g' | sed 's|\x1b\[[0;]*m|</u></b>|g')</span>"
+		# ;;
 		;;
 	esac
 }

@@ -39,7 +39,7 @@ if [[ "$layout" == 'NO' ]]; then
 		"󰈀 Network                       $(icon active app NetworkManager)"
 		"󰂯 Bluetooth                     $(icon active service bluetooth)"
 		"󰍨 Notification                  $(icon active app dunst)"
-		"󰸉 Wallpaper                     $(icon active cmd 'wallpaper.sh -r')"
+		" Tools"
 		" Setting"
 	)
 	notificationOpt=(
@@ -52,7 +52,7 @@ else
 		"󰈀 $(icon active app NetworkManager)"
 		"󰂯 $(icon active service bluetooth)"
 		"󰍨 $(icon active app dunst)"
-		"󰸉 $(icon active cmd 'wallpaper.sh -r')"
+		" "
 		" "
 	)
 	notificationOpt=(
@@ -160,7 +160,7 @@ run_cmd() {
 		bluetoothctl disconnect $(bluetoothctl devices Connected | grep "$chosen" | awk '{print $2}')
 		;;
 	${optId[${firstOpt[4]}]})
-		/bin/bash $ROFI_DIR/scripts/wallpaper.sh
+		/bin/bash $ROFI_DIR/scripts/system-tools.sh
 		return
 		;;
 	${optId[${firstOpt[5]}]})

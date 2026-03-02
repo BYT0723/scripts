@@ -31,8 +31,8 @@ panes() {
 
 	if [ -f "$SING_BOX_CONFIG" ]; then
 		trojan_tls_conns=$(print_tls_count "$(get_sing_box_outbound_host $SING_BOX_CONFIG "trojan-out")" "")
-		anytls_conns=$(print_tls_count "$(get_sing_box_outbound_host $SING_BOX_CONFIG "anytls-out")" "󰕞")
-		[[ ! -z "$trojan_tls_conns" ]] && panes+="$(new_pane $grey "\x0e^c$green^$trojan_tls_conns $anytls_conns")"
+		anytls_conns=$(print_tls_count "$(get_sing_box_outbound_host $SING_BOX_CONFIG "trojan-dns")" "󰇖")
+		[[ ! -z "$trojan_tls_conns" ]] && panes+="$(new_pane $grey "\x0e^c$green^$trojan_tls_conns  $anytls_conns")"
 	fi
 
 	panes+="$(new_pane $grey "\x08$(print_cpu)$(print_temperature)" "\x07$(print_mem)" "\x06$(print_disk)")"

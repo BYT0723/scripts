@@ -18,41 +18,29 @@ elif [[ ("$theme" == *'type-2'*) || ("$theme" == *'type-4'*) ]]; then
 	list_row='1'
 fi
 
-CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}/dwm"
-
-# 配置文件路径
-declare -A confPath
-confPath["wallpaper"]="$CONFIG_HOME/wallpaper.conf"
-
 # Options
 layout=$(cat ${theme} | grep 'USE_ICON' | cut -d'=' -f2)
 
 if [[ "$layout" == 'NO' ]]; then
 	firstOpt=(
-		"Next"
-		"Select"
-		"Random                          $(icon toggle conf wallpaper random number)"
-		"Random Type                  $(getConfig wallpaper random_type)"
+		"Calendar"
+		"Lunar Calendar"
 	)
 else
 	firstOpt=(
-		"Next"
-		"Select"
-		"$(icon toggle conf wallpaper random number)"
-		"$(getConfig wallpaper random_type)"
+		"Calendar"
+		"Lunar Calendar"
 	)
 fi
 
 declare -A optId
 optId[${firstOpt[0]}]="--opt1"
 optId[${firstOpt[1]}]="--opt2"
-optId[${firstOpt[2]}]="--opt3"
-optId[${firstOpt[3]}]="--opt4"
 
 # Rofi CMD
 rofi_cmd() {
 	rofi -theme-str "listview {columns: $list_col; lines: $list_row;}" \
-		-theme-str 'textbox-prompt-colon {str: " ";}' \
+		-theme-str 'textbox-prompt-colon {str: " ";}' \
 		-dmenu \
 		-p "$prompt" \
 		-mesg "$mesg" \
@@ -64,8 +52,8 @@ rofi_cmd() {
 
 # Pass variables to rofi dmenu
 run_rofi() {
-	prompt="$(icon active cmd 'wallpaper.sh -r') Wallpaper"
-	mesg="Setting Wallpaper"
+	prompt="Tools"
+	mesg="Select a tool"
 	opts=("${firstOpt[@]}")
 
 	for ((i = 0; i < ${#opts[@]}; i++)); do
@@ -81,16 +69,10 @@ run_rofi() {
 run_cmd() {
 	case "$1" in
 	${optId[${firstOpt[0]}]})
-		$WORK_DIR/tools/wallpaper.sh -n
+		$WORK_DIR/tools/calendar.sh
 		;;
 	${optId[${firstOpt[1]}]})
-		$WORK_DIR/tools/wallpaper.sh -S
-		;;
-	${optId[${firstOpt[2]}]})
-		toggleConf wallpaper random number
-		;;
-	${optId[${firstOpt[3]}]})
-		toggleConf wallpaper random_type wallpaper_type
+		$WORK_DIR/tools/calendar.sh lunar
 		;;
 	*)
 		chosen="$(run_rofi $1)"
