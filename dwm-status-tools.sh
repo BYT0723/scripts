@@ -34,6 +34,8 @@ traffic_tx_path="$cache_dir/network-traffic-tx"
 mail_unread_path="$cache_dir/mail-unread"
 rss_unread_path="$cache_dir/rss-unread"
 
+sing_box_config="/etc/sing-box/config.json"
+
 # MPD
 mpd_show_name=0
 
@@ -268,14 +270,8 @@ print_tls_count() {
 	printf "$desc $((count - 1))"
 }
 
-get_sing_box_outbound_host() {
-	local cfg_path=${1}
-	local tag=${2}
-	jq -r '.outbounds[] | select(.tag=="'$tag'") | .server + ":" + (.server_port|tostring)' "/etc/sing-box/config.json" |
-		while IFS=: read host port; do
-			ip=$(getent ahostsv4 "$host" | awk '{print $1; exit}')
-			echo "${ip:-$host}:$port"
-		done
+print_singbox() {
+	[ -f "$sing_box_config" ] && [ -n "$(pgrep sing-box)" ] && printf ""
 }
 
 update_cpu() {
