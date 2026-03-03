@@ -26,7 +26,7 @@ apps() {
 }
 
 powermenu() {
-	/bin/bash "$WORKDIR"/rofi/scripts/powermenu_t2
+	/bin/bash "$WORKDIR"/rofi/scripts/powermenu_t4
 }
 
 mpd() {
