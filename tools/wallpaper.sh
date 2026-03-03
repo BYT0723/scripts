@@ -144,12 +144,10 @@ set_wallpaper_to_monitor() {
 			--cursor-autohide=no \
 			--player-operation-mode=cplayer \
 			--no-input-default-bindings \
-			--cache \
-			--framedrop=decoder \
-			--vf=scale=2560:-1,fps=60 \
+    		--hwdec=auto-safe \
+    		--vo=gpu-next \
+			--framedrop=vo \
 			--no-sub \
-			--demuxer-max-bytes=256MiB \
-			--demuxer-readahead-secs=20 \
 			--input-conf=$keymapConf 2>&1 >~/.wallpaper.log &
 
 		# 获取上一个命令的pid
