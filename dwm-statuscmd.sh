@@ -187,7 +187,12 @@ rssHandler() {
 }
 
 sing_box_summary() {
-	xdg-open "http://127.0.0.1:9090/ui"
+	buttonType=$1
+	case "$buttonType" in
+	1) xdg-open "http://127.0.0.1:9090/ui" ;;
+	2) ;;
+	3) $WORK_DIR/rofi/scripts/clash.sh ;;
+	esac
 }
 
 cmdIndex=$1

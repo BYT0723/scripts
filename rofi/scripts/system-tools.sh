@@ -23,13 +23,13 @@ layout=$(cat ${theme} | grep 'USE_ICON' | cut -d'=' -f2)
 
 if [[ "$layout" == 'NO' ]]; then
 	firstOpt=(
-		"Calendar"
-		"Lunar Calendar"
+		" Calendar"
+		" Calendar (Lunar)"
 	)
 else
 	firstOpt=(
-		"Calendar"
-		"Lunar Calendar"
+		" Calendar"
+		" Calendar (Lunar)"
 	)
 fi
 

@@ -4,9 +4,8 @@ ROFI_DIR="$(dirname "$(dirname "$0")")"
 WORK_DIR="$(dirname "$ROFI_DIR")"
 
 # Import Current Theme
-type="$ROFI_DIR/applets/type-1"
-style='style-3.rasi'
-theme="$type/$style"
+theme="$ROFI_DIR/applets/type-1/style-2.rasi"
+width=550
 
 source "$(dirname "$0")"/util.sh
 
@@ -14,9 +13,9 @@ HistoryPopCount=10
 
 if [[ ("$theme" == *'type-1'*) || ("$theme" == *'type-3'*) || ("$theme" == *'type-5'*) ]]; then
 	list_col='1'
-	list_row='6'
+	list_row='8'
 elif [[ ("$theme" == *'type-2'*) || ("$theme" == *'type-4'*) ]]; then
-	list_col='6'
+	list_col='8'
 	list_row='1'
 fi
 
@@ -41,6 +40,7 @@ if [[ "$layout" == 'NO' ]]; then
 		"󰍨 Notification                  $(icon active app dunst)"
 		" Tools"
 		" Setting"
+		" SingBox"
 	)
 	notificationOpt=(
 		"Pop                             $(dunstctl count history)"
@@ -54,6 +54,7 @@ else
 		"󰍨 $(icon active app dunst)"
 		" "
 		" "
+		" "
 	)
 	notificationOpt=(
 		"Pop $(dunstctl count history)"
@@ -68,6 +69,7 @@ optId[${firstOpt[2]}]="--opt3"
 optId[${firstOpt[3]}]="--opt4"
 optId[${firstOpt[4]}]="--opt5"
 optId[${firstOpt[5]}]="--opt6"
+optId[${firstOpt[6]}]="--opt7"
 
 optId[${notificationOpt[0]}]="--notificationOpt1"
 optId[${notificationOpt[1]}]="--notificationOpt2"
@@ -75,12 +77,15 @@ optId[${notificationOpt[1]}]="--notificationOpt2"
 # Rofi CMD
 rofi_cmd() {
 	rofi -theme-str "listview {columns: $list_col; lines: $list_row;}" \
-		-theme-str 'textbox-prompt-colon {str: " ";}' \
+		-theme-str 'textbox-prompt-colon {str: " Module";}' \
+		-theme-str 'window {width: '$width'px;}' \
+		-theme-str 'inputbar {children: [ "textbox-prompt-colon", "entry"];}' \
+		-theme-str 'entry {padding:8px;background-color:inherit;text-color:inherit;}' \
 		-dmenu \
+		-i \
 		-p "$prompt" \
 		-mesg "$mesg" \
 		-markup-rows \
-		-monitor -4 \
 		-theme ${theme} \
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }
@@ -165,6 +170,10 @@ run_cmd() {
 		;;
 	${optId[${firstOpt[5]}]})
 		/bin/bash $ROFI_DIR/scripts/setting.sh
+		return
+		;;
+	${optId[${firstOpt[6]}]})
+		/bin/bash $ROFI_DIR/scripts/clash.sh
 		return
 		;;
 	*)
