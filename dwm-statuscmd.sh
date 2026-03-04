@@ -16,27 +16,9 @@ source "$WORK_DIR/utils/notify.sh"
 dateHandler() {
 	buttonType=$1
 	case "$buttonType" in
-	1)
-		$WORK_DIR/tools/calendar.sh
-		# notify-send \
-		# 	-t 60000 \
-		# 	-c status \
-		# 	-h string:x-dunst-stack-tag:calendar \
-		# 	-h string:body-markup:no \
-		# 	"Calendar" \
-		# 	"<span size='16384'>$(LC_ALL=en_US.UTF-8 cal -s | sed -E "s|($(date +%e))|<b><u>\1</u></b>|")</span>"
-		;;
+	1) $WORK_DIR/tools/calendar.sh ;;
 	2) ;;
-	3)
-		$WORK_DIR/tools/calendar.sh lunar
-		# notify-send \
-		# 	-t 60000 \
-		# 	-c status \
-		# 	-h string:x-dunst-stack-tag:calendar-lunar \
-		# 	"Calendar (Lunar)" \
-		# 	"<span font_family='LXGW WenKai Mono' size='16384'>$(LANG=en_US.UTF-8 ccal -u | sed 's/\x1b\[[1-9;]*m/<b><u>/g' | sed 's|\x1b\[[0;]*m|</u></b>|g')</span>"
-		# ;;
-		;;
+	3) $WORK_DIR/tools/calendar.sh lunar ;;
 	esac
 }
 

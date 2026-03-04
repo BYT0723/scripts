@@ -18,7 +18,6 @@ ccal() {
 		-t calendar-lunar \
 		-c float-term \
 		-g 70x36-0+0 \
-		-f "LXGW WenKai Mono:pixelsize=20:antialias=true;autohint=true" \
 		-e sh -c "ccal -u $(date +%Y) | less -R"
 }
 
