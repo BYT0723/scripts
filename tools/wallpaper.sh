@@ -266,8 +266,9 @@ select_wallpaper() {
 }
 
 set_wallpaper() {
-	local select_file=${1}
-	local skip_select=${2:false}
+	local skip_select=false
+	[ "$1" == "-s" ] && skip_select=true && shift
+	local select_file="$@"
 
 	if [ $(xrandr --listactivemonitors | wc -l) = 2 ]; then
 		select_monitor_name=$(xrandr --listactivemonitors | awk 'END{print $NF}')
@@ -319,7 +320,7 @@ case "$op" in
 	shift
 	set_wallpaper $@
 	;;
-'-n' | '--next') set_wallpaper "$(random_wallpaper)" true ;;
+'-n' | '--next') set_wallpaper -s "$(random_wallpaper)" ;;
 '-S' | '--select')
 	select_file="$(select_wallpaper)"
 	[ -n "$select_file" ] && set_wallpaper "$select_file"
