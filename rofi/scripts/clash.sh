@@ -12,6 +12,9 @@ font="JetBrains Mono Nerd Font 16"
 theme="$ROFI_DIR/applets/type-1/style-2.rasi"
 
 source "$(dirname "$0")"/util.sh
+source "$WORK_DIR/utils/notify.sh"
+
+[ -z "$(pgrep sing-box)" ] && system-notify critical "Module" "Sing-Box is not running!" && exit
 
 if [[ ("$theme" == *'type-1'*) || ("$theme" == *'type-3'*) || ("$theme" == *'type-5'*) ]]; then
 	list_col='1'
