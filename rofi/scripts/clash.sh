@@ -7,7 +7,7 @@ WORK_DIR="$(dirname "$ROFI_DIR")"
 
 API=${1:-"http://127.0.0.1:9090"}
 SECRET=$2 # 如果有 secret 填这里
-width=500
+width=550
 font="JetBrains Mono Nerd Font 16"
 theme="$ROFI_DIR/applets/type-1/style-2.rasi"
 
@@ -36,7 +36,10 @@ auth_header() {
 
 get_selectors() {
 	curl -s $(auth_header) "$API/proxies" |
-		jq -r '.proxies | to_entries[] | select(.value.type=="Selector") | .key'
+		jq -r '.proxies | to_entries[] | select(.value.type=="Selector") | "\(.key)\t\(.value.now)"' |
+		while IFS=$'\t' read -r key now; do
+			printf "%-10s\t %s\n" "$key" "$now"
+		done
 }
 
 get_options() {
@@ -65,7 +68,7 @@ switch_node() {
 rofi_cmd() {
 	rofi -theme-str "listview {columns: $list_col; lines: $list_row;}" \
 		-theme-str 'textbox-prompt-colon {str: " ";}' \
-		-theme-str 'window {width: '$width'px;}' \
+		-theme-str 'window {width: '$width';}' \
 		-theme-str "* {font: \"$font\";}" \
 		-dmenu \
 		-p "$prompt" \
@@ -81,28 +84,19 @@ run_rofi() {
 	--group)
 		prompt="Clash Proxies"
 		mesg="Selector Proxies"
-		opts=($(get_selectors))
+		get_selectors | rofi_cmd
 		;;
 	--node)
 		group="$2"
 		prompt="$group"
 		current=$(get_now "$group")
 		mesg="Current: $current"
-		opts=($(get_options "$group"))
+		get_options "$group" | rofi_cmd
 		;;
 	*)
 		return
 		;;
 	esac
-
-	for ((i = 0; i < ${#opts[@]}; i++)); do
-		if [[ $i -gt 0 ]]; then
-			msg+="\n"
-		fi
-		msg+="${opts[$i]}"
-	done
-
-	echo -e "$msg" | rofi_cmd
 }
 
 # Execute Command
@@ -111,7 +105,8 @@ run_cmd() {
 	--group)
 		chosen="$(run_rofi --group)"
 		[[ -z "$chosen" ]] && return
-		run_cmd --node "$chosen"
+		read -r group now <<<"$chosen"
+		run_cmd --node "$group"
 		;;
 	--node)
 		group="$2"
