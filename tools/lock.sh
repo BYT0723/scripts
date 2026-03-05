@@ -68,7 +68,7 @@ i3lock \
 	--lockfailed="Lock Failed" \
 	--time-font="ComicShannsMono Nerd Font Mono" \
 	--time-size=50 \
-	--date-font="Xiaolai SC" \
+	--date-font="Noto Sans CJK SC" \
 	--date-size=20 \
 	--layout-font="ComicShannsMono Nerd Font Mono" \
 	--verif-font="ComicShannsMono Nerd Font Mono" \
