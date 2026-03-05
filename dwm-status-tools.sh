@@ -1,7 +1,8 @@
 #!/bin/bash
 
-source "$(dirname $0)/utils/weather.sh"
-source "$(dirname $0)/utils/notify.sh"
+WORK_DIR=$(dirname $0)
+source "$WORK_DIR/utils/weather.sh"
+source "$WORK_DIR/utils/notify.sh"
 
 # colorscheme
 black=#1e222a
@@ -21,8 +22,8 @@ icons["cpu"]=""
 icons["temp"]=""
 icons["mpd"]=""
 icons["mail"]=""
+icons["notification"]=""
 icons["rss"]=""
-icons["tls-conn"]="󰕞"
 
 cache_dir="/tmp/dwm-status"
 mkdir -p $cache_dir
@@ -71,14 +72,13 @@ print_volume() {
 	status="$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)\].*/\1/')"
 
 	if [ "$status" == "off" ]; then
-		icon=""
+		printf "^c$red^"
 	elif [ "$volume" -eq 0 ]; then
-		icon=""
+		printf "^c$yellow^"
 	else
-		icon=""
+		printf "^c$white^"
 	fi
 	# printf "%s %2d" $icon $volume
-	printf "%s" $icon
 }
 
 print_brightness() {
@@ -251,27 +251,26 @@ print_im() {
 print_mail() {
 	unread=$(cat "$mail_unread_path")
 	if [[ $unread > 0 ]]; then
-		printf "${icons[mail]} $unread"
+		printf "^c$yellow^${icons[mail]} $unread"
 	fi
 }
 
 print_rss() {
 	unread=$(cat "$rss_unread_path")
 	if [[ $unread > 0 ]]; then
-		printf "${icons[rss]} $unread"
+		printf "^c$yellow^${icons[rss]} $unread"
 	fi
 }
 
-print_tls_count() {
-	local host=$1
-	local desc=${2:-"tls count"}
-	local count=$(ss -tan dst "$host" | wc -l)
-
-	printf "$desc $((count - 1))"
+print_singbox() {
+	[ -f "$sing_box_config" ] && [ -n "$(pgrep sing-box)" ] && printf "^c$white^"
 }
 
-print_singbox() {
-	[ -f "$sing_box_config" ] && [ -n "$(pgrep sing-box)" ] && printf ""
+print_notification() {
+	unread=$(/bin/bash $WORK_DIR/rofi/scripts/notification.sh unread)
+	if ((unread > 0)); then
+		echo "^c$yellow^${icons["notification"]} $unread"
+	fi
 }
 
 update_cpu() {
@@ -387,9 +386,10 @@ update_mail() {
 
 		echo $unread >"$mail_unread_path"
 
-		if [ $unread -gt 0 ]; then
-			notify-send -i mail-unread-symbolic "$(notmuch search --output=files tag:unread | cut -d/ -f5 | sort | uniq -c | awk '{print "[" $2 "] \t" $1 "封新邮件"}')"
-		fi
+		# FIX: 放弃通知，由于没有做唯一判断，会反复发送重复通知
+		# if [ $unread -gt 0 ]; then
+		# 	notify-send -i mail-unread-symbolic "$(notmuch search --output=files tag:unread | cut -d/ -f5 | sort | uniq -c | awk '{print "[" $2 "] \t" $1 "封新邮件"}')"
+		# fi
 
 		sleep $interval
 	done

@@ -29,7 +29,15 @@ panes() {
 	[[ ! -z "$weather" ]] && panes+="$(new_pane $grey "\x09^c$blue^$weather")"
 
 	panes+="$(new_pane $grey "\x08$(print_cpu)$(print_temperature)" "\x07$(print_mem)" "\x06$(print_disk)")"
-	panes+="$(new_pane $grey "\x0e$(print_singbox)" "\x0a$(print_mpd)" "\x0d^c$yellow^$(print_rss)" "\x0c^c$yellow^$(print_mail)" "\x03^c$white^$(print_volume)" "\x02$(print_battery)")"
+
+	rss=$(print_rss)
+	mail=$(print_mail)
+	notification=$(print_notification)
+	if [ -n "$rss$mail$notification" ]; then
+		panes+="$(new_pane $grey "\x0d$rss" "\x0c$mail" "\x0f$notification")"
+	fi
+
+	panes+="$(new_pane $grey "\x0e$(print_singbox)" "\x0a$(print_mpd)" "\x03$(print_volume)" "\x02$(print_battery)")"
 	panes+="$(new_pane $green "\x01^c$black^$(print_date)")"
 	echo -e "$panes"
 }

@@ -37,28 +37,20 @@ if [[ "$layout" == 'NO' ]]; then
 		"󰋩 Picom                         $(icon toggle app picom)"
 		"󰈀 Network                       $(icon active app NetworkManager)"
 		"󰂯 Bluetooth                     $(icon active service bluetooth)"
-		"󰍨 Notification                  $(icon active app dunst)"
+		" Notification                  $(/bin/bash $ROFI_DIR/scripts/notification.sh unread)"
 		" Tools"
 		" Setting"
 		" SingBox"
-	)
-	notificationOpt=(
-		"Pop                             $(dunstctl count history)"
-		"CloseAll                        $(dunstctl count displayed)"
 	)
 else
 	firstOpt=(
 		"󰋩 $(icon active app picom)"
 		"󰈀 $(icon active app NetworkManager)"
 		"󰂯 $(icon active service bluetooth)"
-		"󰍨 $(icon active app dunst)"
+		" $(/bin/bash $ROFI_DIR/scripts/notification.sh unread)"
 		" "
 		" "
 		" "
-	)
-	notificationOpt=(
-		"Pop $(dunstctl count history)"
-		"CA $(dunstctl count displayed)"
 	)
 fi
 
@@ -70,9 +62,6 @@ optId[${firstOpt[3]}]="--opt4"
 optId[${firstOpt[4]}]="--opt5"
 optId[${firstOpt[5]}]="--opt6"
 optId[${firstOpt[6]}]="--opt7"
-
-optId[${notificationOpt[0]}]="--notificationOpt1"
-optId[${notificationOpt[1]}]="--notificationOpt2"
 
 # Rofi CMD
 rofi_cmd() {
@@ -123,10 +112,6 @@ run_rofi() {
 			mesg="No device connected"
 		fi
 		opts=$(bluetoothctl devices | awk '{print substr($0,26)}')
-	elif [[ "$1" == ${optId[${firstOpt[3]}]} ]]; then
-		prompt='Notification'
-		mesg="Dunst Notification Manager"
-		opts=("${notificationOpt[@]}")
 	else
 		prompt='Module'
 		mesg="Manage Module Of System"
@@ -145,11 +130,6 @@ run_rofi() {
 # Execute Command
 run_cmd() {
 	case "$1" in
-	${optId[${notificationOpt[0]}]})
-		for ((i = 0; i < $HistoryPopCount; i++)); do
-			dunstctl history-pop
-		done
-		;;
 	${optId[${firstOpt[1]}]})
 		chosen="$(run_rofi $1)"
 		if [[ "$chosen" == "" || "$chosen" == "$(nmcli connection show -active | grep -E 'wifi' | awk '{print $1}')" ]]; then
@@ -163,6 +143,10 @@ run_cmd() {
 			exit
 		fi
 		bluetoothctl disconnect $(bluetoothctl devices Connected | grep "$chosen" | awk '{print $2}')
+		;;
+	${optId[${firstOpt[3]}]})
+		$ROFI_DIR/scripts/notification.sh
+		return
 		;;
 	${optId[${firstOpt[4]}]})
 		/bin/bash $ROFI_DIR/scripts/system-tools.sh
