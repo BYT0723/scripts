@@ -14,7 +14,9 @@ conf="${XDG_CONFIG_HOME:-$HOME/.config}/dwm/wallpaper.conf"
 cache_wallpaper_dir="$HOME/.cache/wallpaper"
 mkdir -p "$cache_wallpaper_dir"
 wallpaper_latest="$cache_wallpaper_dir/wallpaper_latest"
+wallpaper_full_latest="${wallpaper_latest}_full"
 wallpaper_pid="$cache_wallpaper_dir/wallpaper_pid"
+wallpaper_full_pid="${wallpaper_pid}_full"
 
 # Define the default configuration
 declare -A config
@@ -61,6 +63,8 @@ clean_latest() {
 	# 开启 nullglob，保证通配符为空时不会报错
 	shopt -s nullglob
 
+	[ -f "$wallpaper_full_latest" ] && kill $(cat $wallpaper_full_pid) && rm -f "$wallpaper_full_latest" && rm -f "$wallpaper_full_pid"
+
 	local files=()
 
 	if [ -n "$monitor_index" ]; then
@@ -77,6 +81,52 @@ clean_latest() {
 		[ ! -z "$pid" ] && kill $pid
 		rm -f "$f"
 	done
+}
+
+launch_video_xwinwrap() {
+	local position=$1
+	shift
+	local filepath=$@
+	xwinwrap -ov -g "$position" -- mpv -wid WID "$filepath" \
+		--no-config \
+		--load-scripts=no \
+		--no-keepaspect \
+		--mute \
+		--no-osc \
+		--loop \
+		--vid=1 \
+		--no-ytdl \
+		--no-terminal \
+		--really-quiet \
+		--cursor-autohide=no \
+		--player-operation-mode=cplayer \
+		--no-input-default-bindings \
+		--hwdec=auto-safe \
+		--vo=gpu-next \
+		--framedrop=vo \
+		--no-sub \
+		--input-conf=$keymapConf 2>&1 >~/.wallpaper.log &
+}
+
+launch_page_xwinwrap() {
+	local position=$1
+	shift
+	local filepath=$@
+	xwinwrap -ov -g "$position" -- tabbed -w WID -g $(echo $position | sed -E 's/^([0-9]+x[0-9]+).*/\1/') -r 2 surf -e '' "$filepath" 2>&1 >~/.wallpaper.log 2>&1 >~/.wallpaper.log &
+}
+
+set_video_to_screen() {
+	clean_latest
+	local filepath=$@
+	# 获取当前屏幕总分辨率
+	local screen_size=$(xrandr | head -n1 | awk -F',' '{for(i=1;i<=NF;i++) if($i ~ /current/) print $i}' | awk '{print $2 $3 $4}')
+
+	# FIX: 设置全Screen时，mpv获取不到焦点，keymap失效?
+	launch_video_xwinwrap "$screen_size+0+0" "$filepath"
+	# 获取上一个命令的pid
+	echo "$!" >"$wallpaper_full_pid"
+	# write command to configuration
+	echo "$filepath" >"$wallpaper_full_latest"
 }
 
 # set wallpaper
@@ -130,25 +180,7 @@ set_wallpaper_to_monitor() {
 		keymapConf=$(printf '%s\n' "$keymapConf" | envsubst)
 		keymapConf="${keymapConf/#\~/$HOME}"
 
-		xwinwrap -ov -g "${width}x${height}+${x}+${y}" -- mpv -wid WID "$filepath" \
-			--no-config \
-			--load-scripts=no \
-			--no-keepaspect \
-			--mute \
-			--no-osc \
-			--loop \
-			--vid=1 \
-			--no-ytdl \
-			--no-terminal \
-			--really-quiet \
-			--cursor-autohide=no \
-			--player-operation-mode=cplayer \
-			--no-input-default-bindings \
-    		--hwdec=auto-safe \
-    		--vo=gpu-next \
-			--framedrop=vo \
-			--no-sub \
-			--input-conf=$keymapConf 2>&1 >~/.wallpaper.log &
+		launch_video_xwinwrap "${width}x${height}+${x}+${y}" "$filepath"
 
 		# 获取上一个命令的pid
 		echo "$!" >"${wallpaper_pid}_${monitor_index}"
@@ -185,7 +217,7 @@ set_wallpaper_to_monitor() {
 			return
 		fi
 
-		xwinwrap -ov -g "${width}x${height}+${x}+${y}" -- tabbed -w WID -g $(echo $position | sed -E 's/^([0-9]+x[0-9]+).*/\1/') -r 2 surf -e '' $filepath 2>&1 >~/.wallpaper.log 2>&1 >~/.wallpaper.log &
+		launch_page_xwinwrap "${width}x${height}+${x}+${y}" "$filepath"
 
 		# 获取上一个命令的pid
 		echo "$!" >"${wallpaper_pid}_${monitor_index}"
@@ -271,23 +303,26 @@ set_wallpaper() {
 	local select_file="$@"
 
 	if [ $(xrandr --listactivemonitors | wc -l) = 2 ]; then
-		select_monitor_name=$(xrandr --listactivemonitors | awk 'END{print $NF}')
+		select=$(xrandr --listactivemonitors | awk 'END{print $NF}')
 	elif [[ $skip_select = true ]]; then
-		select_monitor_name="ALL"
+		select="ALL"
 	else
-		monitors="ALL\n"$(xrandr --listactivemonitors | awk 'NR>1 {print $NF}')
-		select_monitor_name=$(echo -e "$monitors" | bash $WORK_DIR/rofi/scripts/common_list.sh "Wallpaper" "Select a monitor")
+		monitors="ALL\n"$(xrandr --listactivemonitors | awk 'NR>1 {print $NF}')"\nScreen"
+		select=$(echo -e "$monitors" | bash $WORK_DIR/rofi/scripts/common_list.sh -w 1000 "Wallpaper" "Select a monitor")
 	fi
-	[ -z "$select_monitor_name" ] && return
+	[ -z "$select" ] && return
 
+	[[ "$select" = "Screen" ]] && set_video_to_screen "$select_file" && return
 	xrandr --listactivemonitors | awk 'NR>1 {sub(":","",$1); print $1,$NF}' | while read -r monitor_index monitor_name; do
-		if [[ $select_monitor_name = "ALL" ]] || [[ $select_monitor_name = "$monitor_name" ]]; then
+		if [[ $select = "ALL" ]] || [[ $select = "$monitor_name" ]]; then
 			set_wallpaper_to_monitor "$monitor_index" "$select_file"
 		fi
 	done
 }
 
 set_latest() {
+	[ -f "$wallpaper_full_latest" ] && set_video_to_screen "$(cat "$wallpaper_full_latest")" && return
+
 	local files=()
 	files=("${wallpaper_latest}"_[0-9]*)
 	# 遍历每个匹配文件
