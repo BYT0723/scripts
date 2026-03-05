@@ -84,9 +84,25 @@ clean_latest() {
 }
 
 launch_video_xwinwrap() {
+	# command detection
+	if ! [[ -n $(command -v xwinwrap) ]]; then
+		echo "set video to wallpaper need xwinwrap, install xwinwrap(https://github.com/BYT0723/xwinwrap) package"
+		exit 1
+	fi
+	if ! [[ -n $(command -v mpv) ]]; then
+		echo "set video to wallpaper need mpv, install mpv package"
+		exit 1
+	fi
+
 	local position=$1
 	shift
 	local filepath=$@
+
+	local keymapConf=$(getConfig video_keymap_conf)
+
+	keymapConf=$(printf '%s\n' "$keymapConf" | envsubst)
+	keymapConf="${keymapConf/#\~/$HOME}"
+
 	xwinwrap -ov -g "$position" -- mpv -wid WID "$filepath" \
 		--no-config \
 		--load-scripts=no \
@@ -109,6 +125,16 @@ launch_video_xwinwrap() {
 }
 
 launch_page_xwinwrap() {
+	# command detection
+	if ! [[ -n $(command -v xwinwrap) ]]; then
+		echo "set video to wallpaper need xwinwrap, install xwinwrap(https://github.com/BYT0723/xwinwrap) package"
+		exit 1
+	fi
+	if ! [[ -n $(command -v surf) ]]; then
+		echo "set page to wallpaper need surf, install surf package"
+		exit 1
+	fi
+
 	local position=$1
 	shift
 	local filepath=$@
@@ -121,7 +147,6 @@ set_video_to_screen() {
 	# 获取当前屏幕总分辨率
 	local screen_size=$(xrandr | head -n1 | awk -F',' '{for(i=1;i<=NF;i++) if($i ~ /current/) print $i}' | awk '{print $2 $3 $4}')
 
-	# FIX: 设置全Screen时，mpv获取不到焦点，keymap失效?
 	launch_video_xwinwrap "$screen_size+0+0" "$filepath"
 	# 获取上一个命令的pid
 	echo "$!" >"$wallpaper_full_pid"
@@ -165,21 +190,6 @@ set_wallpaper_to_monitor() {
 	# run different commands according to the type
 	case "$Type" in
 	"video")
-		# command detection
-		if ! [[ -n $(command -v xwinwrap) ]]; then
-			echo "set video to wallpaper need xwinwrap, install xwinwrap(https://github.com/BYT0723/xwinwrap) package"
-			return
-		fi
-		if ! [[ -n $(command -v mpv) ]]; then
-			echo "set video to wallpaper need mpv, install mpv package"
-			return
-		fi
-
-		local keymapConf=$(getConfig video_keymap_conf)
-
-		keymapConf=$(printf '%s\n' "$keymapConf" | envsubst)
-		keymapConf="${keymapConf/#\~/$HOME}"
-
 		launch_video_xwinwrap "${width}x${height}+${x}+${y}" "$filepath"
 
 		# 获取上一个命令的pid
@@ -207,16 +217,6 @@ set_wallpaper_to_monitor() {
 		feh --bg-scale --no-fehbg "${wallpapers[@]}" > ~/.wallpaper.log
 		;;
 	"page")
-		# command detection
-		if ! [[ -n $(command -v xwinwrap) ]]; then
-			echo "set video to wallpaper need xwinwrap, install xwinwrap(https://github.com/BYT0723/xwinwrap) package"
-			return
-		fi
-		if ! [[ -n $(command -v surf) ]]; then
-			echo "set page to wallpaper need surf, install surf package"
-			return
-		fi
-
 		launch_page_xwinwrap "${width}x${height}+${x}+${y}" "$filepath"
 
 		# 获取上一个命令的pid
