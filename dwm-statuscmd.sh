@@ -186,12 +186,21 @@ rssHandler() {
 	esac
 }
 
-sing_box_summary() {
+singboxHandler() {
 	buttonType=$1
 	case "$buttonType" in
 	1) xdg-open "http://127.0.0.1:9090/ui" ;;
 	2) ;;
 	3) $WORK_DIR/rofi/scripts/clash.sh ;;
+	esac
+}
+
+notificationHandler() {
+	buttonType=$1
+	case "$buttonType" in
+	1) dunstctl history-pop ;;
+	2) ;;
+	3) $WORK_DIR/rofi/scripts/notification.sh ;;
 	esac
 }
 
@@ -238,6 +247,9 @@ case "$cmdIndex" in
 	rssHandler $@
 	;;
 14)
-	sing_box_summary $@
+	singboxHandler $@
+	;;
+15)
+	notificationHandler $@
 	;;
 esac
