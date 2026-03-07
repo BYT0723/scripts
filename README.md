@@ -6,7 +6,8 @@
 
 1. 字体
    - rofi 中的字体配置为`JetBrains Mono Nerd Font`以及`Iosevka Nerd Font`,两个字体均可在 Arch 源中安装,`ttf-jetbrains-mono-nerd`和`ttf-iosevka-nerd`
-   - 中文字体,如果习惯了思源黑体安装`wqy-zenhei`,如果有其他需求可是配置 archlinuxcn 源，其中有很多中文字体，这边推荐个霞鹜楷体`ttf-lxgw-wenkai`,以及他的等宽字体`ttf-lxgw-wenkai-mono`
+   - 中文字体
+     - `noto-fonts-cjk` and `noto-fonts-cjk-fontconfig(aur)`
    - 以及`rofi/fonts`中的字体,copy 到`~/.local/share/fonts/`中
 
 2. 如下是一些基本依赖
