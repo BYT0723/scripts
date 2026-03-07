@@ -276,7 +276,7 @@ set_wallpaper_to_screen() {
         echo "$filepath" >"$wallpaper_full_latest"
         ;;
     "image")
-        feh --no-xinerama --bg-fill "$filepath" || return
+        feh --no-xinerama --bg-scale "$filepath" || return
         clean_latest
         # write command to configuration
         echo "$filepath" >"$wallpaper_full_latest"
