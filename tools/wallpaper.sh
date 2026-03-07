@@ -141,17 +141,60 @@ launch_page_xwinwrap() {
 	xwinwrap -ov -g "$position" -- tabbed -w WID -g $(echo $position | sed -E 's/^([0-9]+x[0-9]+).*/\1/') -r 2 surf -e '' "$filepath" 2>&1 >~/.wallpaper.log 2>&1 >~/.wallpaper.log &
 }
 
-set_video_to_screen() {
-	clean_latest
+set_wallpaper_to_screen() {
 	local filepath=$@
-	# 获取当前屏幕总分辨率
-	local screen_size=$(xrandr | head -n1 | awk -F',' '{for(i=1;i<=NF;i++) if($i ~ /current/) print $i}' | awk '{print $2 $3 $4}')
 
-	launch_video_xwinwrap "$screen_size+0+0" "$filepath"
-	# 获取上一个命令的pid
-	echo "$!" >"$wallpaper_full_pid"
-	# write command to configuration
-	echo "$filepath" >"$wallpaper_full_latest"
+	baseFilename=$(basename "${filepath// /_}")
+
+	# get file suffix
+	Type="${baseFilename##*.}"
+
+	# classify according to the suffix
+	case "$Type" in
+	'mp4' | mkv | avi)
+		Type="video"
+		;;
+	jpg | jpeg | png)
+		Type="image"
+		;;
+	html | htm)
+		Type="page"
+		;;
+	*)
+		Type="page"
+		;;
+	esac
+
+	clean_latest
+
+	# run different commands according to the type
+	case "$Type" in
+	"video")
+		# 获取当前屏幕总分辨率
+		local screen_size=$(xrandr | head -n1 | awk -F',' '{for(i=1;i<=NF;i++) if($i ~ /current/) print $i}' | awk '{print $2 $3 $4}')
+
+		launch_video_xwinwrap "$screen_size+0+0" "$filepath"
+		# 获取上一个命令的pid
+		echo "$!" >"$wallpaper_full_pid"
+		# write command to configuration
+		echo "$filepath" >"$wallpaper_full_latest"
+		;;
+	"image")
+		feh --no-xinerama --bg-fill "$filepath"
+		# write command to configuration
+		echo "$filepath" >"$wallpaper_full_latest"
+		;;
+	"page")
+		# 获取当前屏幕总分辨率
+		local screen_size=$(xrandr | head -n1 | awk -F',' '{for(i=1;i<=NF;i++) if($i ~ /current/) print $i}' | awk '{print $2 $3 $4}')
+
+		launch_page_xwinwrap "$screen_size+0+0" "$filepath"
+		# 获取上一个命令的pid
+		echo "$!" >"$wallpaper_full_pid"
+		# write command to configuration
+		echo "$filepath" >"$wallpaper_full_latest"
+		;;
+	esac
 }
 
 # set wallpaper
@@ -312,7 +355,7 @@ set_wallpaper() {
 	fi
 	[ -z "$select" ] && return
 
-	[[ "$select" = "Screen" ]] && set_video_to_screen "$select_file" && return
+	[[ "$select" = "Screen" ]] && set_wallpaper_to_screen "$select_file" && return
 	xrandr --listactivemonitors | awk 'NR>1 {sub(":","",$1); print $1,$NF}' | while read -r monitor_index monitor_name; do
 		if [[ $select = "ALL" ]] || [[ $select = "$monitor_name" ]]; then
 			set_wallpaper_to_monitor "$monitor_index" "$select_file"
@@ -321,7 +364,7 @@ set_wallpaper() {
 }
 
 set_latest() {
-	[ -f "$wallpaper_full_latest" ] && set_video_to_screen "$(cat "$wallpaper_full_latest")" && return
+	[ -f "$wallpaper_full_latest" ] && set_wallpaper_to_screen "$(cat "$wallpaper_full_latest")" && return
 
 	local files=()
 	files=("${wallpaper_latest}"_[0-9]*)
