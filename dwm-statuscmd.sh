@@ -198,7 +198,7 @@ singboxHandler() {
 notificationHandler() {
 	buttonType=$1
 	case "$buttonType" in
-	1) dunstctl history-pop ;;
+	1) $WORK_DIR/rofi/scripts/notification.sh pop-latest ;;
 	2) ;;
 	3) $WORK_DIR/rofi/scripts/notification.sh ;;
 	esac

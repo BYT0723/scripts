@@ -15,12 +15,7 @@ width=1200px
 read_all_entry="Mark all as read"
 
 unread_count() {
-	echo $(dunstctl count | awk '
-	  /Waiting/ {w=$2}
-	  /Currently displayed/ {c=$3}
-	  /History/ {h=$2}
-	  END {print w+c+h}
-	')
+	echo $(dunstctl count history)
 }
 
 build_menu() {
@@ -81,13 +76,19 @@ run() {
 	case "$chosen" in
 	"$read_all_entry") dunstctl history-clear ;;
 	*)
-		id=$(echo $chosen | cut -d' ' -f1)
-		dunstctl history-pop $id && sleep 5 && dunstctl close $pid && dunstctl history-rm $id &
+		pop "$(echo $chosen | cut -d' ' -f1)"
 		;;
 	esac
 }
 
+pop() {
+	local id=$1
+	local timeout=${2:-5}
+	dunstctl history-pop $id && sleep $timeout && dunstctl close $id && dunstctl history-rm $id &
+}
+
 case "$1" in
-unread) unread_count ;;
+"unread") unread_count ;;
+"pop-latest") pop "$(dunstctl history | jq -r '.data[0][0].id.data')" ;;
 *) run ;;
 esac
