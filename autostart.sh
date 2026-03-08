@@ -35,11 +35,11 @@ desktop_setting() {
 	# conky (system monitor) (conky must be before wallpaper)
 	# 如果壁纸在conky之前就会导致壁纸沉入xwinwrap之下，导致无法看到conky窗口(针对video/page壁纸)
 	((CONKY_AUTOSTART > 0)) && conky -U -d &
+	# 壁纸(不使用launch_monitor是因为wallpaper每次启动都要使用新的instance, 移除旧的实例)
+	# wallpaper.sh内部实现了
+	/bin/bash "$TOOLS_DIR"/wallpaper.sh -r &
 	# 屏保
 	launch_monitor "[sc]reen.sh" "/bin/bash $TOOLS_DIR/screen.sh &" &
-	# 壁纸(不使用launch_monitor是因为wallpaper每次启动都要使用新的instance, 移除旧的实例)
-	# sleep是因为sddm第一次进入时有几率导致set_latest失效，目前不知道是xorg还是sddm的问题
-	sleep 1 && /bin/bash "$TOOLS_DIR"/wallpaper.sh -r &
 }
 
 application_launch() {
