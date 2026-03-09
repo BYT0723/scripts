@@ -157,7 +157,8 @@ mailHandler() {
 	buttonType=$1
 	case "$buttonType" in
 	1)
-		notify-send -i mail-unread-symbolic "New Mail" "$(notmuch search --output=files tag:unread | cut -d/ -f5 | sort | uniq -c | awk '{print "[" $2 "] \t" $1 " Unread"}')"
+		# notify-send -i mail-unread-symbolic "New Mail" "$(notmuch search --output=files tag:unread | cut -d/ -f5 | sort | uniq -c | awk '{print "[" $2 "] \t" $1 " Unread"}')"
+		thunderbird -mail &
 		;;
 	2) ;;
 	3)
