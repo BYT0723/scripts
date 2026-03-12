@@ -9,8 +9,6 @@ source "$WORK_DIR/utils/notify.sh"
 # Focus: Do not use spaces in paths and filenames, unexpected consequences may occur
 #
 
-wallpaper_launch_delay=1
-
 # wallpaper configuration file
 conf="${XDG_CONFIG_HOME:-$HOME/.config}/dwm/wallpaper.conf"
 cache_wallpaper_dir="$HOME/.cache/wallpaper"
@@ -423,8 +421,6 @@ set_latest() {
 
 # wallpaper launch_wallpaper
 launch_wallpaper() {
-	sleep $wallpaper_launch_delay
-
 	# kill last daemon
 	script=$(readlink -f "$0")
 	pgrep -f "$script" | grep -vx "$$" | xargs -r kill
