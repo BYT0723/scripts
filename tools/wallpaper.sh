@@ -271,10 +271,11 @@ set_wallpaper_to_screen() {
     "video"|"page")
         local screen_size
         screen_size=$(get_screen_size) || return
-        launch_dynamic_wallpaper "$Type" "$screen_size+0+0" "$filepath" || return
+
         clean_latest
+        launch_dynamic_wallpaper "$Type" "$screen_size+0+0" "$filepath" || return
+
         echo "$NEW_WALLPAPER_PID" >"$wallpaper_full_pid"
-        # write command to configuration
         echo "$filepath" >"$wallpaper_full_latest"
         ;;
     "image")
@@ -301,11 +302,10 @@ set_wallpaper_to_monitor() {
     # run different commands according to the type
     case "$Type" in
     "video"|"page")
-        launch_dynamic_wallpaper "$Type" "${width}x${height}+${x}+${y}" "$filepath" || return
         clean_latest "$monitor_index"
-        echo "$NEW_WALLPAPER_PID" >"${wallpaper_pid}_${monitor_index}"
+        launch_dynamic_wallpaper "$Type" "${width}x${height}+${x}+${y}" "$filepath" || return
 
-        # write command to configuration
+        echo "$NEW_WALLPAPER_PID" >"${wallpaper_pid}_${monitor_index}"
         echo "$filepath" >"${wallpaper_latest}_${monitor_index}"
         ;;
     "image")
