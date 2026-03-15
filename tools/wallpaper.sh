@@ -397,7 +397,10 @@ set_wallpaper() {
         select="ALL"
     else
         monitors="ALL\n"$(echo "$monitors_list" | awk 'NR>1 {print $NF}')"\nScreen"
-        select=$(echo -e "$monitors" | bash $WORK_DIR/rofi/scripts/common_list.sh -w 1000 "Wallpaper" "Select a monitor")
+        select=$(echo -e "$monitors" | bash $WORK_DIR/rofi/scripts/common_list.sh \
+			-w 1000 \
+			-F "JetBrains Mono Nerd Font 16" \
+			"Wallpaper" "Select a monitor")
     fi
     [ -z "$select" ] && return
 
