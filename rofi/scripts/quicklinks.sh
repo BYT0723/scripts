@@ -11,6 +11,8 @@ theme="$type/$style"
 font="JetBrains Mono Nerd Font 16"
 mesg="Using '"$(get_default_browser_name)"' Open Link"
 
+NEW_LINK=" New Link"
+
 CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/dwm/quicklinks.conf"
 
 mapfile -t links < <(
@@ -25,6 +27,7 @@ build_menu() {
 
 		echo "$icon $name"
 	done
+	echo $NEW_LINK
 }
 
 # Rofi CMD
@@ -51,8 +54,12 @@ google_search=https://www.google.com/search?q=
 bing_search=https://cn.bing.com/search?q=
 search_engine=$google_search
 
+QUICKLINKS_EDITOR=${QUICKLINKS_EDITOR:-"kitty nvim"}
+
 run_cmd() {
 	local chosen="$1"
+
+	[[ "$chosen" == "$NEW_LINK" ]] && $QUICKLINKS_EDITOR "$CONFIG" && return
 
 	for entry in "${links[@]}"; do
 		IFS="|" read -r icon name url <<<"$entry"
