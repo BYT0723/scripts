@@ -56,6 +56,7 @@ run_rofi() {
 
 # Execute Command
 run_cmd() {
+	sleep 0.1
 	selected="$(confirm_exit)"
 	if [[ "$selected" == "$yes" ]]; then
 		if [[ $1 == '--shutdown' ]]; then
