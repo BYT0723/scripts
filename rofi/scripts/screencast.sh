@@ -26,7 +26,7 @@ source "$WORK_DIR"/utils/monitor.sh
 # countdown
 countdown() {
 	while IFS= read -r sec; do
-		notify-send -i $appIcon -t 1010 --replace-id=699 "$appName" "Start in : ${sec}sec"
+		notify-send -i $appIcon -c history-ignore -t 1010 --replace-id=699 "$appName" "Start in : ${sec}sec"
 		sleep 1
 	done < <(seq "$1" -1 1)
 }
@@ -88,7 +88,7 @@ cast_area() {
 	# Use slop to select region and get the geometry
 	geometry=$(slop -f "%x %y %w %h")
 	if [ "$geometry" = "" ]; then
-		notify-send -i $appIcon "$appName" "No region selected. Exiting."
+		notify-send -c history-ignore -i $appIcon "$appName" "No region selected. Exiting."
 		exit 1
 	fi
 
@@ -97,7 +97,7 @@ cast_area() {
 
 	# Check if the width and height are valid
 	if [ "$W" -eq 0 ] || [ "$H" -eq 0 ]; then
-		notify-send -i $appIcon "$appName" "Invalid region size. Exiting."
+		notify-send -c history-ignore -i $appIcon "$appName" "Invalid region size. Exiting."
 		exit 1
 	fi
 
@@ -136,7 +136,7 @@ stop_cast() {
 		PID=$(cat "$PID_FILE")
 		kill "$PID"
 		rm -f "$PID_FILE"
-		notify-send -i $appIcon "$appName" "Recording stopped, Saved to $(cat "$PATH_FILE")"
+		notify-send -c history-ignore -i $appIcon "$appName" "Recording stopped, Saved to $(cat "$PATH_FILE")"
 		rm -f "$PATH_FILE"
 	fi
 }
