@@ -48,10 +48,13 @@ print_date() {
 }
 
 print_battery() {
+	[ -z "$(command -v acpi)" ] && system-notify critical "Tool Not Found" "please install acpi" && return
+	[ -z "$(acpi)" ] && return
+
 	battery_icons=('' '' '' '' '')
 	# battery_icons=('' '' '' '' '' '' '' '' '' '' '')
 	charging_icons=('')
-	percent=$(acpi -b | head -n 1 | grep -Eo '[0-9]+%' | sed -r 's/%//g')
+	percent=$(acpi -b | awk 'NR==1 {gsub(/%/,"",$NF); print $NF}')
 
 	icon=${battery_icons[$(echo $percent"/20.01" | bc)]}
 
@@ -68,8 +71,9 @@ print_battery() {
 }
 
 print_volume() {
-	volume="$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)%\].*/\1/')"
-	status="$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)\].*/\1/')"
+	[ -z "$(command -v amixer)" ] && system-notify critical "Tool Not Found" "please install alsa-utils" && return
+
+	read volume status < <(amixer get Master | awk -F'[][]' 'END{gsub(/%/,"",$2); print $2, $4}')
 
 	if [ "$status" == "off" ]; then
 		printf "^c$red^"
@@ -99,34 +103,33 @@ print_wifi() {
 # Disk free space size
 # disk path in variable $disk_root
 print_disk() {
-	# root disk space value
-	local disk_root=$(df -h | grep '/$' | awk '{print $4}')
-	# root disk usage
-	local disk_root_usage=$(df -h | grep '/$' | awk '{print $5}' | cut -d "%" -f1)
+	read avail usage < <(df -h / | awk 'NR==2 {print $4" "$5}')
 
-	if [ "$disk_root_usage" -gt 90 ]; then
+	usage="${usage%?}"
+
+	if [ "$usage" -gt 90 ]; then
 		printf "^c$yellow^"
 	else
 		printf "^c$white^"
 	fi
 	# output
-	printf "${icons[disk]} $disk_root"
+	printf "${icons[disk]} $avail"
 }
 
 # Memory usage
 print_mem() {
 	# memory value
-	local mem_val=$(LANG= free -h | awk '/Mem:/ {print $3}' | sed s/i//g)
+	local mem_used=$(free -h | awk 'NR==2 {print $3}')
 	# memory percent
-	local mem_usage=$(LANG= free | awk '/Mem:/ {printf("%.0f\n", 100*(1-$7/$2))}')
+	local mem_usage=$(free | awk 'NR==2 {printf("%.0f\n", 100*(1-$3/$2))}')
 
-	if [ "$mem_usage" -gt 80 ]; then
+	if [ "$mem_usage" -gt 90 ]; then
 		printf "^c$yellow^"
 	else
 		printf "^c$white^"
 	fi
 	# output
-	printf "${icons[memory]} $mem_val"
+	printf "${icons[memory]} $mem_used"
 }
 
 print_cpu() {
@@ -142,25 +145,31 @@ print_cpu() {
 	printf "${icons[cpu]}%3d%%" "$cpu_usage"
 }
 
+cpu_temperature_filepath=""
+
 print_temperature() {
-	vendor=$(cat /proc/cpuinfo | grep "vendor_id" | head -n 1 | awk -F ':' '{print $2}' | xargs)
-	case $vendor in
-	"GenuineIntel")
-		cpuIndex=$(cat -n /sys/class/thermal/thermal_zone*/type | grep "x86_pkg_temp$" | awk '{print $1 - 1}')
-		if [ ! -z "$cpuIndex" ] && [ -f "/sys/class/thermal/thermal_zone$cpuIndex/temp" ]; then
-			temp=$(head -c 2 /sys/class/thermal/thermal_zone$cpuIndex/temp)
-		fi
-		;;
-	"AuthenticAMD")
-		cpuIndex=$(cat -n /sys/class/hwmon/hwmon*/name | grep "k10temp$" | awk '{print $1 - 1}')
-		if [ ! -z "$cpuIndex" ] && [ -f "/sys/class/hwmon/hwmon$cpuIndex/temp1_input" ]; then
-			temp=$(head -c 2 "/sys/class/hwmon/hwmon$cpuIndex/temp1_input")
-		fi
-		;;
-	*)
-		notify-send "unsupported arch to get cpu temperature: "$vendor
-		;;
-	esac
+	if [ -z "$cpu_temperature_filepath" ]; then
+		vendor=$(cat /proc/cpuinfo | grep "vendor_id" | head -n 1 | awk -F ':' '{print $2}' | xargs)
+		case $vendor in
+		"GenuineIntel")
+			cpuIndex=$(cat -n /sys/class/thermal/thermal_zone*/type | grep "x86_pkg_temp$" | awk '{print $1 - 1}')
+			if [ ! -z "$cpuIndex" ] && [ -f "/sys/class/thermal/thermal_zone$cpuIndex/temp" ]; then
+				cpu_temperature_filepath="/sys/class/thermal/thermal_zone$cpuIndex/temp"
+			fi
+			;;
+		"AuthenticAMD")
+			cpuIndex=$(cat -n /sys/class/hwmon/hwmon*/name | grep "k10temp$" | awk '{print $1 - 1}')
+			if [ ! -z "$cpuIndex" ] && [ -f "/sys/class/hwmon/hwmon$cpuIndex/temp1_input" ]; then
+				cpu_temperature_filepath="/sys/class/hwmon/hwmon$cpuIndex/temp1_input"
+			fi
+			;;
+		*)
+			system-notify critical "[DWM STATUS BAR] Unsupport Arch" "unsupport arch $vendor to get cpu temperature" && return
+			;;
+		esac
+	fi
+
+	temp=$(head -c 2 $cpu_temperature_filepath)
 
 	if [ ! -z "$temp" ] && [ $temp -ge 70 ]; then
 		printf "^c$yellow^"
@@ -210,9 +219,9 @@ human_speed() {
 	if ((bytes < 1024)); then
 		printf "%5d B/s" "$bytes"
 	elif ((bytes < 1024000)); then
-		printf "%5.1f K/s" "$(bc -l <<<"$bytes/1024")"
+		printf "%5.1f K/s" "$((bytes / 1024))"
 	else
-		printf "%5.1f M/s" "$(bc -l <<<"$bytes/1024000")"
+		printf "%5.1f M/s" "$((bytes / 1024000))"
 	fi
 }
 
@@ -220,32 +229,6 @@ human_speed() {
 print_speed() {
 	# output
 	printf " $(human_speed $(cat $traffic_rx_path))  $(human_speed $(cat $traffic_tx_path))"
-}
-
-# Only fcitx and fcitx5 are supported
-print_im() {
-	if [ -x fcitx-remote ]; then
-		cmd="fcitx-remote"
-	fi
-	if [ -x fcitx5-remote ]; then
-		cmd="fcitx5-remote"
-	fi
-
-	case "$(fcitx5-remote -n)" in
-	'keyboard-us')
-		im="en"
-		;;
-	'pinyin')
-		im="cn"
-		;;
-	'mozc')
-		im="jp"
-		;;
-	'hangul')
-		im="kr"
-		;;
-	esac
-	printf "   $im"
 }
 
 print_mail() {
