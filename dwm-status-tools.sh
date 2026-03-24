@@ -26,7 +26,7 @@ icons["notification"]=""
 icons["rss"]=""
 
 cache_dir="/tmp/dwm-status"
-mkdir -p $cache_dir
+mkdir -p "$cache_dir"
 
 cpu_usage_path="$cache_dir/cpu_usage"
 weather_path="$cache_dir/weather"
@@ -38,13 +38,14 @@ rss_unread_path="$cache_dir/rss-unread"
 sing_box_config="/etc/sing-box/config.json"
 
 # MPD
-mpd_show_name=0
+mpd_single_pane=0
 
 # Datetime
 print_date() {
 	timeIcons=('' '' '' '' '' '' '' '' '' '' '' '')
-	date '+ %m/%d(%a) '${timeIcons[$(echo $(date '+%l')'%12' | bc)]}' %R'
-	# date '+ %Y-%m-%d(%a) '${timeIcons[$(echo $(date '+%l')'%12' | bc)]}' %R'
+	local hour=$(date '+%l')
+	date '+ %m/%d(%a) '${timeIcons[$((hour % 12))]}' %R'
+	# date '+ %Y-%m-%d(%a) '${timeIcons[$((hour % 12))]}' %R'
 }
 
 print_battery() {
@@ -54,17 +55,11 @@ print_battery() {
 	battery_icons=('' '' '' '' '')
 	# battery_icons=('' '' '' '' '' '' '' '' '' '' '')
 	charging_icons=('')
-	percent=$(acpi -b | awk 'NR==1 {gsub(/%/,"",$NF); print $NF}')
+	read status percent remain < <(acpi -b | awk 'NR==1 {gsub(/%,/,"",$4);gsub(/,/,"",$3); print $3" "$4}')
 
-	icon=${battery_icons[$(echo $percent"/20.01" | bc)]}
+	icon=${battery_icons[$(((percent - 1) / 20))]}
 
-	# duration=$(acpi -b | awk '{print $5}')
-
-	if $(acpi -b | head -n 1 | grep --quiet Discharging); then
-		printf "^c$white^"
-	else
-		printf "^c$yellow^"
-	fi
+	[[ "$status" == "Discharging" ]] && printf "^c$white^" || printf "^c$yellow^"
 
 	# printf "$icon $percent"
 	printf "$icon"
@@ -91,7 +86,7 @@ print_brightness() {
 }
 
 print_wifi() {
-	wifi=$(nmcli connection show -active | grep -E 'wifi' | awk '{print $1}')
+	wifi=$(nmcli -f NAME,TYPE connection show --active | awk '$2=="wifi"{print $1}')
 
 	if [ "$wifi" == "" ]; then
 		printf "󰖪"
@@ -103,15 +98,9 @@ print_wifi() {
 # Disk free space size
 # disk path in variable $disk_root
 print_disk() {
-	read avail usage < <(df -h / | awk 'NR==2 {print $4" "$5}')
+	read avail usage < <(df -h / | awk 'NR==2 {gsub(/%/,"",$5);print $4" "$5}')
 
-	usage="${usage%?}"
-
-	if [ "$usage" -gt 90 ]; then
-		printf "^c$yellow^"
-	else
-		printf "^c$white^"
-	fi
+	[ "$usage" -gt 90 ] && printf "^c$yellow^" || printf "^c$white^"
 	# output
 	printf "${icons[disk]} $avail"
 }
@@ -123,23 +112,15 @@ print_mem() {
 	# memory percent
 	local mem_usage=$(free | awk 'NR==2 {printf("%.0f\n", 100*(1-$3/$2))}')
 
-	if [ "$mem_usage" -gt 90 ]; then
-		printf "^c$yellow^"
-	else
-		printf "^c$white^"
-	fi
+	[ "$mem_usage" -gt 90 ] && printf "^c$yellow^" || printf "^c$white^"
 	# output
 	printf "${icons[memory]} $mem_used"
 }
 
 print_cpu() {
-	local cpu_usage=$(cat "$cpu_usage_path")
+	read cpu_usage <"$cpu_usage_path"
 
-	if ((cpu_usage >= 80)); then
-		printf "^c$yellow^"
-	else
-		printf "^c$white^"
-	fi
+	((cpu_usage >= 80)) && printf "^c$yellow^" || printf "^c$white^"
 
 	# output
 	printf "${icons[cpu]}%3d%%" "$cpu_usage"
@@ -149,19 +130,13 @@ cpu_temperature_filepath=""
 
 print_temperature() {
 	if [ -z "$cpu_temperature_filepath" ]; then
-		vendor=$(cat /proc/cpuinfo | grep "vendor_id" | head -n 1 | awk -F ':' '{print $2}' | xargs)
+		vendor=$(awk '$1=="vendor_id" {print $3;exit}' /proc/cpuinfo)
 		case $vendor in
 		"GenuineIntel")
-			cpuIndex=$(cat -n /sys/class/thermal/thermal_zone*/type | grep "x86_pkg_temp$" | awk '{print $1 - 1}')
-			if [ ! -z "$cpuIndex" ] && [ -f "/sys/class/thermal/thermal_zone$cpuIndex/temp" ]; then
-				cpu_temperature_filepath="/sys/class/thermal/thermal_zone$cpuIndex/temp"
-			fi
+			cpu_temperature_filepath=$(awk '$1=="x86_pkg_temp" {sub("/[^/]+$","",FILENAME); print FILENAME}' /sys/class/thermal/thermal_zone*/type)"/temp"
 			;;
 		"AuthenticAMD")
-			cpuIndex=$(cat -n /sys/class/hwmon/hwmon*/name | grep "k10temp$" | awk '{print $1 - 1}')
-			if [ ! -z "$cpuIndex" ] && [ -f "/sys/class/hwmon/hwmon$cpuIndex/temp1_input" ]; then
-				cpu_temperature_filepath="/sys/class/hwmon/hwmon$cpuIndex/temp1_input"
-			fi
+			cpu_temperature_filepath=$(awk '$1=="k10temp" {sub("/[^/]+$","",FILENAME); print FILENAME}' /sys/class/hwmon/hwmon*/name)"/temp1_input"
 			;;
 		*)
 			system-notify critical "[DWM STATUS BAR] Unsupport Arch" "unsupport arch $vendor to get cpu temperature" && return
@@ -169,48 +144,40 @@ print_temperature() {
 		esac
 	fi
 
-	temp=$(head -c 2 $cpu_temperature_filepath)
+	read temp <"$cpu_temperature_filepath"
+	temp=$((temp / 1000))
 
-	if [ ! -z "$temp" ] && [ $temp -ge 70 ]; then
-		printf "^c$yellow^"
-	else
-		printf "^c$white^"
-	fi
+	[ $temp -ge 70 ] && printf "^c$yellow^" || printf "^c$white^"
+
 	printf "${icons["temp"]} ${temp}°C"
 }
 
+max_len_output() {
+	local input=$1
+	local len=${2:-16}
+	[ ${#input} -le $len ] && printf "%s" "$input" || printf "%s..." "${input:0:len-3}"
+}
+
 print_weather() {
-	weather=$(cat $weather_path)
-	[ ! -z "$weather" ] && printf "$weather"
+	read -r weather <"$weather_path"
+	[ -n "$weather" ] && max_len_output "$weather"
 }
 
 # Music Player Daemon
 print_mpd() {
-	if [[ -z "$(mpc status 2>/dev/null)" ]]; then
-		return
-	fi
+	local mpc_out=$(mpc status 2>/dev/null)
+
+	[[ -z "$mpc_out" ]] && return
 
 	# mpd play status
-	if [[ $(mpc status) == *"[playing]"* ]]; then
-		printf "^c$darkblue^"
-	else
-		printf "^c$white^"
-	fi
+	[[ $mpc_out == *"[playing]"* ]] && printf "^c$darkblue^" || printf "^c$white^"
 
-	if [ $mpd_show_name -gt 0 ]; then
+	if [ $mpd_single_pane -gt 0 ]; then
 		songName=$(mpc -f "%title% - %artist%" current)
-
-		maxLen=16
-
-		if [ ${#songName} -gt $maxLen ]; then
-			songName=${songName:0:$(($maxLen - 2))}'..'
-		fi
-
-		printf "${icons[mpd]} $songName"
+		max_len_output "${icons[mpd]} $songName"
 	else
 		printf "${icons[mpd]}"
 	fi
-
 }
 
 human_speed() {
@@ -219,41 +186,40 @@ human_speed() {
 	if ((bytes < 1024)); then
 		printf "%5d B/s" "$bytes"
 	elif ((bytes < 1024000)); then
-		printf "%5.1f K/s" "$((bytes / 1024))"
+		printf "%5.1f K/s" "$(bc -l <<<"$bytes/1024")"
 	else
-		printf "%5.1f M/s" "$((bytes / 1024000))"
+		printf "%5.1f M/s" "$(bc -l <<<"$bytes/1024000")"
 	fi
 }
 
 # Network traffic
 print_speed() {
+	read rx <"$traffic_rx_path"
+	read tx <"$traffic_tx_path"
 	# output
-	printf " $(human_speed $(cat $traffic_rx_path))  $(human_speed $(cat $traffic_tx_path))"
+	printf " "
+	human_speed $rx
+	printf "  "
+	human_speed $tx
 }
 
 print_mail() {
-	unread=$(cat "$mail_unread_path")
-	if [[ $unread > 0 ]]; then
-		printf "^c$yellow^${icons[mail]} $unread"
-	fi
+	read unread <"$mail_unread_path"
+	(($unread > 0)) && printf "^c$yellow^${icons[mail]} $unread"
 }
 
 print_rss() {
-	unread=$(cat "$rss_unread_path")
-	if [[ $unread > 0 ]]; then
-		printf "^c$yellow^${icons[rss]} $unread"
-	fi
+	read unread <"$rss_unread_path"
+	(($unread > 0)) && printf "^c$yellow^${icons[rss]} $unread"
 }
 
 print_singbox() {
-	[ -f "$sing_box_config" ] && [ -n "$(pgrep sing-box)" ] && printf "^c$white^"
+	[ -f "$sing_box_config" ] && pgrep sing-box >/dev/null && printf "^c$white^"
 }
 
 print_notification() {
 	unread=$(/bin/bash $WORK_DIR/rofi/scripts/notification.sh unread)
-	if ((unread > 0)); then
-		echo "^c$yellow^${icons["notification"]} $unread"
-	fi
+	((unread > 0)) && printf "^c$yellow^${icons["notification"]} $unread"
 }
 
 update_cpu() {
@@ -307,7 +273,7 @@ update_traffic() {
 	local iface last_iface prev_rx prev_tx now_rx now_tx
 
 	while true; do
-		iface=$(ip route get 8.8.8.8 2>/dev/null | awk '{print $5; exit}')
+		read iface < <(awk '$2=="00000000"{print $1; exit}' /proc/net/route)
 
 		if [[ -z $iface || ! -e /sys/class/net/$iface/statistics/rx_bytes ]]; then
 			sleep "$interval"
