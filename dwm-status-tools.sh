@@ -55,7 +55,7 @@ print_battery() {
 	battery_icons=('' '' '' '' '')
 	# battery_icons=('' '' '' '' '' '' '' '' '' '' '')
 	charging_icons=('')
-	read status percent remain < <(acpi -b | awk 'NR==1 {gsub(/%,/,"",$4);gsub(/,/,"",$3); print $3" "$4}')
+	IFS='|' read -r status percent < <(acpi -b | awk -F': |, |%' 'NR==1 {print $2"|"$3}')
 
 	icon=${battery_icons[$(((percent - 1) / 20))]}
 
