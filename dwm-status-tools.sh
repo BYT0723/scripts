@@ -110,7 +110,7 @@ print_mem() {
 	# memory value
 	local mem_used=$(free -h | awk 'NR==2 {print $3}')
 	# memory percent
-	local mem_usage=$(free | awk 'NR==2 {printf("%.0f\n", 100*(1-$3/$2))}')
+	local mem_usage=$(free | awk 'NR==2 {printf("%.0f\n", 100*($3/$2))}')
 
 	[ "$mem_usage" -gt 90 ] && printf "^c$yellow^" || printf "^c$white^"
 	# output
