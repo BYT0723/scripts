@@ -11,12 +11,15 @@ new_pane() {
 	fg=$1
 	shift
 
-	if [[ $1 =~ ^(\\x[0-9a-fA-F]{2})(.*) ]]; then
-		first_status_code="${BASH_REMATCH[1]}" # 控制字符
-		first_text="${BASH_REMATCH[2]}"        # 剩余内容
-	else
-		first_text=$1
-	fi
+	case "$1" in
+	\\x??*)
+		first_status_code="${1:0:4}"
+		first_text="${1:4}"
+		;;
+	*)
+		first_text="$1"
+		;;
+	esac
 	shift
 
 	printf "%s" "^b$fg^$first_status_code$DWM_STATUS_LEFT_RADIUS$first_text$@$DWM_STATUS_RIGHT_RADIUS"
@@ -69,6 +72,7 @@ launch() {
 	update_mail &
 	update_weather &
 	update_rss &
+	update_mpd &
 	refresh_status
 }
 

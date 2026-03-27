@@ -34,6 +34,7 @@ traffic_rx_path="$cache_dir/network-traffic-rx"
 traffic_tx_path="$cache_dir/network-traffic-tx"
 mail_unread_path="$cache_dir/mail-unread"
 rss_unread_path="$cache_dir/rss-unread"
+mpd_status_path="$cache_dir/mpd-status"
 
 sing_box_config="/etc/sing-box/config.json"
 
@@ -165,16 +166,15 @@ print_weather() {
 
 # Music Player Daemon
 print_mpd() {
-	local mpc_out=$(mpc status 2>/dev/null)
+	IFS='|' read songname state <"$mpd_status_path"
 
-	[[ -z "$mpc_out" ]] && return
+	[[ -z "$songname" ]] && return
 
 	# mpd play status
-	[[ $mpc_out == *"[playing]"* ]] && printf "^c$darkblue^" || printf "^c$white^"
+	[[ $state == "playing" ]] && printf "^c$darkblue^" || printf "^c$white^"
 
 	if [ $mpd_single_pane -gt 0 ]; then
-		songName=$(mpc -f "%title% - %artist%" current)
-		max_len_output "${icons[mpd]} $songName"
+		max_len_output "${icons[mpd]} $songname"
 	else
 		printf "${icons[mpd]}"
 	fi
@@ -352,5 +352,23 @@ update_rss() {
 	while true; do
 		echo "$(newsboat -x print-unread | awk '{print $1}')" >"$rss_unread_path"
 		sleep $interval
+	done
+}
+
+update_mpd() {
+	local retry_interval=${1:-1}
+	while true; do
+		# 尝试获取 MPD 状态，如果失败就说明 MPD 不可用
+		if mpc status >/dev/null 2>&1; then
+			# 事件驱动循环
+			mpc idleloop player | while read -r event; do
+				state=$(mpc status '%state%')
+				name=$(mpc current -f "%title% - %artist%")
+				printf "%s|%s" "$name" "$state" >"$mpd_status_path"
+			done
+		else
+			# 远程 MPD 没连接上，等待再试
+			sleep $retry_interval
+		fi
 	done
 }
