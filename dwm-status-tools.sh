@@ -218,7 +218,7 @@ print_singbox() {
 }
 
 print_notification() {
-	unread=$(/bin/bash $WORK_DIR/rofi/scripts/notification.sh unread)
+	unread=$(dunstctl count history)
 	((unread > 0)) && printf "^c$yellow^${icons["notification"]} $unread"
 }
 

@@ -13,14 +13,16 @@ style='style-3.rasi'
 theme="$type/$style"
 
 # Theme Elements
-status="$(mpc status)"
+status=$(mpc status "%state%")
+repeat_state=$(mpc status "%repeat%")
+random_state=$(mpc status "%random%")
 textboxPromptColon="  | "
 if [[ -z "$status" ]]; then
 	prompt='Offline'
 	mesg="MPD is Offline"
 else
 	prompt="$(mpc -f "%title% - %artist%" current)"
-	mesg="$(mpc status | grep "#" | awk '{print $3}')  墳 $(mpc volume | awk -F ':' '{print $2}')"
+	mesg="$(mpc status "%currenttime%/%totaltime%  墳 %volume%")"
 fi
 
 if [[ ("$theme" == *'type-1'*) || ("$theme" == *'type-3'*) || ("$theme" == *'type-5'*) ]]; then
@@ -35,7 +37,7 @@ fi
 layout=$(cat ${theme} | grep 'USE_ICON' | cut -d'=' -f2)
 if [[ "$layout" == 'NO' ]]; then
 	option_power="⏻ Start Local MPD"
-	if [[ ${status} == *"[playing]"* ]]; then
+	if [[ ${status} == "playing" ]]; then
 		option_1=" Pause"
 	else
 		option_1=" Play"
@@ -49,7 +51,7 @@ if [[ "$layout" == 'NO' ]]; then
 	option_8=" Random"
 else
 	option_power="⏻"
-	if [[ ${status} == *"[playing]"* ]]; then
+	if [[ ${status} == "playing" ]]; then
 		option_1=""
 	else
 		option_1=""
@@ -67,17 +69,17 @@ fi
 active=''
 urgent=''
 # Repeat
-if [[ ${status} == *"repeat: on"* ]]; then
+if [[ ${repeat_state} == "on" ]]; then
 	active="-a 6"
-elif [[ ${status} == *"repeat: off"* ]]; then
+elif [[ ${repeat_state} == "off" ]]; then
 	urgent="-u 6"
 else
 	option_7=" Parsing Error"
 fi
 # Random
-if [[ ${status} == *"random: on"* ]]; then
+if [[ ${random_state} == "on" ]]; then
 	[ -n "$active" ] && active+=",7" || active="-a 7"
-elif [[ ${status} == *"random: off"* ]]; then
+elif [[ ${random_state} == "off" ]]; then
 	[ -n "$urgent" ] && urgent+=",7" || urgent="-u 7"
 else
 	option_8=" Parsing Error"
@@ -115,20 +117,21 @@ run_cmd() {
 		mpd
 	elif [[ "$1" == '--opt1' ]]; then
 		mpc -q toggle
-		mpc status | grep paused && icon="media-playback-start-symbolic" || icon="media-playback-pause-symbolic"
+		[[ $status == "playing" ]] && icon="media-playback-start-symbolic" || icon="media-playback-pause-symbolic"
 		notify-send -c mpd -i $icon -h string:x-dunst-stack-tag:$musicMsgTag "$(mpc -f "%title% - %artist%" current)"
 	elif [[ "$1" == '--opt2' ]]; then
 		mpc -q stop
 	elif [[ "$1" == '--opt3' ]]; then
 		mpc -q prev
-		mpc status | grep paused && icon="media-playback-start-symbolic" || icon="media-playback-pause-symbolic"
+		[[ $status == "playing" ]] && icon="media-playback-start-symbolic" || icon="media-playback-pause-symbolic"
 		notify-send -c mpd -i $icon -h string:x-dunst-stack-tag:$musicMsgTag "$(mpc -f "%title% - %artist%" current)"
 	elif [[ "$1" == '--opt4' ]]; then
 		mpc -q next
-		mpc status | grep paused && icon="media-playback-start-symbolic" || icon="media-playback-pause-symbolic"
+		[[ $status == "playing" ]] && icon="media-playback-start-symbolic" || icon="media-playback-pause-symbolic"
 		notify-send -c mpd -i $icon -h string:x-dunst-stack-tag:$musicMsgTag "$(mpc -f "%title% - %artist%" current)"
 	elif [[ "$1" == '--opt5' ]]; then
 		mpc volume -20
+		mpc status '%volume%'
 		current=$(mpc volume | cut -d':' -f2 | cut -d' ' -f2 | cut -d'%' -f1)
 		notify-send -c mpd -h string:x-dunst-stack-tag:$musicVolumnMsgTag -h int:value:"${current}" "MPD Volume: $current"
 	elif [[ "$1" == '--opt6' ]]; then
