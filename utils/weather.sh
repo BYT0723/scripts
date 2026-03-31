@@ -10,7 +10,8 @@ ipinfo-openMeteo() {
 			jq -r '"\(.current_weather.temperature)\(.current_weather_units.temperature) \(.current_weather.weathercode)"'
 	) || return 1
 
-	curl -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&hourly=temperature_2m,weather_code&forecast_hours=2&models=cma_grapes_global" | jq
+	# 获取未来两个小时的天气情况
+	# curl -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&hourly=temperature_2m,weather_code&forecast_hours=2&models=cma_grapes_global" | jq
 
 	case $CODE in
 	0)
