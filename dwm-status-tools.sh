@@ -306,7 +306,8 @@ update_traffic() {
 }
 
 update_weather() {
-	local interval=${1:-300}
+	# 默认间隔30分钟
+	local interval=${1:-1800}
 	while true; do
 		weather=$(wttr.in)
 		[ -z "$weather" ] && weather=$(ipinfo-openMeteo)

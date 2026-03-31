@@ -1,22 +1,16 @@
 #!/bin/bash
 
 ipinfo-openMeteo() {
-	RESP=$(curl -s https://ipinfo.io)
-	if [ $? -ne 0 ]; then
-		return 1
-	fi
-	CITY=$(echo $RESP | jq -r '.city')
-	LATLON=$(echo $RESP | jq -r '.loc')
-	LAT=$(echo $LATLON | cut -d',' -f1)
-	LON=$(echo $LATLON | cut -d',' -f2)
+	IFS=, read LAT LON < <(
+		curl -fsS https://ipinfo.io | jq -r '.loc'
+	) || return 1
 
-	RESP=$(curl -s "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&current_weather=true")
-	if [ $? -ne 0 ]; then
-		return 1
-	fi
+	read TEMP CODE < <(
+		curl -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&current_weather=true&models=cma_grapes_global" |
+			jq -r '"\(.current_weather.temperature)\(.current_weather_units.temperature) \(.current_weather.weathercode)"'
+	) || return 1
 
-	TEMP="$(echo $RESP | jq '.current_weather.temperature')$(echo $RESP | jq -r '.current_weather_units.temperature')"
-	CODE=$(echo $RESP | jq '.current_weather.weathercode')
+	curl -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&hourly=temperature_2m,weather_code&forecast_hours=2&models=cma_grapes_global" | jq
 
 	case $CODE in
 	0)
