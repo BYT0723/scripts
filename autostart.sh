@@ -1,6 +1,6 @@
 #!/bin/bash
 
-WORK_DIR=$(dirname "$0")
+WORK_DIR=$(dirname $(realpath "$0"))
 TOOLS_DIR="$WORK_DIR/tools"
 
 # conky 是否自启动
@@ -13,7 +13,16 @@ bash $TOOLS_DIR/monitor-conf.sh
 # $1 application name
 # $2 command
 launch() {
-	[ "$(pgrep "$1")" = "" ] && eval "$2" || true
+	local name=$1
+	shift
+	local cmd=$@
+	local pf="/tmp/dwm-status/autostart-launch-$name.pid"
+
+	[ -f "$pf" ] && pid=$(cat "$pf")
+	if [ -z "$pid" ]; then
+		$cmd &
+		echo $! >"$pf"
+	fi
 }
 
 # 启动并监控脚本
@@ -21,9 +30,22 @@ launch() {
 # $1 script name
 # $2 command
 launch_monitor() {
-	[ ! -z "$(pgrep -f "$1")" ] && kill $(pgrep -f "$1")
+	local name=$1
+	shift
+	local cmd=$@
+	local pf="/tmp/dwm-status/autostart-launch-monitor-$name.pid"
+
+	[ -f "$pf" ] && pid=$(cat "$pf")
+	[ -n "$pid" ] && kill $pid || true
+
 	while true; do
-		[ "$(pgrep -f "$1")" = "" ] && eval "$2" || true
+		[ -f "$pf" ] && pid=$(cat "$pf")
+
+		if [ -z "$pid" ]; then
+			$cmd &
+			echo $! >"$pf"
+		fi
+
 		# 每分钟
 		sleep 60
 	done
@@ -31,7 +53,7 @@ launch_monitor() {
 
 desktop_setting() {
 	# 状态栏信息
-	launch_monitor "[d]wm-status.sh" "/bin/bash $WORK_DIR/dwm-status.sh &" &
+	launch_monitor "dwm-status" "/bin/bash $WORK_DIR/dwm-status.sh" &
 	# conky (system monitor) (conky must be before wallpaper)
 	# 如果壁纸在conky之前就会导致壁纸沉入xwinwrap之下，导致无法看到conky窗口(针对video/page壁纸)
 	((CONKY_AUTOSTART > 0)) && conky -U -d &
@@ -39,24 +61,24 @@ desktop_setting() {
 	# wallpaper.sh内部实现了
 	/bin/bash "$TOOLS_DIR"/wallpaper.sh -r &
 	# 屏保
-	launch_monitor "[sc]reen.sh" "/bin/bash $TOOLS_DIR/screen.sh &" &
+	launch_monitor "screen" "/bin/bash $TOOLS_DIR/screen.sh" &
 }
 
 application_launch() {
 	# 窗口合成器 picom (window composer)
-	launch picom "picom --config "${XDG_CONFIG_HOME:-$HOME/.config}/dwm/picom.conf" -b"
+	launch picom "picom --config ${XDG_CONFIG_HOME:-$HOME/.config}/dwm/picom.conf"
 	# 启动通知
-	launch dunst "dunst &"
+	launch dunst "dunst"
 	# network manager 网络管理bar icon
-	launch nm-applet "nm-applet &"
+	launch nm-applet "nm-applet"
 	# input method
-	launch fcitx5 "fcitx5 -d"
+	launch fcitx5 "fcitx5"
 	# auto mount
-	launch udiskie "udiskie -sn &"
+	launch udiskie "udiskie -sn"
 	# polkit (require lxsession or lxsession-gtk3) 鉴权
-	launch lxpolkit "lxpolkit &"
+	launch lxpolkit "lxpolkit"
 	# 音频控制
-	launch easyeffects "easyeffects --service-mode --hide-window &"
+	launch easyeffects "easyeffects --service-mode --hide-window"
 }
 
 keyboard_setting() {

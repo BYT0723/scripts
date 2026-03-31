@@ -67,12 +67,24 @@ refresh_status() {
 }
 
 launch() {
+	local pids=()
+
 	update_cpu &
+	pids+=($!)
 	update_traffic &
+	pids+=($!)
 	update_mail &
+	pids+=($!)
 	update_weather &
+	pids+=($!)
 	update_rss &
+	pids+=($!)
 	update_mpd &
+	pids+=($!)
+
+	# 退出时杀掉所有子进程
+	trap 'kill "${pids[@]}" 2>/dev/null' EXIT
+
 	refresh_status
 }
 
