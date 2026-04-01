@@ -117,14 +117,11 @@ mpdHandler() {
 
 weatherHandler() {
 	buttonType=$1
-	local language=$(echo $LANG | awk -F '_' '{print $1}')
 	case "$buttonType" in
 	1)
-		notify-send \
-			-c status \
-			-h string:x-dunst-stack-tag:currentWeather \
-			"Weather" \
-			"$(curl -H 'Accept-Language:'$language 'wttr.in/?T0' | sed 's|\\|\\\\|g')"
+		notify-send -c status -i weather -h string:x-dunst-stack-tag:weatherForecast \
+			"Weather Forecast" \
+			"当前天气:$(cat "/tmp/dwm-status/weather")\n\n$(cat "/tmp/dwm-status/weather-forecast")"
 		;;
 	2)
 		xdg-open https://wttr.in/?T

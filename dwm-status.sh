@@ -77,6 +77,8 @@ launch() {
 	pids+=($!)
 	update_weather &
 	pids+=($!)
+	update_weather_forecast &
+	pids+=($!)
 	update_rss &
 	pids+=($!)
 	update_mpd &

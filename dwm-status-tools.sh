@@ -30,6 +30,7 @@ mkdir -p "$cache_dir"
 
 cpu_usage_path="$cache_dir/cpu_usage"
 weather_path="$cache_dir/weather"
+weather_forecast_path="$cache_dir/weather-forecast"
 traffic_rx_path="$cache_dir/network-traffic-rx"
 traffic_tx_path="$cache_dir/network-traffic-tx"
 mail_unread_path="$cache_dir/mail-unread"
@@ -309,12 +310,26 @@ update_weather() {
 	# 默认间隔30分钟
 	local interval=${1:-1800}
 	while true; do
-		weather=$(wttr.in)
-		[ -z "$weather" ] && weather=$(ipinfo-openMeteo)
+		weather=$(ipinfo-openMeteo)
+		[ -z "$weather" ] && weather=$(wttr.in)
 		echo "$weather" >"$weather_path"
 		sleep $interval
 	done
+}
 
+update_weather_forecast() {
+	while true; do
+		# 执行天气检查
+		alert=$(weather-forecast 12 "$weather_forecast_path")
+		[ -n "$alert" ] && notify-send -u critical -i weather -h string:x-dunst-stack-tag:weatherAlert "Weather" "$alert"
+
+		# 当前时间戳
+		now=$(date +%s)
+		# 下一整点 = 当前时间戳减去当前分钟秒数 + 3600
+		next_hour=$((now + 3600 - (now % 3600)))
+
+		sleep $((next_hour - now))
+	done
 }
 
 update_mail() {
