@@ -43,17 +43,23 @@ weather-forecast() {
 	echo "$forecast_json" | jq -r \
 		--arg hours "$forecast_hours" \
 		"$JQ_WMO"'
-		.hourly as $h |
-		($h.temperature_2m | min) as $tmin |
-		($h.temperature_2m | max) as $tmax |
-		"未来\($hours)小时天气变化\n温度: \($tmin)°C ~ \($tmax)°C\n\n" +
-		([range($h.time | length)] |
-			map(
-				($h.time[.] | split("T")[1]) as $t |
-				($h.temperature_2m[.] | tostring) as $temp |
-				($h.weather_code[.] | wmo_icon) as $w |
-				"\($t)\t\t\($temp)°C\t\t\($w)"
-			) | join("\n"))
+	  .hourly as $h |
+	  ($h.temperature_2m | min) as $tmin |
+	  ($h.temperature_2m | max) as $tmax |
+	  "未来\($hours)小时天气变化\n温度: \($tmin)°C ~ \($tmax)°C\n\n" +
+	  ([range($h.time | length)] |
+		map(
+		  ($h.time[.] | split("T")[1]) as $t |
+		  ($h.temperature_2m[.]) as $temp |
+		  ($h.weather_code[.] | wmo_icon) as $w |
+		  (
+			if $temp == $tmax then "(H)"
+			elif $temp == $tmin then "(L)"
+			else "   "
+			end
+		  ) as $mark |
+		  "\($t)\t\($w)\t\($temp)°C \($mark)"
+		) | join("\n"))
 	' >"$cache_file"
 
 	# 极端天气/降雨告警
@@ -73,7 +79,7 @@ weather-forecast() {
 		# 极端温度
 		([if $tmin <= 0 then "  🥶 最低温 \($tmin)°C，注意保暖" else empty end] +
 		 [if $tmax >= 35 then "  🔥 最高温 \($tmax)°C，注意防暑" else empty end] +
-		 [if ($tmax - $tmin) > 8 then "  🌡 温差\($tmax - $tmin)°C，注意增减衣物" else empty end]) as $temp_alerts |
+		 [if ($tmax - $tmin) > 8 then "  🌡 温差\($tmax - $tmin | round)°C，注意增减衣物" else empty end]) as $temp_alerts |
 		($weather_alerts + $temp_alerts) |
 		if length == 0 then empty
 		else join("\n")
