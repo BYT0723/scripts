@@ -61,10 +61,10 @@ print_battery() {
 
 	icon=${battery_icons[$(((percent - 1) / 20))]}
 
-	[[ "$status" == "Discharging" ]] && printf "^c$white^" || printf "^c$yellow^"
+	[[ "$status" == "Discharging" ]] && fg="$white" || fg="$yellow"
 
 	# printf "$icon $percent"
-	printf "$icon"
+	printf "^c$fg^$icon"
 }
 
 print_volume() {
@@ -73,59 +73,83 @@ print_volume() {
 	read volume status < <(amixer get Master | awk -F'[][]' 'END{gsub(/%/,"",$2); print $2, $4}')
 
 	if [ "$status" == "off" ]; then
-		printf "^c$red^"
+		fg="$red"
+		icon=""
 	elif [ "$volume" -eq 0 ]; then
-		printf "^c$yellow^"
+		fg="$yellow"
+		icon=""
 	else
-		printf "^c$white^"
+		fg="$white"
+		icon=""
 	fi
+	printf "^c$fg^$icon"
 	# printf "%s %2d" $icon $volume
 }
 
 print_brightness() {
-	icon="󰃟 "
-	printf "%s%2d" $icon $(xbacklight -get)
+	# 获取第一个 backlight 设备
+	local dev
+	dev=$(ls /sys/class/backlight | head -n1) || return
+
+	# 读取当前亮度和最大亮度
+	local cur max percent
+	cur=$(cat /sys/class/backlight/"$dev"/brightness)
+	max=$(cat /sys/class/backlight/"$dev"/max_brightness)
+
+	# 计算百分比
+	percent=$((100 * cur / max))
+
+	# 输出图标 + 百分比
+	local icon="󰃟"
+	printf "%s %2d%%" "$icon" "$percent"
 }
 
 print_wifi() {
-	wifi=$(nmcli -f NAME,TYPE connection show --active | awk '$2=="wifi"{print $1}')
+	local wifi=$(iwgetid -r)
+	local icon="󰖩"
 
-	if [ "$wifi" == "" ]; then
-		printf "󰖪"
-	else
-		printf "󰖩 $wifi"
-	fi
+	[ -z "$wifi" ] && icon="󰖪"
+
+	printf "%s %s" $icon $wifi
 }
 
 # Disk free space size
 # disk path in variable $disk_root
 print_disk() {
 	read avail usage < <(df -h / | awk 'NR==2 {gsub(/%/,"",$5);print $4" "$5}')
+	local fg="$white"
 
-	[ "$usage" -gt 90 ] && printf "^c$yellow^" || printf "^c$white^"
+	[ "$usage" -gt 90 ] && fg="$yellow"
 	# output
-	printf "${icons[disk]} $avail"
+	printf "^c$fg^${icons[disk]} $avail"
 }
 
 # Memory usage
 print_mem() {
-	# memory value
-	local mem_used=$(free -h | awk 'NR==2 {print $3}')
-	# memory percent
-	local mem_usage=$(free | awk 'NR==2 {printf("%.0f\n", 100*($3/$2))}')
+	read mem_usage mem_used < <(
+		awk '
+		/MemTotal:/     {total=$2}
+		/MemAvailable:/ {avail=$2}
+		END {
+			used = total - avail
+			usage = 100 * used / total
+			printf "%d %.1fG", usage, used/1024/1024
+		}' /proc/meminfo
+	)
+	fg="$white"
 
-	[ "$mem_usage" -gt 90 ] && printf "^c$yellow^" || printf "^c$white^"
-	# output
-	printf "${icons[memory]} $mem_used"
+	[ "$mem_usage" -gt 90 ] && fg="$yellow"
+	printf "^c$fg^${icons[memory]} $mem_used"
 }
 
 print_cpu() {
 	read cpu_usage <"$cpu_usage_path"
+	fg=$white
 
-	((cpu_usage >= 80)) && printf "^c$yellow^" || printf "^c$white^"
+	((cpu_usage >= 80)) && fg="$yellow"
 
 	# output
-	printf "${icons[cpu]}%3d%%" "$cpu_usage"
+	printf "^c$fg^${icons[cpu]}%3d%%" "$cpu_usage"
 }
 
 cpu_temperature_filepath=""
@@ -149,9 +173,11 @@ print_temperature() {
 	read temp <"$cpu_temperature_filepath"
 	temp=$((temp / 1000))
 
-	[ $temp -ge 70 ] && printf "^c$yellow^" || printf "^c$white^"
+	fg=$white
 
-	printf "${icons["temp"]} ${temp}°C"
+	[ $temp -ge 70 ] && fg="$yellow"
+
+	printf "^c$fg^${icons["temp"]} ${temp}°C"
 }
 
 max_len_output() {
@@ -171,13 +197,15 @@ print_mpd() {
 
 	[[ -z "$songname" ]] && return
 
+	fg="$white"
+
 	# mpd play status
-	[[ $state == "playing" ]] && printf "^c$darkblue^" || printf "^c$white^"
+	[[ $state == "playing" ]] && fg="$darkblue"
 
 	if [ $mpd_single_pane -gt 0 ]; then
 		max_len_output "${icons[mpd]} $songname"
 	else
-		printf "${icons[mpd]}"
+		printf "^c$fg^${icons[mpd]}"
 	fi
 }
 
