@@ -7,7 +7,7 @@ JQ_WMO='def wmo_label:
 	elif . == 2 then "多云"
 	elif . == 3 then "阴"
 	elif . == 45 or . == 48 then "雾"
-	elif . >= 50 and . <= 59 then "细雨"
+	elif . >= 50 and . <= 59 then "小雨"
 	elif . >= 61 and . <= 69 then "雨"
 	elif . >= 70 and . <= 79 then "雪"
 	elif . >= 80 and . <= 88 then "阵雨"
@@ -91,59 +91,13 @@ weather-forecast() {
 ipinfo-openMeteo() {
 	IFS=, read LAT LON < <(curl -fsS https://ipinfo.io/loc) || return 1
 
-	read TEMP CODE < <(
-		curl -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&current_weather=true&models=cma_grapes_global" |
-			jq -r '"\(.current_weather.temperature)\(.current_weather_units.temperature) \(.current_weather.weathercode)"'
-	) || return 1
-
-	case $CODE in
-	0)
-		WEATHER_TEXT="晴天"
-		WEATHER_ICON=""
-		;;
-	1)
-		WEATHER_TEXT="少量多云"
-		WEATHER_ICON="🌤"
-		;;
-	2)
-		WEATHER_TEXT="部分多云"
-		WEATHER_ICON="⛅️"
-		;;
-	3)
-		WEATHER_TEXT="阴天"
-		WEATHER_ICON="☁️"
-		;;
-	45 | 48)
-		WEATHER_TEXT="有雾"
-		WEATHER_ICON="🌫"
-		;;
-	50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59)
-		WEATHER_TEXT="毛毛雨/细雨"
-		WEATHER_ICON="🌦"
-		;;
-	61 | 63 | 65 | 66 | 67 | 68 | 69)
-		WEATHER_TEXT="下雨"
-		WEATHER_ICON="🌧"
-		;;
-	70 | 71 | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79)
-		WEATHER_TEXT="降雪"
-		WEATHER_ICON="🌨"
-		;;
-	80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88)
-		WEATHER_TEXT="阵雨/阵雪"
-		WEATHER_ICON="⛈"
-		;;
-	95 | 96 | 97 | 98 | 99)
-		WEATHER_TEXT="雷暴"
-		WEATHER_ICON="🌩"
-		;;
-	*)
-		WEATHER_TEXT="未知天气"
-		WEATHER_ICON="❓"
-		;;
-	esac
-
-	echo "$WEATHER_ICON $TEMP ($WEATHER_TEXT)"
+	curl -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&current_weather=true&models=cma_grapes_global" |
+		jq -r "$JQ_WMO"'
+			.current_weather.weathercode as $code |
+			.current_weather.temperature as $temp |
+			.current_weather_units.temperature as $unit |
+			"\($code | wmo_emoji) \($temp)\($unit) (\($code | wmo_label))"
+		'
 }
 
 wttr.in() {
