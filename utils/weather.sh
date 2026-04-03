@@ -25,6 +25,22 @@ def wmo_emoji:
 	elif . >= 80 and . <= 88 then "⛈"
 	elif . >= 95 and . <= 99 then "🌩"
 	else "❓" end;
+def wmo_notice($code; $start; $duration; $tmin; $tmax):
+	($start + "开始" +
+	 if $code >= 50 and $code <= 59 then
+		"下小雨，持续" + ($duration|tostring) + "小时，出行记得带伞"
+	 elif $code >= 61 and $code <= 69 then
+		"有降雨，持续" + ($duration|tostring) + "小时，出行记得带伞"
+	 elif $code >= 70 and $code <= 79 then
+		"有降雪，持续" + ($duration|tostring) + "小时，出行注意御寒"
+	 elif $code >= 80 and $code <= 88 then
+		"有阵雨，持续" + ($duration|tostring) + "小时，不建议出门哦"
+	 elif $code >= 95 and $code <= 99 then
+		"有雷暴天气，持续" + ($duration|tostring) + "小时，在家躲好哦"
+	 else
+		"有未知天气变化，持续" + ($duration|tostring) + "小时，请注意出行安全"
+	 end +
+	 "（温度" + ($tmin|tostring) + "°C~" + ($tmax|tostring) + "°C）");
 def wmo_icon: "\(wmo_emoji) \(wmo_label)";'
 
 ip-location() {
@@ -41,7 +57,8 @@ ip-location() {
 	cur_sum=$(echo "$ssid $ex_ip" | md5sum | awk '{print $1}')
 
 	if [ "$cur_sum" != "$old_sum" ] || [ ! -f "$cache_file" ]; then
-		curl -m 2 -fsS https://ipinfo.io/loc >"$cache_file"
+		IFS=, read LAT LON < <(curl -m 2 -fsS https://ipinfo.io/loc)
+		echo "$LAT $LON" >"$cache_file"
 		echo "$cur_sum" >"$net_change_md5sum_path"
 	fi
 
@@ -55,7 +72,7 @@ weather-forecast() {
 
 	mkdir -p $(dirname "$cache_file")
 
-	IFS=, read LAT LON < <(ip-location) || return 1
+	read LAT LON < <(ip-location) || return 1
 
 	local forecast_json=$(curl -m 5 -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&timezone=auto&hourly=temperature_2m,weather_code&forecast_hours=${forecast_hours}") || return 1
 	[ -z "$forecast_json" ] && return 1
@@ -88,28 +105,48 @@ weather-forecast() {
 		.hourly as $h |
 		($h.temperature_2m | min) as $tmin |
 		($h.temperature_2m | max) as $tmax |
-		# 恶劣天气：合并同类型，标注起始时间
+		# 恶劣天气：按“连续时段”分组（同类型但不连续会拆分）
 		([range($h.time | length)] | map(
-			select($h.weather_code[.] >= 45) |
-			{ t: ($h.time[.] | split("T")[1]), c: $h.weather_code[.] }
-		) | group_by(.c | wmo_label) | map(
-			(.[0].c | wmo_label) as $label |
-			"  ⚠ \(.[0].t)起 \($label)，持续\(length)小时"
+			select($h.weather_code[.] >= 50) |
+			{
+				i: .,
+				t: ($h.time[.] | split("T")[1]),
+				c: $h.weather_code[.],
+				label: ($h.weather_code[.] | wmo_label)
+			}
+		) | reduce .[] as $e (
+			[];
+			if length == 0 then
+				[[ $e ]]
+			else
+				(.[-1][-1]) as $prev |
+				if ($e.label == $prev.label and $e.i == ($prev.i + 1)) then
+					.[0:-1] + [ (.[-1] + [ $e ]) ]
+				else
+					. + [[ $e ]]
+				end
+			end
+		) | map(
+			(.[0].c) as $code |
+			(.[0].t) as $start |
+			(length) as $duration |
+			(.[0].c | wmo_emoji) as $emoji |
+			wmo_notice($code; $start; $duration; $tmin; $tmax)
 		)) as $weather_alerts |
 		# 极端温度
-		([if $tmin <= 0 then "  🥶 最低温 \($tmin)°C，注意保暖" else empty end] +
-		 [if $tmax >= 35 then "  🔥 最高温 \($tmax)°C，注意防暑" else empty end] +
-		 [if ($tmax - $tmin) > 8 then "  🌡 温差\($tmax - $tmin | round)°C，注意增减衣物" else empty end]) as $temp_alerts |
+		([if $tmin <= 0 then "🥶最低温 \($tmin)°C，注意保暖" else empty end] +
+		 [if $tmax >= 35 then "🔥 最高温 \($tmax)°C，注意防暑" else empty end] +
+		 [if ($tmax - $tmin) > 8 then "🌡温差\($tmax - $tmin | round)°C，注意增减衣物" else empty end]) as $temp_alerts |
 		($weather_alerts + $temp_alerts) |
 		if length == 0 then empty
 		else join("\n")
 		end
 	')
-	echo $alert
+	echo "$alert"
 }
 
 ipinfo-openMeteo() {
-	IFS=, read LAT LON < <(ip-location) || return 1
+	read LAT LON < <(ip-location) || return 1
 
 	curl -m 2 -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&current_weather=true" |
 		jq -r "$JQ_WMO"'
