@@ -27,6 +27,27 @@ def wmo_emoji:
 	else "❓" end;
 def wmo_icon: "\(wmo_emoji) \(wmo_label)";'
 
+ip-location() {
+	local cache_file=${1:-"/tmp/dwm-status/ip-location"}
+	local ssid=$(iwgetid -r)
+	local ex_ip=$(ip route get 1.1.1.1 | awk '{print $7}')
+
+	local net_change_md5sum_path="/tmp/dwm-status/net-change-md5sum"
+
+	[ ! -f "$net_change_md5sum_path" ] && touch "$net_change_md5sum_path"
+
+	read -r old_sum <"$net_change_md5sum_path"
+
+	cur_sum=$(echo "$ssid $ex_ip" | md5sum | awk '{print $1}')
+
+	if [ "$cur_sum" != "$old_sum" ] || [ ! -f "$cache_file" ]; then
+		curl -m 2 -fsS https://ipinfo.io/loc >"$cache_file"
+		echo "$cur_sum" >"$net_change_md5sum_path"
+	fi
+
+	cat $cache_file
+}
+
 # 获取未来12小时天气预报，写入缓存文件，极端天气/降雨时发送通知
 weather-forecast() {
 	local forecast_hours=${1:-12}
@@ -34,10 +55,9 @@ weather-forecast() {
 
 	mkdir -p $(dirname "$cache_file")
 
-	local LAT LON
-	IFS=, read LAT LON < <(curl -fsS https://ipinfo.io/loc) || return 1
+	IFS=, read LAT LON < <(ip-location) || return 1
 
-	local forecast_json=$(curl -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&timezone=auto&hourly=temperature_2m,weather_code&forecast_hours=${forecast_hours}&models=cma_grapes_global") || return 1
+	local forecast_json=$(curl -m 5 -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&timezone=auto&hourly=temperature_2m,weather_code&forecast_hours=${forecast_hours}") || return 1
 	[ -z "$forecast_json" ] && return 1
 
 	echo "$forecast_json" | jq -r \
@@ -89,9 +109,9 @@ weather-forecast() {
 }
 
 ipinfo-openMeteo() {
-	IFS=, read LAT LON < <(curl -fsS https://ipinfo.io/loc) || return 1
+	IFS=, read LAT LON < <(ip-location) || return 1
 
-	curl -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&current_weather=true&models=cma_grapes_global" |
+	curl -m 2 -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&current_weather=true" |
 		jq -r "$JQ_WMO"'
 			.current_weather.weathercode as $code |
 			.current_weather.temperature as $temp |
@@ -105,7 +125,7 @@ wttr.in() {
 	local url="https://wttr.in?format=%c%t+(%C)\n"
 	# 获取主机使用语言
 	local language=$(echo $LANG | awk -F '_' '{print $1}')
-	local response=$(curl -k -f -H "Accept-Language:"$language -s -m 5 "$url")
+	local response=$(curl -k -f -H "Accept-Language:"$language -s -m 2 "$url")
 
 	if [ $? -eq 0 ]; then
 		echo "$response"
