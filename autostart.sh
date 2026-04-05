@@ -87,6 +87,6 @@ keyboard_setting() {
 	bash $TOOLS_DIR/keyboard.sh set option-set "caps:escape,altwin:swap_lalt_lwin"
 }
 
+keyboard_setting
 desktop_setting
 application_launch
-keyboard_setting

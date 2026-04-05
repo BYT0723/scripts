@@ -38,6 +38,7 @@ rss_unread_path="$cache_dir/rss-unread"
 mpd_status_path="$cache_dir/mpd-status"
 
 sing_box_config="/etc/sing-box/config.json"
+mail_account_config=${XDG_CONFIG_HOME:-$HOME/.config}/dwm/mail.json
 
 # MPD
 mpd_single_pane=0
@@ -251,7 +252,7 @@ print_notification() {
 	((unread > 0)) && printf "^c$yellow^${icons["notification"]} $unread"
 }
 
-update_cpu() {
+update_cpu_daemon() {
 	local interval=${1:-2}
 
 	# 保存上一次采样
@@ -297,7 +298,7 @@ update_cpu() {
 	done
 }
 
-update_traffic() {
+update_traffic_daemon() {
 	local interval=${1:-1}
 	local iface last_iface prev_rx prev_tx now_rx now_tx
 
@@ -334,72 +335,7 @@ update_traffic() {
 	done
 }
 
-update_weather() {
-	# 默认间隔30分钟
-	local interval=${1:-1800}
-	while true; do
-		weather=$(ipinfo-openMeteo)
-		[ -z "$weather" ] && weather=$(wttr.in)
-		echo "$weather" >"$weather_path"
-		sleep $interval
-	done
-}
-
-update_weather_forecast() {
-	while true; do
-		# 执行天气检查
-		alert=$(weather-forecast 12 "$weather_forecast_path")
-		[ -n "$alert" ] && notify-send -u critical -i weather -h string:x-dunst-stack-tag:weatherAlert "Weather" "$alert"
-
-		# 当前时间戳
-		now=$(date +%s)
-		# 下一整点 = 当前时间戳减去当前分钟秒数 + 3600
-		next_hour=$((now + 3600 - (now % 3600)))
-
-		sleep $((next_hour - now))
-	done
-}
-
-update_mail() {
-	local interval=${1:-300}
-
-	[ -z "$(command -v offlineimap)" ] && system-notify critical "Tool Not Found" "please install offlineimap" && return
-	[ -z "$(command -v notmuch)" ] && system-notify critical "Tool Not Found" "please install notmuch" && return
-
-	while true; do
-		output=$(offlineimap -o >>/dev/null)
-		if [ ! -z "$output" ]; then
-			notify-send -u critical -i mail-unread-symbolic "Mailbox synchronization failed:"$output
-			sleep $interval
-			continue
-		fi
-
-		notmuch new
-		unread=$(notmuch count tag:unread)
-
-		echo $unread >"$mail_unread_path"
-
-		# FIX: 放弃通知，由于没有做唯一判断，会反复发送重复通知
-		# if [ $unread -gt 0 ]; then
-		# 	notify-send -i mail-unread-symbolic "$(notmuch search --output=files tag:unread | cut -d/ -f5 | sort | uniq -c | awk '{print "[" $2 "] \t" $1 "封新邮件"}')"
-		# fi
-
-		sleep $interval
-	done
-}
-
-update_rss() {
-	local interval=${1:-300}
-
-	[ -z "$(command -v newsboat)" ] && system-notify critical "Tool Not Found" "please install newsboat" && return
-
-	while true; do
-		echo "$(newsboat -x print-unread | awk '{print $1}')" >"$rss_unread_path"
-		sleep $interval
-	done
-}
-
-update_mpd() {
+update_mpd_daemon() {
 	local retry_interval=${1:-1}
 	while true; do
 		# 尝试获取 MPD 状态，如果失败就说明 MPD 不可用
@@ -415,4 +351,78 @@ update_mpd() {
 			sleep $retry_interval
 		fi
 	done
+}
+
+# 用于长间隔更新
+interval_update_daemon() {
+	local interval=600
+	local check_interval=60
+	local max_time=30
+
+	while getopts "i:c:m:" opt; do
+		case $opt in
+		i) interval=$OPTARG ;;
+		c) check_interval=$OPTARG ;;
+		m) max_time=$OPTARG ;;
+		esac
+	done
+
+	shift $((OPTIND - 1))
+
+	local last_slot=-1
+
+	((check_interval > interval)) && check_interval=$interval
+
+	while true; do
+		now=$(date +%s)
+		slot=$((now / interval))
+
+		if ((slot != last_slot)); then
+			last_slot=$slot
+
+			if declare -F "$1" >/dev/null; then
+				# 是函数 → 当前 shell 执行
+				if ! "$@"; then
+					system-notify critical "[DWM Status Interval Update Daemon]" "task timeout or failed: $*"
+				fi
+			else
+				# 是命令 → 用 timeout
+				if ! timeout "$max_time" "$@"; then
+					system-notify critical "[DWM Status Interval Update Daemon]" "task timeout or failed: $*"
+				fi
+			fi
+
+		fi
+
+		sleep "$check_interval"
+	done
+}
+
+update_weather() {
+	local weather=$(ipinfo-openMeteo)
+	[ -n "$weather" ] && echo "$weather" >"$weather_path" || true
+}
+
+update_weather_forecast() {
+	alert=$(weather-forecast 12 "$weather_forecast_path")
+	[ -n "$alert" ] && notify-send -u critical -i weather -h string:x-dunst-stack-tag:weatherAlert "Weather" "$alert" || true
+}
+
+# 通过imap更新未读邮件数量
+# 不支持163邮箱，因为伞兵网易做了不信任客户端校验
+update_mail() {
+	local count=0
+
+	while read -r server user pass; do
+		ws=$(curl -s --user "$user:$pass" "imaps://$server/INBOX;MAILINDEX=1" -X 'SEARCH UNSEEN' | wc -w)
+		((ws > 2)) && ((count += ws - 2))
+	done < <(jq -r '.[] | "\(.server) \(.user) \(.pass)"' "$mail_account_config")
+
+	echo "$count" >"$mail_unread_path"
+}
+
+update_rss() {
+	[ -z "$(command -v newsboat)" ] && system-notify critical "Tool Not Found" "please install newsboat" && return
+
+	newsboat -x print-unread 2>/dev/null | awk '{print $1}' >"$rss_unread_path"
 }

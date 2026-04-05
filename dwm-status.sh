@@ -69,19 +69,19 @@ refresh_status() {
 launch() {
 	local pids=()
 
-	update_cpu &
+	update_cpu_daemon &
 	pids+=($!)
-	update_traffic &
+	update_traffic_daemon &
 	pids+=($!)
-	update_mail &
+	interval_update_daemon -i 1800 update_weather &
 	pids+=($!)
-	update_weather &
+	interval_update_daemon -i 3600 update_weather_forecast &
 	pids+=($!)
-	update_weather_forecast &
+	interval_update_daemon -i 300 update_mail &
 	pids+=($!)
-	update_rss &
+	interval_update_daemon -i 300 update_rss &
 	pids+=($!)
-	update_mpd &
+	update_mpd_daemon &
 	pids+=($!)
 
 	# 退出时杀掉所有子进程
