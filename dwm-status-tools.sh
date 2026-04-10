@@ -416,7 +416,7 @@ update_mail() {
 	while read -r server user pass; do
 		ws=$(curl -s --user "$user:$pass" "imaps://$server/INBOX;MAILINDEX=1" -X 'SEARCH UNSEEN' | wc -w)
 		((ws > 2)) && ((count += ws - 2))
-	done < <(jq -r '.[] | "\(.server) \(.user) \(.pass)"' "$mail_account_config")
+	done < <(jq -r '.[] | select(.disabled!=true) | "\(.server) \(.user) \(.pass)"' "$mail_account_config")
 
 	echo "$count" >"$mail_unread_path"
 }
