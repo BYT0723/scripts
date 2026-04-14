@@ -93,7 +93,7 @@ launch() {
 reboot() {
 	for pid in $(pgrep -f "[d]wm-status.sh"); do
 		[[ $pid == $$ ]] && continue
-		kill $pid
+		kill $pid 2>/dev/null
 		# waitpid is a utility from util-linux package, it waits for the process to terminate.
 		waitpid $pid
 	done

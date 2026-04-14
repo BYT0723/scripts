@@ -32,10 +32,10 @@ eval "$(
 
 		# theme logic
 		if (theme == "light") {
-		  # light: prefer bright_ if exists, fallback normal
-		  if (name ~ /^bright_/) {
+		  # light: prefer light_ if exists, fallback normal
+		  if (name ~ /^light_/) {
 			base = name
-			sub(/^bright_/, "", base)
+			sub(/^light_/, "", base)
 
 			# ensure fallback exists
 			if (map[k] != "") {
@@ -44,7 +44,7 @@ eval "$(
 		  }
 		} else {
 		  # dark: normal colors only
-		  if (name !~ /^bright_/) {
+		  if (name !~ /^light_/) {
 			printf("%s=%s\n", name, map[k])
 		  }
 		}

@@ -25,35 +25,9 @@ launch() {
 	fi
 }
 
-# 启动并监控脚本
-# 防止在修改脚本时出错导致进程退出
-# $1 script name
-# $2 command
-launch_monitor() {
-	local name=$1
-	shift
-	local cmd=$@
-	local pf="/tmp/dwm-status/autostart-launch-monitor-$name.pid"
-
-	[ -f "$pf" ] && pid=$(cat "$pf")
-	[ -n "$pid" ] && kill $pid || true
-
-	while true; do
-		[ -f "$pf" ] && pid=$(cat "$pf")
-
-		if [ -z "$pid" ]; then
-			$cmd &
-			echo $! >"$pf"
-		fi
-
-		# 每分钟
-		sleep 60
-	done
-}
-
 desktop_setting() {
 	# 状态栏信息
-	launch_monitor "dwm-status" "/bin/bash $WORK_DIR/dwm-status.sh reboot" &
+	/bin/bash $WORK_DIR/dwm-status.sh reboot &
 	# conky (system monitor) (conky must be before wallpaper)
 	# 如果壁纸在conky之前就会导致壁纸沉入xwinwrap之下，导致无法看到conky窗口(针对video/page壁纸)
 	((CONKY_AUTOSTART > 0)) && conky -U -d &
@@ -61,7 +35,7 @@ desktop_setting() {
 	# wallpaper.sh内部实现了
 	/bin/bash "$TOOLS_DIR"/wallpaper.sh -r &
 	# 屏保
-	launch_monitor "screen" "/bin/bash $TOOLS_DIR/screen.sh" &
+	/bin/bash $TOOLS_DIR/screen.sh &
 }
 
 application_launch() {
