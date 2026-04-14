@@ -33,25 +33,25 @@ panes() {
 	local notification_str=$(print_notification)
 	local mpd_str=$(print_mpd)
 
-	[ -n "$weather_str" ] && panes+="$(new_pane $grey "\x09^c$blue^$weather_str")"
-	[ $mpd_single_pane -gt 0 ] && [ -n "$mpd_str" ] && panes+="$(new_pane $grey "\x0a$mpd_str")"
+	[ -n "$weather_str" ] && panes+="$(new_pane $black "\x09^c$blue^$weather_str")"
+	[ $mpd_single_pane -gt 0 ] && [ -n "$mpd_str" ] && panes+="$(new_pane $black "\x0a$mpd_str")"
 
 	# net traffic monitor pane
-	panes+="$(new_pane $grey "\x0b^c$white^$(print_speed)")"
+	panes+="$(new_pane $black "\x0b^c$white^$(print_speed)")"
 	# system monitor pane
-	panes+="$(new_pane $grey "\x08$(print_cpu)$(print_temperature)" "\x07$(print_mem)" "\x06$(print_disk)")"
+	panes+="$(new_pane $black "\x08$(print_cpu)$(print_temperature)" "\x07$(print_mem)" "\x06$(print_disk)")"
 
 	# notification pane
 	if [[ -n $rss_str || -n $mail_str || -n $notification_str ]]; then
-		panes+="$(new_pane $grey "\x0d$rss_str" "\x0c$mail_str" "\x0f$notification_str")"
+		panes+="$(new_pane $black "\x0d$rss_str" "\x0c$mail_str" "\x0f$notification_str")"
 	fi
 
 	# one icon tools pane
 	[ "$mpd_single_pane" -eq 0 ] && mpd_part="\x0a$mpd_str"
 
-	panes+="$(new_pane $grey "\x0e$(print_singbox)" "$mpd_part" "\x03$(print_volume)" "\x02$(print_battery)")"
+	panes+="$(new_pane $black "\x0e$(print_singbox)" "$mpd_part" "\x03$(print_volume)" "\x02$(print_battery)")"
 	# datetime pane
-	panes+="$(new_pane $green "\x01^c$black^$(print_date)")"
+	panes+="$(new_pane $black "\x01^c$cyan^$(print_date)")"
 
 	printf "%b\n" "$panes"
 }

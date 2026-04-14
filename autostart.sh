@@ -53,7 +53,7 @@ launch_monitor() {
 
 desktop_setting() {
 	# 状态栏信息
-	launch_monitor "dwm-status" "/bin/bash $WORK_DIR/dwm-status.sh" &
+	launch_monitor "dwm-status" "/bin/bash $WORK_DIR/dwm-status.sh reboot" &
 	# conky (system monitor) (conky must be before wallpaper)
 	# 如果壁纸在conky之前就会导致壁纸沉入xwinwrap之下，导致无法看到conky窗口(针对video/page壁纸)
 	((CONKY_AUTOSTART > 0)) && conky -U -d &

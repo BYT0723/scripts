@@ -9,10 +9,48 @@ black=#1e222a
 yellow=#ffff00
 green=#7eca9c
 white=#abb2bf
-grey=#282c34
 blue=#7aa2f7
+cyan=#7dcfff
 red=#d47d85
-darkblue=#668ee3
+
+# load color from xrdb (.Xresources)
+eval "$(
+	xrdb -query | awk -F: '
+	{
+	  gsub(/^[ \t]+/, "", $2)
+	  map[$1]=$2
+	}
+
+	END {
+	  theme = map["dwm.col_theme"]
+
+	  for (k in map) {
+		if (k !~ /^dwm\.col_/) continue
+
+		name = k
+		sub(/^dwm\.col_/, "", name)
+
+		# theme logic
+		if (theme == "light") {
+		  # light: prefer bright_ if exists, fallback normal
+		  if (name ~ /^bright_/) {
+			base = name
+			sub(/^bright_/, "", base)
+
+			# ensure fallback exists
+			if (map[k] != "") {
+			  printf("%s=%s\n", base, map[k])
+			}
+		  }
+		} else {
+		  # dark: normal colors only
+		  if (name !~ /^bright_/) {
+			printf("%s=%s\n", name, map[k])
+		  }
+		}
+	  }
+	}'
+)"
 
 # Icons initial
 declare -A icons
@@ -194,14 +232,14 @@ print_weather() {
 
 # Music Player Daemon
 print_mpd() {
+	[ ! -f "$mpd_status_path" ] && return
+
 	IFS='|' read songname state <"$mpd_status_path"
 
-	[[ -z "$songname" ]] && return
-
-	fg="$white"
+	local fg="$white"
 
 	# mpd play status
-	[[ $state == "playing" ]] && fg="$darkblue"
+	[[ $state == "playing" ]] && fg="$blue"
 
 	if [ $mpd_single_pane -gt 0 ]; then
 		max_len_output "${icons[mpd]} $songname"
@@ -340,12 +378,15 @@ update_mpd_daemon() {
 	while true; do
 		# 尝试获取 MPD 状态，如果失败就说明 MPD 不可用
 		if mpc status >/dev/null 2>&1; then
+			[ ! -f "$mpd_status_path" ] && touch $mpd_status_path
 			# 事件驱动循环
 			mpc idleloop player | while read -r event; do
 				state=$(mpc status '%state%')
 				name=$(mpc current -f "%title% - %artist%")
 				printf "%s|%s" "$name" "$state" >"$mpd_status_path"
 			done
+
+			rm -f $mpd_status_path
 		else
 			# 远程 MPD 没连接上，等待再试
 			sleep $retry_interval
