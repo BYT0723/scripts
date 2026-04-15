@@ -1,6 +1,6 @@
 #!/bin/bash
 
-WORKDIR=$(dirname "$0")
+WORK_DIR=$(dirname "$0")
 
 term() {
 	# new different termina by $Type
@@ -22,35 +22,35 @@ term() {
 }
 
 apps() {
-	/bin/bash "$WORKDIR"/rofi/scripts/launcher_t3
+	/bin/bash "$WORK_DIR"/rofi/scripts/launcher_t3
 }
 
 powermenu() {
-	/bin/bash "$WORKDIR"/rofi/scripts/powermenu_t4
+	/bin/bash "$WORK_DIR"/rofi/scripts/powermenu_t4
 }
 
 mpd() {
-	/bin/bash "$WORKDIR"/rofi/scripts/mpd.sh
+	/bin/bash "$WORK_DIR"/rofi/scripts/mpd.sh
 }
 
 modules() {
-	/bin/bash "$WORKDIR"/rofi/scripts/module.sh
+	/bin/bash "$WORK_DIR"/rofi/scripts/module.sh
 }
 
 screenshot() {
-	/bin/bash "$WORKDIR"/rofi/scripts/screenshot.sh
+	/bin/bash "$WORK_DIR"/rofi/scripts/screenshot.sh
 }
 
 screencast() {
-	/bin/bash "$WORKDIR"/rofi/scripts/screencast.sh
+	/bin/bash "$WORK_DIR"/rofi/scripts/screencast.sh
 }
 
 quicklinks() {
-	/bin/bash "$WORKDIR"/rofi/scripts/quicklinks.sh
+	/bin/bash "$WORK_DIR"/rofi/scripts/quicklinks.sh
 }
 
 emoji() {
-	/bin/bash "$WORKDIR"/rofi/scripts/emoji.sh
+	/bin/bash "$WORK_DIR"/rofi/scripts/emoji.sh
 }
 
 toggle_conky() {
@@ -59,7 +59,7 @@ toggle_conky() {
 }
 
 wallpaper() {
-	/bin/bash "$WORKDIR"/rofi/scripts/wallpaper.sh
+	/bin/bash "$WORK_DIR"/rofi/scripts/wallpaper.sh
 }
 
 case "$1" in
