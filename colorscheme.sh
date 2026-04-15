@@ -6,6 +6,22 @@ get_current_theme() {
 	xrdb -query | awk -F': *\t*' '$1=="dwm.col_theme" {print $2}'
 }
 
+get_bg_fg_colors() {
+	xrdb -query | awk -F': *' '
+    {
+      gsub(/^[ \t]+|[ \t]+$/, "", $2)
+      map[$1] = $2
+    }
+    END {
+      if (map["dwm.col_theme"] == "dark") {
+        print map["dwm.col_black"], map["dwm.col_white"]
+      } else {
+        print map["dwm.col_light_black"], map["dwm.col_light_white"]
+      }
+    }
+  '
+}
+
 select_theme() {
 	echo -e "dark\nlight" | bash $WORK_DIR/rofi/scripts/common_list.sh \
 		-w 800 \
@@ -41,6 +57,30 @@ set_kitty_theme() {
 		kitten themes "Tokyo Night Day"
 		;;
 	esac
+}
+
+# set_qt_theme() {
+#
+# }
+
+set_dunst_theme() {
+	local cfg="${XDG_CONFIG_HOME:-$HOME/.config}/dunst/dunstrc"
+
+	read bg fg < <(get_bg_fg_colors)
+
+	grep -q 'background' "$cfg" &&
+		sed -i "s/^\([[:space:]]*\)background[[:space:]]*=.*/\1background = \"$bg\"/" "$cfg" ||
+		echo "background = \"$bg\"" >>"$cfg"
+
+	grep -q 'foreground' "$cfg" &&
+		sed -i "s/^\([[:space:]]*\)foreground[[:space:]]*=.*/\1foreground = \"$fg\"/" "$cfg" ||
+		echo "foreground = \"$fg\"" >>"$cfg"
+
+	grep -q 'frame_color' "$cfg" &&
+		sed -i "s/^\([[:space:]]*\)frame_color[[:space:]]*=.*/\1frame_color = \"$fg\"/" "$cfg" ||
+		echo "frame_color = \"$fg\"" >>"$cfg"
+
+	dunstctl reload 2>/dev/null || killall -SIGUSR1 dunst
 }
 
 set_gtk_theme() {
@@ -105,6 +145,9 @@ before)
 
 	# reload xrdb
 	[ -f $HOME/.Xresources ] && xrdb -merge $HOME/.Xresources
+
+	# after reload (xrdb has been updated)
+	set_dunst_theme
 	;;
 after)
 	/bin/bash $WORK_DIR/dwm-status.sh reboot
