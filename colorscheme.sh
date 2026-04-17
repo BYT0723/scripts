@@ -2,6 +2,8 @@
 
 WORK_DIR=$(dirname $0)
 
+source "$(dirname $0)/utils/notify.sh"
+
 get_current_theme() {
 	xrdb -query | awk -F': *\t*' '$1=="dwm.col_theme" {print $2}'
 }
@@ -59,9 +61,49 @@ set_kitty_theme() {
 	esac
 }
 
-# set_qt_theme() {
-#
-# }
+set_qt_theme() {
+	local mode=$1
+
+	[ -z "$mode" ] && return
+	[ -z "$(command -v qt6ct)" ] && return
+
+	if [ "$QT_QPA_PLATFORMTHEME" != "qt6ct" ]; then
+		system-notify normal "Environment Variable Not Set" "please set QT_QPA_PLATFORMTHEME=qt6ct"
+		return
+	fi
+
+	local cfg="${XDG_CONFIG_HOME:-$HOME/.config}/qt6ct/qt6ct.conf"
+	local color_scheme_path
+
+	case "$mode" in
+	dark) color_scheme_path="/usr/share/qt6ct/colors/darker.conf" ;;
+	light) color_scheme_path="/usr/share/qt6ct/colors/simple.conf" ;;
+	*) return ;;
+	esac
+
+	mkdir -p "$(dirname "$cfg")"
+
+	if [ -f "$cfg" ]; then
+		if grep -q '^\[Appearance\]' "$cfg"; then
+			# If [Appearance] section exists, update or add color_scheme_path
+			if grep -q '^color_scheme_path=' "$cfg"; then
+				sed -i 's|^color_scheme_path=.*|color_scheme_path='"$color_scheme_path"'|' "$cfg"
+			else
+				sed -i '/^\[Appearance\]/a color_scheme_path='"$color_scheme_path" "$cfg"
+			fi
+		else
+			# Add [Appearance] section if it doesn't exist
+			echo "" >>"$cfg"
+			echo "[Appearance]" >>"$cfg"
+			echo "color_scheme_path=$color_scheme_path" >>"$cfg"
+		fi
+	else
+		cat >"$cfg" <<EOF
+[Appearance]
+color_scheme_path=$color_scheme_path
+EOF
+	fi
+}
 
 set_dunst_theme() {
 	local cfg="${XDG_CONFIG_HOME:-$HOME/.config}/dunst/dunstrc"
@@ -141,6 +183,7 @@ before)
 
 	set_dwm_theme "$mode"
 	set_kitty_theme "$mode"
+	set_qt_theme "$mode"
 	set_gtk_theme "$mode"
 
 	# reload xrdb

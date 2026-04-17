@@ -1,118 +1,65 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
-## Overview
+**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
-This repository contains configuration scripts and utilities for the **dwm (Dynamic Window Manager)** window manager. It is not the dwm source code itself, but a collection of Bash scripts that enhance dwm with status bars, application launchers, wallpaper management, and system utilities. The scripts are designed for Arch Linux and rely on various X11 utilities.
+## 1. Think Before Coding
 
-## Project Structure
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
 
-- `autostart.sh` – Main startup script that launches status bar, wallpaper, and background services.
-- `dwm-status.sh` – Refreshes the dwm status bar (calls `dwm-status-tools.sh`).
-- `dwm-status-tools.sh` – Toolkit of status‑bar functions (CPU, memory, battery, weather, etc.).
-- `dwm-statuscmd.sh` – Handles click events on the status‑bar segments.
-- `dwm-launcher.sh` – Unified rofi‑based launcher for terminals, applications, power menu, etc.
-- `dwm-layoutmenu.sh` – Layout menu script.
-- `configs/` – **Example/default configuration files** (quicklinks, wallpaper, key mappings). The actual configuration files used by the system are in `~/.config/dwm/`. Copy files from `configs/` to `~/.config/dwm/` and modify them as needed.
-- `tools/` – System utilities (brightness, volume, wallpaper, lock screen, monitor configuration).
-- `utils/` – Helper scripts (weather, notifications, printing, monitoring).
-- `rofi/` – Rofi configuration and scripts (launchers, power menu, applets, modules).
-- `xorg.conf.d/` – Xorg configuration files for keyboard and touchpad.
-- `_deprecated/` – Old proxy‑related scripts.
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
 
-## Common Commands
+## 2. Simplicity First
 
-**Start dwm with these scripts:**
-Ensure `autostart.sh` is executed when dwm starts (typically from `~/.xinitrc` or a display manager). The script will launch the status bar, wallpaper, and all background services.
+**Minimum code that solves the problem. Nothing speculative.**
 
-**Test the status bar:**
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
 
-```bash
-./dwm-status.sh               # Run the status‑bar refresh loop
-./dwm-statuscmd.sh <number>   # Simulate a click on status‑bar segment <number>
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+## 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+## 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
 ```
 
-**Launch the application menu:**
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
-```bash
-./dwm-launcher.sh terminal    # Open terminal launcher
-./dwm-launcher.sh applications # Open application launcher
-./dwm-launcher.sh powermenu   # Open power menu
-```
+---
 
-**Use individual tools:**
-
-```bash
-./tools/brightness.sh up      # Increase screen brightness
-./tools/volume.sh toggle      # Toggle audio mute
-./tools/wallpaper.sh -r       # Reload wallpaper (supports image, video, web page)
-./tools/keyboard.sh set delay 250  # Set keyboard repeat delay
-```
-
-**Module management (toggle picom, network, bluetooth, etc.):**
-
-```bash
-./rofi/scripts/module.sh      # Open the module toggle menu
-```
-
-**Quick links (browser bookmarks):**
-
-```bash
-./rofi/scripts/quicklinks.sh  # Open quick‑links menu
-```
-
-## Architecture
-
-### Status Bar System
-
-- **Refresh loop:** `dwm-status.sh` calls `dwm-status-tools.sh` every second and updates the bar via `xsetroot -name`.
-- **Toolkit:** `dwm-status-tools.sh` contains modular functions that output colored, icon‑decorated segments (CPU, memory, disk, battery, weather, etc.).
-- **Click events:** `dwm-statuscmd.sh` maps numeric click areas to actions (e.g., click on battery segment opens a power menu).
-
-### Application Launcher
-
-- `dwm-launcher.sh` is a front‑end that invokes different rofi themes and scripts based on the argument.
-- Rofi themes are stored in `rofi/launchers/`, `rofi/powermenu/`, `rofi/applets/`.
-- Supports terminal launcher, application launcher, power menu, MPD control, system modules, screenshot, screencast, quick links, and emoji picker.
-
-### Wallpaper System
-
-- `tools/wallpaper.sh` is a sophisticated controller that can set images, videos, or web pages as wallpapers.
-- Uses `feh` for images, `xwinwrap` + `mpv` for videos, and `tabbed` + `surf` for web pages.
-- Configuration files: `configs/wallpaper_default.conf` and `configs/wallpaperKeyMap_default.conf` are example configurations. The actual configuration files are `~/.config/dwm/wallpaper.conf` and `~/.config/dwm/wallpaperKeyMap.conf`.
-
-### Module System
-
-- `rofi/scripts/module.sh` provides a toggle interface for system modules (picom, network, bluetooth, notifications, wallpaper).
-- Each module can be enabled/disabled; the script updates the status bar accordingly.
-
-### Autostart System
-
-- `autostart.sh` is modular, with sections for desktop settings, application launch, and keyboard settings.
-- Uses `launch()` and `launch_monitor()` functions to manage background processes and restart them if they crash.
-
-## Configuration
-
-- **Actual configuration files are stored in `~/.config/dwm/`** (or `${XDG_CONFIG_HOME}/dwm/` if set). The `configs/` directory in this repository contains **example/default versions only**. To configure the system, copy the needed files from `configs/` to `~/.config/dwm/` and edit them there.
-- Fonts must be installed system‑wide or in `~/.local/share/fonts/`. The scripts assume **JetBrains Mono Nerd Font** and **Iosevka Nerd Font** are available.
-- Many scripts rely on standard Arch Linux packages (see the table in `README.md` for a full list of dependencies).
-- The main `README.md` is written in Chinese; many script comments are also in Chinese. Key configuration parameters are often indicated with English variable names.
-
-## Development Notes
-
-- **Language:** Bash shell scripts with some AWK and sed.
-- **Status bar formatting:** Uses Nerd Font icons and ANSI color codes.
-- **Event handling:** Status‑bar clicks are mapped via `dwm-statuscmd.sh` using the numeric output of `dwm-status-tools.sh`.
-- **Caching:** Temporary files are stored in `/tmp/dwm-status/` and `~/.cache/byt0723/wallpaper/`.
-- **Patch management:** This repository does not contain dwm patches. To modify dwm itself, you need to patch and recompile the dwm source separately.
-- **Documentation:** Additional documentation is available in `doc/proxy.md` (proxy setup) and `rofi/README.md` (rofi configuration).
-
-## Important Dependencies (Partial List)
-
-- **Core:** rofi, picom, dunst, xautolock, slock, fcitx5‑im
-- **Monitoring:** acpi, alsa‑utils, light, networkmanager, mpc, mpd
-- **Utilities:** libnotify, setxkbmap, xset, xrandr, feh, maim, ffmpeg
-- **Fonts:** ttf‑jetbrains‑mono‑nerd, ttf‑iosevka‑nerd, Chinese fonts
-
-Refer to `README.md` (written in Chinese) for a complete dependency table and installation guidance.
+**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
