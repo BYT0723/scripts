@@ -56,18 +56,9 @@ panes() {
 	printf "%b\n" "$panes"
 }
 
-refresh_status() {
-	local interval=${1:-1}
-	# loop dwm-status-refresh.sh to refresh statusBar
-	while true; do
-		xsetroot -name "$(panes)"
-		# refresh interval
-		sleep $interval
-	done
-}
-
-launch() {
+launch_daemon() {
 	local pids=()
+	mkdir -p /tmp/dwm-status
 
 	update_cpu_daemon &
 	pids+=($!)
@@ -84,28 +75,70 @@ launch() {
 	update_mpd_daemon &
 	pids+=($!)
 
-	# 退出时杀掉所有子进程
-	trap 'kill "${pids[@]}" 2>/dev/null' EXIT
+	# 保存当前进程 PID
+	echo $BASHPID >/tmp/dwm-status/status-daemon-pid
 
-	refresh_status
+	# 退出时杀掉所有子进程
+	trap 'kill "${pids[@]}" 2>/dev/null; rm -f /tmp/dwm-status/status-daemon-pid' EXIT
+
+	# Keep daemon running
+	wait
 }
 
-reboot() {
-	for pid in $(pgrep -f "[d]wm-status.sh"); do
-		[[ $pid == $$ ]] && continue
-		kill $pid 2>/dev/null
-		# waitpid is a utility from util-linux package, it waits for the process to terminate.
-		waitpid $pid
-	done
+launch_refresh() {
+	mkdir -p /tmp/dwm-status
 
-	launch &
+	# 保存当前进程 PID
+	echo $BASHPID >/tmp/dwm-status/status-refresh-pid
+
+	trap 'rm -f /tmp/dwm-status/status-refresh-pid' EXIT
+
+	local interval=${1:-1}
+	# loop dwm-status-refresh.sh to refresh statusBar
+	while true; do
+		xsetroot -name "$(panes)"
+		# refresh interval
+		sleep $interval
+	done
+}
+
+reboot_daemon() {
+	local pid_file="/tmp/dwm-status/status-daemon-pid"
+	if [ -f "$pid_file" ]; then
+		local pid=$(cat "$pid_file")
+		kill $pid 2>/dev/null
+		waitpid $pid 2>/dev/null
+	fi
+
+	launch_daemon &
+}
+
+reboot_refresh() {
+	local pid_file="/tmp/dwm-status/status-refresh-pid"
+	if [ -f "$pid_file" ]; then
+		local pid=$(cat "$pid_file")
+		kill $pid 2>/dev/null
+		waitpid $pid 2>/dev/null
+	fi
+
+	launch_refresh &
 }
 
 case "$1" in
 "reboot")
-	reboot
+	reboot_daemon
+	reboot_refresh
+	;;
+"reboot-daemon")
+	reboot_daemon
+	;;
+"reboot-refresh")
+	reboot_refresh
 	;;
 *)
-	launch
+	launch_daemon &
+	launch_refresh &
+
+	wait
 	;;
 esac

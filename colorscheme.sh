@@ -193,6 +193,6 @@ before)
 	set_dunst_theme
 	;;
 after)
-	/bin/bash $WORK_DIR/dwm-status.sh reboot
+	/bin/bash $WORK_DIR/dwm-status.sh reboot-refresh
 	;;
 esac
