@@ -25,22 +25,21 @@ def wmo_emoji:
 	elif . >= 80 and . <= 88 then "⛈"
 	elif . >= 95 and . <= 99 then "🌩"
 	else "❓" end;
-def wmo_notice($code; $start; $duration; $tmin; $tmax):
-	($start + "开始" +
+def wmo_notice($code; $start; $end):
+	(($code | wmo_emoji) + " " + $start + "至" + $end +
 	 if $code >= 50 and $code <= 59 then
-		"下小雨，持续" + ($duration|tostring) + "小时，出行记得带伞"
+		"有小雨，出行记得带伞"
 	 elif $code >= 61 and $code <= 69 then
-		"有降雨，持续" + ($duration|tostring) + "小时，出行记得带伞"
+		"有降雨，出行记得带伞"
 	 elif $code >= 70 and $code <= 79 then
-		"有降雪，持续" + ($duration|tostring) + "小时，出行注意御寒"
+		"有降雪，出行注意御寒"
 	 elif $code >= 80 and $code <= 88 then
-		"有阵雨，持续" + ($duration|tostring) + "小时，不建议出门哦"
+		"有阵雨，不建议出门哦"
 	 elif $code >= 95 and $code <= 99 then
-		"有雷暴天气，持续" + ($duration|tostring) + "小时，在家躲好哦"
+		"有雷暴天气，在家躲好哦"
 	 else
-		"有未知天气变化，持续" + ($duration|tostring) + "小时，请注意出行安全"
-	 end +
-	 "（温度" + ($tmin|tostring) + "°C~" + ($tmax|tostring) + "°C）");
+		"有未知天气变化，请注意出行安全"
+	 end);
 def wmo_icon: "\(wmo_emoji) \(wmo_label)";'
 
 # 获取未来12小时天气预报，写入缓存文件，极端天气/降雨时发送通知
@@ -107,14 +106,13 @@ weather-forecast() {
 		) | map(
 			(.[0].c) as $code |
 			(.[0].t) as $start |
-			(length) as $duration |
-			(.[0].c | wmo_emoji) as $emoji |
-			wmo_notice($code; $start; $duration; $tmin; $tmax)
+			(.[-1].t) as $end |
+			wmo_notice($code; $start; $end)
 		)) as $weather_alerts |
 		# 极端温度
 		([if $tmin <= 0 then "🥶最低温 \($tmin)°C，注意保暖" else empty end] +
 		 [if $tmax >= 35 then "🔥 最高温 \($tmax)°C，注意防暑" else empty end] +
-		 [if ($tmax - $tmin) > 10 then "温差过大\($tmax - $tmin | round)°C，注意增减衣物" else empty end]) as $temp_alerts |
+		 [if ($tmax - $tmin) >= 10 then "温差过大\($tmax - $tmin | round)°C，注意增减衣物" else empty end]) as $temp_alerts |
 		($weather_alerts + $temp_alerts) |
 		if length == 0 then empty
 		else join("\n")
