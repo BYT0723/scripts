@@ -106,7 +106,7 @@ weather-forecast() {
 		) | map(
 			(.[0].c) as $code |
 			(.[0].t) as $start |
-			(.[-1].t) as $end |
+			(.[-1].t | split(":") | "\(.[0] | tonumber + 1 | tostring | if length == 1 then "0" + . else . end):\(.[1])") as $end |
 			wmo_notice($code; $start; $end)
 		)) as $weather_alerts |
 		# 极端温度
