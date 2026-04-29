@@ -15,7 +15,7 @@ theme='style-5'
 
 ## Run
 rofi \
-	-icon-theme $(grep -oP 'gtk-icon-theme-name="\K[^"]+' ~/.config/gtk-3.0/settings.ini) \
+	-icon-theme $(awk -F "=" '$1=="gtk-icon-theme-name" {print $2}' ~/.config/gtk-3.0/settings.ini) \
 	-show combi \
 	-monitor -4 \
 	-theme ${dir}/${theme}.rasi
