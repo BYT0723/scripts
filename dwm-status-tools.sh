@@ -204,7 +204,7 @@ print_temperature() {
 			cpu_temperature_filepath=$(awk '$1=="k10temp" {sub("/[^/]+$","",FILENAME); print FILENAME}' /sys/class/hwmon/hwmon*/name)"/temp1_input"
 			;;
 		*)
-			system-notify critical "[DWM STATUS BAR] Unsupport Arch" "unsupport arch $vendor to get cpu temperature" && return
+			system-notify critical "[DWM STATUS BAR] Unsupported Arch" "unsupported arch $vendor to get cpu temperature" && return
 			;;
 		esac
 	fi
