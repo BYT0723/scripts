@@ -19,10 +19,12 @@ launch() {
 	local pf="/tmp/dwm-status/autostart-launch-$name.pid"
 
 	[ -f "$pf" ] && pid=$(cat "$pf")
-	if [ -z "$pid" ]; then
-		$cmd &
-		echo $! >"$pf"
+	if [ ! -z "$pid" ]; then
+		kill $pid
+		sleep 0.1
 	fi
+	$cmd &
+	echo $! >"$pf"
 }
 
 desktop_setting() {
