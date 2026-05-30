@@ -4,6 +4,8 @@ source "$(dirname $0)/../utils/notify.sh"
 
 [ -z "$(command -v i3lock)" ] && system-notify critical "Tool Not Found" "please install i3lock-color and archlinux-wallpaper for aur" && exit 1
 
+pgrep -x i3lock >/dev/null && exit 0
+
 LANG=en_US.UTF-8
 
 backAlpha='dd'
