@@ -182,7 +182,7 @@ before)
 	[[ "$mode" == "$cur" ]] && exit
 
 	set_dwm_theme "$mode"
-	set_kitty_theme "$mode"
+	set_kitty_theme "$mode" &
 	set_qt_theme "$mode"
 	set_gtk_theme "$mode"
 
