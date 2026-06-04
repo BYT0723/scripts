@@ -62,7 +62,7 @@ detect_file_type() {
     local Type="${baseFilename##*.}"
 
     case "$Type" in
-        'mp4'|mkv|avi) echo "video" ;;
+        mp4|mkv|avi|webm) echo "video" ;;
         jpg|jpeg|png) echo "image" ;;
         html|htm) echo "page" ;;
         *) echo "page" ;;
