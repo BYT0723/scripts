@@ -76,7 +76,17 @@ run_cmd() {
 			[ "$mpd_status" == "[playing]" ] && mpc -q toggle
 			[ "$volume_status" == "on" ] && amixer set Master off >>/dev/null
 			systemctl suspend
-			$HOME/.dwm/tools/lock.sh -n
+			$HOME/.dwm/tools/lock.sh -n &
+			xset dpms force standby
+			while pgrep -x i3lock >/dev/null; do
+				while pgrep -x i3lock >/dev/null && xset q 2>/dev/null | grep -qi "Monitor is.*Standby"; do sleep 1; done
+				pgrep -x i3lock >/dev/null || break
+				while pgrep -x i3lock >/dev/null && [ "$(xprintidle 2>/dev/null)" -lt 10000 ]; do sleep 1; done
+				pgrep -x i3lock >/dev/null || break
+				xdotool key Escape 2>/dev/null
+				xset dpms force standby
+			done
+			wait
 			[ "$mpd_status" == "[playing]" ] && mpc -q toggle
 			[ "$volume_status" == "on" ] && amixer set Master on >>/dev/null
 		elif [[ $1 == '--logout' ]]; then
@@ -111,8 +121,18 @@ $lock)
 	volume_status=$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)\].*/\1/')
 	[ "$mpd_status" == "[playing]" ] && mpc -q toggle
 	[ "$volume_status" == "on" ] && amixer set Master off >>/dev/null
-	sleep 1 && xset dpms force off &
-	$HOME/.dwm/tools/lock.sh -n
+	$HOME/.dwm/tools/lock.sh -n &
+	sleep 1
+	xset dpms force standby
+	while pgrep -x i3lock >/dev/null; do
+		while pgrep -x i3lock >/dev/null && xset q 2>/dev/null | grep -qi "Monitor is.*Standby"; do sleep 1; done
+		pgrep -x i3lock >/dev/null || break
+		while pgrep -x i3lock >/dev/null && [ "$(xprintidle 2>/dev/null)" -lt 10000 ]; do sleep 1; done
+		pgrep -x i3lock >/dev/null || break
+		xdotool key Escape 2>/dev/null
+		xset dpms force standby
+	done
+	wait
 	[ "$mpd_status" == "[playing]" ] && mpc -q toggle
 	[ "$volume_status" == "on" ] && amixer set Master on >>/dev/null
 	;;
