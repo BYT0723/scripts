@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source "$(dirname $0)/../utils/notify.sh"
+source "$(dirname $0)/../../utils/notify.sh"
 
 [ -z "$(command -v i3lock)" ] && system-notify critical "Tool Not Found" "please install i3lock-color and archlinux-wallpaper for aur" && exit 1
 
@@ -29,7 +29,7 @@ blue='#268bd2'
 cyan='#2aa198'
 green='#859900'
 
-wallpaperDir=$HOME/Desktop/Wallpapers/images/common
+wallpaperDir=/usr/share/backgrounds/archlinux/
 wallpaper=$(find $wallpaperDir -maxdepth 1 -type f -regextype posix-extended -regex ".*\.(jpg|png|jpeg)" | shuf -n 1)
 
 # PERF: use --image，keypress and keyrelease handle will be slow
@@ -96,13 +96,13 @@ _lock_after() {
 }
 
 _screen_lock_loop() {
-	if ! command -v xprintidle; then
+	if ! command -v xprintidle >/dev/null 2>&1; then
 		system-notify critical "Tool Not Found" "please install xprintidle"
 		return
 	fi
 
 	while pgrep -x i3lock >/dev/null; do
-		while pgrep -x i3lock >/dev/null && xset q 2>/dev/null | grep -qi "Monitor is.*Standby"; do sleep 1; done
+		while pgrep -x i3lock >/dev/null && ! xset q 2>/dev/null | grep -q "Monitor is On"; do sleep 1; done
 		pgrep -x i3lock >/dev/null || break
 		while pgrep -x i3lock >/dev/null && [ "$(xprintidle 2>/dev/null)" -lt 10000 ]; do sleep 1; done
 		pgrep -x i3lock >/dev/null || break

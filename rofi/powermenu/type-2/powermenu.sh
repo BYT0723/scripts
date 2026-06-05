@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source $(dirname $0)/../../tools/lock.sh
+source $(dirname $0)/lock.sh
 
 ## Author : Aditya Shakya (adi1090x)
 ## Github : @adi1090x

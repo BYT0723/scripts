@@ -229,6 +229,7 @@ launch_video_xwinwrap() {
 		--vo=gpu-next \
 		--framedrop=vo \
 		--no-sub \
+		--stop-screensaver=no \
 		--input-conf="$keymapConf" 2>&1 >~/.wallpaper.log &
 }
 
