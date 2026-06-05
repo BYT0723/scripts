@@ -35,44 +35,79 @@ wallpaper=$(find $wallpaperDir -maxdepth 1 -type f -regextype posix-extended -re
 # PERF: use --image，keypress and keyrelease handle will be slow
 # or use https://github.com/BYT0723/i3lock-color (i3lock-color fork)
 
-i3lock \
-	-i "$wallpaper" \
-	--slideshow-interval 60 \
-	--slideshow-random-selection \
-	-F \
-	--color=$back$backAlpha \
-	--insidever-color=$base02$alpha \
-	--insidewrong-color=$base02$alpha \
-	--inside-color=$base02$alpha \
-	--ringver-color=$green$ringAlpha \
-	--ringwrong-color=$red$ringAlpha \
-	--ringver-color=$green$ringAlpha \
-	--ringwrong-color=$red$ringAlpha \
-	--ring-color=$blue$ringAlpha \
-	--line-uses-ring \
-	--keyhl-color=$magenta$alpha \
-	--bshl-color=$orange$alpha \
-	--separator-color=$base01$alpha \
-	--verif-color=$green \
-	--wrong-color=$red \
-	--layout-color=$blue \
-	--date-color=$blue \
-	--time-color=$blue \
-	--clock \
-	--indicator \
-	--ignore-empty-password \
-	--time-str="%H:%M:%S" \
-	--date-str="%A, %Y-%m-%d" \
-	--verif-text="Verifying..." \
-	--wrong-text="Auth Failed" \
-	--noinput="Press Password!" \
-	--lock-text="Locking..." \
-	--lockfailed="Lock Failed" \
-	--time-size=50 \
-	--date-font="Noto Sans CJK SC" \
-	--date-size=20 \
-	--radius=160 \
-	--ring-width=10 \
-	--pass-media-keys \
-	--pass-screen-keys \
-	--pass-volume-keys $@
+# 当前的一些状态
+mpd_status=$(mpc status | awk 'NR==2 {print $1}')
+volume_status=$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)\].*/\1/')
+
+_lock() {
+	i3lock \
+		-i "$wallpaper" \
+		--slideshow-interval 60 \
+		--slideshow-random-selection \
+		-F \
+		--color=$back$backAlpha \
+		--insidever-color=$base02$alpha \
+		--insidewrong-color=$base02$alpha \
+		--inside-color=$base02$alpha \
+		--ringver-color=$green$ringAlpha \
+		--ringwrong-color=$red$ringAlpha \
+		--ringver-color=$green$ringAlpha \
+		--ringwrong-color=$red$ringAlpha \
+		--ring-color=$blue$ringAlpha \
+		--line-uses-ring \
+		--keyhl-color=$magenta$alpha \
+		--bshl-color=$orange$alpha \
+		--separator-color=$base01$alpha \
+		--verif-color=$green \
+		--wrong-color=$red \
+		--layout-color=$blue \
+		--date-color=$blue \
+		--time-color=$blue \
+		--clock \
+		--indicator \
+		--ignore-empty-password \
+		--time-str="%H:%M:%S" \
+		--date-str="%A, %Y-%m-%d" \
+		--verif-text="Verifying..." \
+		--wrong-text="Auth Failed" \
+		--noinput="Press Password!" \
+		--lock-text="Locking..." \
+		--lockfailed="Lock Failed" \
+		--time-size=50 \
+		--date-font="Noto Sans CJK SC" \
+		--date-size=20 \
+		--radius=160 \
+		--ring-width=10 \
+		--pass-media-keys \
+		--pass-screen-keys \
+		--pass-volume-keys $@ &
+	sleep 1
+	xset dpms force standby
+}
+
+_lock_before() {
+	[ "$mpd_status" == "[playing]" ] && mpc -q toggle
+	[ "$volume_status" == "on" ] && amixer set Master off >>/dev/null
+}
+
+_lock_after() {
+	[ "$mpd_status" == "[playing]" ] && mpc -q toggle
+	[ "$volume_status" == "on" ] && amixer set Master on >>/dev/null
+}
+
+_screen_lock_loop() {
+	if ! command -v xprintidle; then
+		system-notify critical "Tool Not Found" "please install xprintidle"
+		return
+	fi
+
+	while pgrep -x i3lock >/dev/null; do
+		while pgrep -x i3lock >/dev/null && xset q 2>/dev/null | grep -qi "Monitor is.*Standby"; do sleep 1; done
+		pgrep -x i3lock >/dev/null || break
+		while pgrep -x i3lock >/dev/null && [ "$(xprintidle 2>/dev/null)" -lt 10000 ]; do sleep 1; done
+		pgrep -x i3lock >/dev/null || break
+		xdotool key Escape 2>/dev/null
+		sleep 1
+		xset dpms force standby
+	done
+}

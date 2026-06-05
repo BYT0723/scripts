@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+source $(dirname $0)/../../tools/lock.sh
+
 ## Author : Aditya Shakya (adi1090x)
 ## Github : @adi1090x
 #
@@ -70,9 +72,12 @@ run_cmd() {
         elif [[ $1 == '--hibernate' ]]; then
             systemctl hibernate
         elif [[ $1 == '--suspend' ]]; then
-            mpc -q pause
-            amixer set Master mute
+            _lock_before
+            _lock
             systemctl suspend
+            _screen_lock_loop
+            wait
+            _lock_after
         elif [[ $1 == '--logout' ]]; then
             if [[ "$DESKTOP_SESSION" == 'openbox' ]]; then
                 openbox --exit
@@ -102,11 +107,11 @@ $hibernate)
     run_cmd --hibernate
     ;;
 $lock)
-    if [[ -x '/usr/bin/betterlockscreen' ]]; then
-        betterlockscreen -l
-    elif [[ -x '/usr/bin/i3lock' ]]; then
-        i3lock
-    fi
+    _lock_before
+    _lock
+    _screen_lock_loop
+    wait
+    _lock_after
     ;;
 $suspend)
     run_cmd --suspend

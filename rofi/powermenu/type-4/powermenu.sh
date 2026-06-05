@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+source $(dirname $0)/../../tools/lock.sh
+
 ## Author : Aditya Shakya (adi1090x)
 ## Github : @adi1090x
 #
@@ -64,24 +66,12 @@ run_cmd() {
 		elif [[ $1 == '--reboot' ]]; then
 			systemctl reboot
 		elif [[ $1 == '--suspend' ]]; then
-			mpd_status=$(mpc status | awk 'NR==2 {print $1}')
-			volume_status=$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)\].*/\1/')
-			[ "$mpd_status" == "[playing]" ] && mpc -q toggle
-			[ "$volume_status" == "on" ] && amixer set Master off >>/dev/null
-			$HOME/.dwm/tools/lock.sh -n &
+			_lock_before
+			_lock
 			systemctl suspend
-			while pgrep -x i3lock >/dev/null; do
-				while pgrep -x i3lock >/dev/null && xset q 2>/dev/null | grep -qi "Monitor is.*Standby"; do sleep 1; done
-				pgrep -x i3lock >/dev/null || break
-				while pgrep -x i3lock >/dev/null && [ "$(xprintidle 2>/dev/null)" -lt 10000 ]; do sleep 1; done
-				pgrep -x i3lock >/dev/null || break
-				xdotool key Escape 2>/dev/null
-				sleep 1
-				xset dpms force standby
-			done
+			_screen_lock_loop
 			wait
-			[ "$mpd_status" == "[playing]" ] && mpc -q toggle
-			[ "$volume_status" == "on" ] && amixer set Master on >>/dev/null
+			_lock_after
 		elif [[ $1 == '--logout' ]]; then
 			if [[ "$DESKTOP_SESSION" == 'dwm' ]]; then
 				kill $(pgrep dwm)
@@ -110,25 +100,11 @@ $reboot)
 	run_cmd --reboot
 	;;
 $lock)
-	mpd_status=$(mpc status | awk 'NR==2 {print $1}')
-	volume_status=$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)\].*/\1/')
-	[ "$mpd_status" == "[playing]" ] && mpc -q toggle
-	[ "$volume_status" == "on" ] && amixer set Master off >>/dev/null
-	$HOME/.dwm/tools/lock.sh -n &
-	sleep 0.5
-	xset dpms force standby
-	while pgrep -x i3lock >/dev/null; do
-		while pgrep -x i3lock >/dev/null && xset q 2>/dev/null | grep -qi "Monitor is.*Standby"; do sleep 1; done
-		pgrep -x i3lock >/dev/null || break
-		while pgrep -x i3lock >/dev/null && [ "$(xprintidle 2>/dev/null)" -lt 10000 ]; do sleep 1; done
-		pgrep -x i3lock >/dev/null || break
-		xdotool key Escape 2>/dev/null
-		sleep 1
-		xset dpms force standby
-	done
+	_lock_before
+	_lock
+	_screen_lock_loop
 	wait
-	[ "$mpd_status" == "[playing]" ] && mpc -q toggle
-	[ "$volume_status" == "on" ] && amixer set Master on >>/dev/null
+	_lock_after
 	;;
 $suspend)
 	run_cmd --suspend
