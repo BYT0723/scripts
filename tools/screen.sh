@@ -13,7 +13,7 @@ duration=300 # 检查间隔 5分钟
 # DEBUG LOG
 SCREEN_DEBUG_NOTIFY=0
 
-TOOLS_DIR=$(dirname $0)
+LOCKER="$TOOLS_DIR/lock.sh lock"
 
 # init
 init() {
@@ -21,7 +21,7 @@ init() {
 		if [ ! -z "$(pgrep xautolock)" ]; then
 			pkill xautolock
 		fi
-		xautolock -time $(echo "$screen_saver_time/60" | bc) -locker "$TOOLS_DIR/lock.sh" -detectsleep &
+		xautolock -time $(echo "$screen_saver_time/60" | bc) -locker "$LOCKER" -detectsleep &
 		xset s $screen_saver_time $screen_saver_time +dpms
 		xset dpms $dpms_sleep_time $dpms_suspend_time $dpms_off_time
 	else
@@ -35,7 +35,7 @@ enable_screen_saver_and_dpms() {
 		if [ ! -z "$(pgrep xautolock)" ]; then
 			pkill xautolock
 		fi
-		xautolock -time $(echo "$screen_saver_time/60" | bc) -locker "$TOOLS_DIR/lock.sh" -detectsleep &
+		xautolock -time $(echo "$screen_saver_time/60" | bc) -locker "$LOCKER" -detectsleep &
 		xset s $screen_saver_time $screen_saver_time +dpms           # 屏保 10 分钟
 		xset dpms $dpms_sleep_time $dpms_suspend_time $dpms_off_time # DPMS: 待机 15 分钟, 挂起 20 分钟, 关闭 30 分钟
 		state=1

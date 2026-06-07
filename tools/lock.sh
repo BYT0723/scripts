@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source "$(dirname $0)/../../utils/notify.sh"
+source "$(dirname $0)/../utils/notify.sh"
 
 [ -z "$(command -v i3lock)" ] && system-notify critical "Tool Not Found" "please install i3lock-color and archlinux-wallpaper for aur" && exit 1
 
@@ -111,3 +111,31 @@ _screen_lock_loop() {
 		xset dpms force standby
 	done
 }
+
+lock() {
+	_lock_before
+	_lock
+	_screen_lock_loop
+	wait
+	_lock_after
+}
+
+suspend() {
+	_lock_before
+	_lock
+	systemctl suspend
+	_screen_lock_loop
+	wait
+	_lock_after
+}
+
+case "$1" in
+lock)
+	shift
+	lock $@
+	;;
+suspend)
+	shift
+	suspend
+	;;
+esac

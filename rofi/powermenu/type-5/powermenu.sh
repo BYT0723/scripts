@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-source $(dirname $0)/lock.sh
-
 ## Author : Aditya Shakya (adi1090x)
 ## Github : @adi1090x
 #
@@ -19,6 +17,7 @@ theme='style-5'
 lastlogin="$(last $USER | head -n1 | tr -s ' ' | cut -d' ' -f5,6,7)"
 uptime="$(uptime -p | sed -e 's/up //g')"
 host=$(hostname)
+locker="$(dirname $0)/../../tools/lock.sh"
 
 # Options
 hibernate=''
@@ -72,12 +71,7 @@ run_cmd() {
 		elif [[ $1 == '--hibernate' ]]; then
 			systemctl hibernate
 		elif [[ $1 == '--suspend' ]]; then
-			_lock_before
-			_lock
-			systemctl suspend
-			_screen_lock_loop
-			wait
-			_lock_after
+			$locker suspend
 		elif [[ $1 == '--logout' ]]; then
 			if [[ "$DESKTOP_SESSION" == 'openbox' ]]; then
 				openbox --exit
@@ -107,11 +101,7 @@ $hibernate)
 	run_cmd --hibernate
 	;;
 $lock)
-	_lock_before
-	_lock
-	_screen_lock_loop
-	wait
-	_lock_after
+	$locker lock
 	;;
 $suspend)
 	run_cmd --suspend

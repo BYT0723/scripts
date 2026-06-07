@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-source $(dirname $0)/lock.sh
-
 ## Author : Aditya Shakya (adi1090x)
 ## Github : @adi1090x
 #
@@ -19,6 +17,7 @@ theme='style-6'
 # CMDs
 uptime="$(uptime -p | sed -e 's/up //g')"
 host=$(hostnamectl hostname)
+locker="$(dirname $0)/../../tools/lock.sh"
 
 # Options
 shutdown=''
@@ -73,12 +72,7 @@ run_cmd() {
 		elif [[ $1 == '--reboot' ]]; then
 			systemctl reboot
 		elif [[ $1 == '--suspend' ]]; then
-			_lock_before
-			_lock
-			systemctl suspend
-			_screen_lock_loop
-			wait
-			_lock_after
+			$locker suspend
 		elif [[ $1 == '--logout' ]]; then
 			if [[ "$DESKTOP_SESSION" == 'dwm' ]]; then
 				kill $(pgrep dwm)
@@ -107,11 +101,7 @@ $reboot)
 	run_cmd --reboot
 	;;
 $lock)
-	_lock_before
-	_lock
-	_screen_lock_loop
-	wait
-	_lock_after
+	$locker lock
 	;;
 $suspend)
 	run_cmd --suspend
