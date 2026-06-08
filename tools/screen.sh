@@ -13,7 +13,7 @@ duration=300 # 检查间隔 5分钟
 # DEBUG LOG
 SCREEN_DEBUG_NOTIFY=0
 
-LOCKER="$TOOLS_DIR/lock.sh lock"
+LOCKER="$(dirname "$0")/lock.sh lock"
 
 # init
 init() {

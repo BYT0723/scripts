@@ -96,20 +96,26 @@ _lock_after() {
 }
 
 _screen_lock_loop() {
-	if ! command -v xprintidle >/dev/null 2>&1; then
+	if command -v xprintidle >/dev/null 2>&1; then
+		while pgrep -x i3lock >/dev/null; do
+			while pgrep -x i3lock >/dev/null && ! xset q 2>/dev/null | grep -q "Monitor is On"; do sleep 1; done
+			pgrep -x i3lock >/dev/null || break
+			while pgrep -x i3lock >/dev/null && [ "$(xprintidle 2>/dev/null)" -lt 10000 ]; do sleep 1; done
+			pgrep -x i3lock >/dev/null || break
+			xdotool key Escape 2>/dev/null
+			sleep 1
+			xset dpms force standby
+		done
+	else
 		system-notify critical "Tool Not Found" "please install xprintidle"
-		return
+		while pgrep -x i3lock >/dev/null; do
+			while pgrep -x i3lock >/dev/null && ! xset q 2>/dev/null | grep -q "Monitor is On"; do sleep 1; done
+			pgrep -x i3lock >/dev/null || break
+			sleep 30
+			xdotool key Escape 2>/dev/null
+			xset dpms force standby
+		done
 	fi
-
-	while pgrep -x i3lock >/dev/null; do
-		while pgrep -x i3lock >/dev/null && ! xset q 2>/dev/null | grep -q "Monitor is On"; do sleep 1; done
-		pgrep -x i3lock >/dev/null || break
-		while pgrep -x i3lock >/dev/null && [ "$(xprintidle 2>/dev/null)" -lt 10000 ]; do sleep 1; done
-		pgrep -x i3lock >/dev/null || break
-		xdotool key Escape 2>/dev/null
-		sleep 1
-		xset dpms force standby
-	done
 }
 
 lock() {

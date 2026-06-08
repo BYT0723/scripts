@@ -1,6 +1,6 @@
 #/use/bin/env /bin/bash
 
-source "$(dirname "$0")/utils/notify.sh"
+source "$(dirname "$0")/../utils/notify.sh"
 
 cal() {
 	[ -z "$(command -v cal)" ] && system-notify normal "Tool Not Found" "please install cal" && return
