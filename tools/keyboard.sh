@@ -16,12 +16,6 @@ source "$(dirname $0)/../utils/notify.sh"
 
 read DELAY RATE <<<"$(xset q | awk -F'[: ]+' '/auto repeat delay/ {print $5, $8}')"
 
-set_kb_option() {
-	# setxkbmap need `xorg-xkb-utils` package
-	[ -z "$(command -v setxkbmap)" ] && echo "setxkbmap not found" && exit 1
-	setxkbmap us -option "caps:swapescape,altwin:swap_lalt_lwin"
-}
-
 list() {
 	local module=$1
 	case "$module" in
