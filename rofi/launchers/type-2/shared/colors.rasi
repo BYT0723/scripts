@@ -15,4 +15,4 @@
 
 /* Import color-scheme from `colors` directory */
 
-@import "~/.dwm/rofi/colors/cyberpunk.rasi"
+@import "~/.dwm/rofi/colors/onedark.rasi"

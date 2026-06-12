@@ -15,8 +15,6 @@ theme='style-5'
 
 ## Run
 rofi \
-	-icon-theme $(awk -F "=" '$1=="gtk-icon-theme-name" {print $2}' ~/.config/gtk-3.0/settings.ini) \
 	-show combi \
-	-monitor -4 \
 	-theme ${dir}/${theme}.rasi
 # -hover-select -me-select-entry '' -me-accept-entry MousePrimary

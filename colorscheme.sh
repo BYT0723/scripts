@@ -46,6 +46,25 @@ set_dwm_theme() {
 	fi
 }
 
+set_rofi_theme() {
+	local mode=$1
+	local theme
+
+	[ -z "$mode" ] && return
+
+	case "$mode" in
+	dark) theme="onedark" ;;
+	light) theme="paper" ;;
+	*) return ;;
+	esac
+
+	find $WORK_DIR/rofi/launchers/*/shared/colors.rasi | while read -r path; do
+		sed -E -i \
+			's|/[^/"]+\.rasi|/'"$theme"'.rasi|g' \
+			"$path"
+	done
+}
+
 set_kitty_theme() {
 	[ -z $(command -v kitten) ] && return
 	local mode=$1
@@ -127,7 +146,7 @@ set_dunst_theme() {
 
 set_gtk_theme() {
 	local mode=$1
-	local theme
+	local theme icon_theme
 
 	local gtk2_cfg="$HOME/.gtkrc-2.0"
 	local gtk3_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0/settings.ini"
@@ -136,8 +155,14 @@ set_gtk_theme() {
 	[ -z "$mode" ] && return
 
 	case "$mode" in
-	dark) theme="WhiteSur-Dark-solid" ;;
-	light) theme="WhiteSur-Light-solid" ;;
+	dark)
+		theme="WhiteSur-Dark-solid"
+		icon_theme="WhiteSur-dark"
+		;;
+	light)
+		theme="WhiteSur-Light-solid"
+		icon_theme="WhiteSur-light"
+		;;
 	*) return ;;
 	esac
 
@@ -148,27 +173,42 @@ set_gtk_theme() {
 		else
 			echo 'gtk-theme-name="'"$theme"'"' >>"$gtk2_cfg"
 		fi
+
+		if grep -q '^gtk-icon-theme-name=' "$gtk2_cfg"; then
+			sed -i 's/^gtk-icon-theme-name=.*/gtk-icon-theme-name="'"$icon_theme"'"/' "$gtk2_cfg"
+		else
+			echo 'gtk-icon-theme-name="'"$icon_theme"'"' >>"$gtk2_cfg"
+		fi
 	else
 		echo 'gtk-theme-name="'"$theme"'"' >"$gtk2_cfg"
+		echo 'gtk-icon-theme-name="'"$icon_theme"'"' >>"$gtk2_cfg"
 	fi
 
 	# ---------- GTK3 / GTK4 ----------
 	for cfg in "$gtk3_cfg" "$gtk4_cfg"; do
 		mkdir -p "$(dirname "$cfg")"
 
-		if [ -f "$cfg" ]; then
+		if [ -f "$cfg" ] && grep -q '^\[Settings\]' "$cfg" 2>/dev/null; then
+			# 已有 [Settings]，在段内更新或插入
 			if grep -q '^gtk-theme-name=' "$cfg"; then
 				sed -i 's/^gtk-theme-name=.*/gtk-theme-name='"$theme"'/' "$cfg"
 			else
-				# 确保有 [Settings] 段
-				grep -q '^\[Settings\]' "$cfg" || sed -i '1i [Settings]' "$cfg"
-				echo "gtk-theme-name=$theme" >>"$cfg"
+				sed -i '/^\[Settings\]/a gtk-theme-name='"$theme" "$cfg"
+			fi
+
+			if grep -q '^gtk-icon-theme-name=' "$cfg"; then
+				sed -i 's/^gtk-icon-theme-name=.*/gtk-icon-theme-name='"$icon_theme"'/' "$cfg"
+			else
+				sed -i '/^\[Settings\]/a gtk-icon-theme-name='"$icon_theme" "$cfg"
 			fi
 		else
-			cat >"$cfg" <<EOF
-[Settings]
-gtk-theme-name=$theme
-EOF
+			# 无文件或无 [Settings]，整段写入
+			mkdir -p "$(dirname "$cfg")"
+			{
+				echo "[Settings]"
+				echo "gtk-theme-name=$theme"
+				echo "gtk-icon-theme-name=$icon_theme"
+			} >>"$cfg"
 		fi
 	done
 }
@@ -182,6 +222,7 @@ before)
 	[[ "$mode" == "$cur" ]] && exit
 
 	set_dwm_theme "$mode"
+	set_rofi_theme "$mode"
 	set_kitty_theme "$mode" &
 	set_qt_theme "$mode"
 	set_gtk_theme "$mode"
