@@ -82,6 +82,11 @@ set_fcitx5_theme() {
 	local theme="${cfg[fcitx5]}"
 	[ -z "$theme" ] && return
 
+	if [ ! -d "/usr/share/fcitx5/themes/$theme" ]; then
+		system-notify normal "Fcitx5 Theme Not Found" "fcitx5 theme \"$theme\" is not found, please make sure the theme exists"
+		return
+	fi
+
 	local file="$HOME/.config/fcitx5/conf/classicui.conf"
 
 	[ -f "$file" ] || return
@@ -96,7 +101,7 @@ set_fcitx5_theme() {
 }
 
 set_kitty_theme() {
-	[ -z $(command -v kitten) ] && return
+	[ -z "$(command -v kitten)" ] && return
 	[ -z "$mode" ] && return
 	declare -n cfg="$mode"
 	local theme="${cfg[kitty]}"
