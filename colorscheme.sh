@@ -2,6 +2,24 @@
 
 WORK_DIR=$(dirname $0)
 
+rofi_theme="paper"
+rofi_theme_dark="onedark"
+
+fcitx5_theme="macOS-light"
+fcitx5_theme_dark="macOS-dark"
+
+kitty_theme="Tokyo Night Day"
+kitty_theme_dark="Tokyo Night"
+
+qt_theme="/usr/share/qt6ct/colors/simple.conf"
+qt_theme_dark="/usr/share/qt6ct/colors/darker.conf"
+
+gtk_theme="WhiteSur-Light-solid"
+gtk_theme_dark="WhiteSur-Dark-solid"
+
+gtk_icon_theme="WhiteSur-light"
+gtk_icon_theme_dark="WhiteSur-dark"
+
 source "$(dirname $0)/utils/notify.sh"
 
 get_current_theme() {
@@ -63,6 +81,31 @@ set_rofi_theme() {
 			's|/[^/"]+\.rasi|/'"$theme"'.rasi|g' \
 			"$path"
 	done
+}
+
+set_fcitx5_theme() {
+	local mode=$1
+	local theme
+
+	[ -z "$mode" ] && return
+
+	case "$mode" in
+	dark) theme="macOS-dark" ;;
+	light) theme="macOS-light" ;;
+	*) return ;;
+	esac
+
+	local file="$HOME/.config/fcitx5/conf/classicui.conf"
+
+	[ -f "$file" ] || return
+
+	if grep -q '^Theme=' "$file"; then
+		sed -i "s/^Theme=.*/Theme=$theme/" "$file"
+	else
+		echo "Theme=$theme" >>"$file"
+	fi
+
+	fcitx5 -r &
 }
 
 set_kitty_theme() {
@@ -226,6 +269,7 @@ before)
 	set_kitty_theme "$mode" &
 	set_qt_theme "$mode"
 	set_gtk_theme "$mode"
+	set_fcitx5_theme "$mode"
 
 	# reload xrdb
 	[ -f $HOME/.Xresources ] && xrdb -merge $HOME/.Xresources
