@@ -2,23 +2,23 @@
 
 WORK_DIR=$(dirname $0)
 
-rofi_theme="paper"
-rofi_theme_dark="onedark"
+declare -A light=(
+	[rofi]="paper"
+	[fcitx5]="macOS-light"
+	[kitty]="Tokyo Night Day"
+	[qt]="/usr/share/qt6ct/colors/simple.conf"
+	[gtk]="WhiteSur-Light-solid"
+	[gtk_icon]="WhiteSur-light"
+)
 
-fcitx5_theme="macOS-light"
-fcitx5_theme_dark="macOS-dark"
-
-kitty_theme="Tokyo Night Day"
-kitty_theme_dark="Tokyo Night"
-
-qt_theme="/usr/share/qt6ct/colors/simple.conf"
-qt_theme_dark="/usr/share/qt6ct/colors/darker.conf"
-
-gtk_theme="WhiteSur-Light-solid"
-gtk_theme_dark="WhiteSur-Dark-solid"
-
-gtk_icon_theme="WhiteSur-light"
-gtk_icon_theme_dark="WhiteSur-dark"
+declare -A dark=(
+	[rofi]="onedark"
+	[fcitx5]="macOS-dark"
+	[kitty]="Tokyo Night"
+	[qt]="/usr/share/qt6ct/colors/darker.conf"
+	[gtk]="WhiteSur-Dark-solid"
+	[gtk_icon]="WhiteSur-dark"
+)
 
 source "$(dirname $0)/utils/notify.sh"
 
@@ -52,29 +52,22 @@ select_theme() {
 set_dwm_theme() {
 	local file="$HOME/.Xresources"
 	local key="dwm.col_theme"
-	local mode=$1
 	[ -z "$mode" ] && return
 
 	if grep -q "^$key:" "$file"; then
 		# 替换已有
-		sed -i "s/^$key:.*/$key: $1/" "$file"
+		sed -i "s/^$key:.*/$key: $mode/" "$file"
 	else
 		# 不存在就追加
-		echo "$key: $1" >>"$file"
+		echo "$key: $mode" >>"$file"
 	fi
 }
 
 set_rofi_theme() {
-	local mode=$1
-	local theme
-
 	[ -z "$mode" ] && return
-
-	case "$mode" in
-	dark) theme="onedark" ;;
-	light) theme="paper" ;;
-	*) return ;;
-	esac
+	declare -n cfg="$mode"
+	local theme="${cfg[rofi]}"
+	[ -z "$theme" ] && return
 
 	find $WORK_DIR/rofi/launchers/*/shared/colors.rasi | while read -r path; do
 		sed -E -i \
@@ -84,16 +77,10 @@ set_rofi_theme() {
 }
 
 set_fcitx5_theme() {
-	local mode=$1
-	local theme
-
 	[ -z "$mode" ] && return
-
-	case "$mode" in
-	dark) theme="macOS-dark" ;;
-	light) theme="macOS-light" ;;
-	*) return ;;
-	esac
+	declare -n cfg="$mode"
+	local theme="${cfg[fcitx5]}"
+	[ -z "$theme" ] && return
 
 	local file="$HOME/.config/fcitx5/conf/classicui.conf"
 
@@ -110,22 +97,15 @@ set_fcitx5_theme() {
 
 set_kitty_theme() {
 	[ -z $(command -v kitten) ] && return
-	local mode=$1
 	[ -z "$mode" ] && return
+	declare -n cfg="$mode"
+	local theme="${cfg[kitty]}"
+	[ -z "$theme" ] && return
 
-	case "$mode" in
-	dark)
-		kitten themes "Tokyo Night"
-		;;
-	light)
-		kitten themes "Tokyo Night Day"
-		;;
-	esac
+	kitten themes "$theme"
 }
 
 set_qt_theme() {
-	local mode=$1
-
 	[ -z "$mode" ] && return
 	[ -z "$(command -v qt6ct)" ] && return
 
@@ -134,33 +114,28 @@ set_qt_theme() {
 		return
 	fi
 
-	local cfg="${XDG_CONFIG_HOME:-$HOME/.config}/qt6ct/qt6ct.conf"
-	local color_scheme_path
+	declare -n cfg="$mode"
+	local color_scheme_path="${cfg[qt]}"
+	[ -z "$color_scheme_path" ] && return
 
-	case "$mode" in
-	dark) color_scheme_path="/usr/share/qt6ct/colors/darker.conf" ;;
-	light) color_scheme_path="/usr/share/qt6ct/colors/simple.conf" ;;
-	*) return ;;
-	esac
+	local cfg_file="${XDG_CONFIG_HOME:-$HOME/.config}/qt6ct/qt6ct.conf"
 
-	mkdir -p "$(dirname "$cfg")"
+	mkdir -p "$(dirname "$cfg_file")"
 
-	if [ -f "$cfg" ]; then
-		if grep -q '^\[Appearance\]' "$cfg"; then
-			# If [Appearance] section exists, update or add color_scheme_path
-			if grep -q '^color_scheme_path=' "$cfg"; then
-				sed -i 's|^color_scheme_path=.*|color_scheme_path='"$color_scheme_path"'|' "$cfg"
+	if [ -f "$cfg_file" ]; then
+		if grep -q '^\[Appearance\]' "$cfg_file"; then
+			if grep -q '^color_scheme_path=' "$cfg_file"; then
+				sed -i 's|^color_scheme_path=.*|color_scheme_path='"$color_scheme_path"'|' "$cfg_file"
 			else
-				sed -i '/^\[Appearance\]/a color_scheme_path='"$color_scheme_path" "$cfg"
+				sed -i '/^\[Appearance\]/a color_scheme_path='"$color_scheme_path" "$cfg_file"
 			fi
 		else
-			# Add [Appearance] section if it doesn't exist
-			echo "" >>"$cfg"
-			echo "[Appearance]" >>"$cfg"
-			echo "color_scheme_path=$color_scheme_path" >>"$cfg"
+			echo "" >>"$cfg_file"
+			echo "[Appearance]" >>"$cfg_file"
+			echo "color_scheme_path=$color_scheme_path" >>"$cfg_file"
 		fi
 	else
-		cat >"$cfg" <<EOF
+		cat >"$cfg_file" <<EOF
 [Appearance]
 color_scheme_path=$color_scheme_path
 EOF
@@ -188,26 +163,15 @@ set_dunst_theme() {
 }
 
 set_gtk_theme() {
-	local mode=$1
-	local theme icon_theme
+	[ -z "$mode" ] && return
+	declare -n cfg="$mode"
+	local theme="${cfg[gtk]}"
+	local icon_theme="${cfg[gtk_icon]}"
+	[ -z "$theme" ] && return
 
 	local gtk2_cfg="$HOME/.gtkrc-2.0"
 	local gtk3_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0/settings.ini"
 	local gtk4_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/gtk-4.0/settings.ini"
-
-	[ -z "$mode" ] && return
-
-	case "$mode" in
-	dark)
-		theme="WhiteSur-Dark-solid"
-		icon_theme="WhiteSur-dark"
-		;;
-	light)
-		theme="WhiteSur-Light-solid"
-		icon_theme="WhiteSur-light"
-		;;
-	*) return ;;
-	esac
 
 	# ---------- GTK2 ----------
 	if [ -f "$gtk2_cfg" ]; then
@@ -228,30 +192,28 @@ set_gtk_theme() {
 	fi
 
 	# ---------- GTK3 / GTK4 ----------
-	for cfg in "$gtk3_cfg" "$gtk4_cfg"; do
-		mkdir -p "$(dirname "$cfg")"
+	for conf in "$gtk3_cfg" "$gtk4_cfg"; do
+		mkdir -p "$(dirname "$conf")"
 
-		if [ -f "$cfg" ] && grep -q '^\[Settings\]' "$cfg" 2>/dev/null; then
-			# 已有 [Settings]，在段内更新或插入
-			if grep -q '^gtk-theme-name=' "$cfg"; then
-				sed -i 's/^gtk-theme-name=.*/gtk-theme-name='"$theme"'/' "$cfg"
+		if [ -f "$conf" ] && grep -q '^\[Settings\]' "$conf" 2>/dev/null; then
+			if grep -q '^gtk-theme-name=' "$conf"; then
+				sed -i 's/^gtk-theme-name=.*/gtk-theme-name='"$theme"'/' "$conf"
 			else
-				sed -i '/^\[Settings\]/a gtk-theme-name='"$theme" "$cfg"
+				sed -i '/^\[Settings\]/a gtk-theme-name='"$theme" "$conf"
 			fi
 
-			if grep -q '^gtk-icon-theme-name=' "$cfg"; then
-				sed -i 's/^gtk-icon-theme-name=.*/gtk-icon-theme-name='"$icon_theme"'/' "$cfg"
+			if grep -q '^gtk-icon-theme-name=' "$conf"; then
+				sed -i 's/^gtk-icon-theme-name=.*/gtk-icon-theme-name='"$icon_theme"'/' "$conf"
 			else
-				sed -i '/^\[Settings\]/a gtk-icon-theme-name='"$icon_theme" "$cfg"
+				sed -i '/^\[Settings\]/a gtk-icon-theme-name='"$icon_theme" "$conf"
 			fi
 		else
-			# 无文件或无 [Settings]，整段写入
-			mkdir -p "$(dirname "$cfg")"
+			mkdir -p "$(dirname "$conf")"
 			{
 				echo "[Settings]"
 				echo "gtk-theme-name=$theme"
 				echo "gtk-icon-theme-name=$icon_theme"
-			} >>"$cfg"
+			} >>"$conf"
 		fi
 	done
 }
@@ -264,12 +226,12 @@ before)
 	[ -z "$cur" ] && exit
 	[[ "$mode" == "$cur" ]] && exit
 
-	set_dwm_theme "$mode"
-	set_rofi_theme "$mode"
-	set_kitty_theme "$mode" &
-	set_qt_theme "$mode"
-	set_gtk_theme "$mode"
-	set_fcitx5_theme "$mode"
+	set_dwm_theme
+	set_rofi_theme
+	set_kitty_theme &
+	set_qt_theme
+	set_gtk_theme
+	set_fcitx5_theme
 
 	# reload xrdb
 	[ -f $HOME/.Xresources ] && xrdb -merge $HOME/.Xresources
