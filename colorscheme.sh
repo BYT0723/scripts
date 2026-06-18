@@ -69,11 +69,15 @@ set_rofi_theme() {
 	local theme="${cfg[rofi]}"
 	[ -z "$theme" ] && return
 
-	find $WORK_DIR/rofi/launchers/*/shared/colors.rasi | while read -r path; do
-		sed -E -i \
-			's|/[^/"]+\.rasi|/'"$theme"'.rasi|g' \
-			"$path"
-	done
+	files=(
+		"$WORK_DIR"/rofi/launchers/*/shared/colors.rasi
+		"$WORK_DIR"/rofi/powermenu/*/shared/colors.rasi
+		"$WORK_DIR"/rofi/applets/shared/colors.rasi
+	)
+
+	sed -E -i \
+		"s|/[^/\"]+\.rasi|/$theme.rasi|g" \
+		"${files[@]}"
 }
 
 set_fcitx5_theme() {

@@ -75,7 +75,6 @@ mail_unread_path="$cache_dir/mail-unread"
 rss_unread_path="$cache_dir/rss-unread"
 mpd_status_path="$cache_dir/mpd-status"
 
-sing_box_config="/etc/sing-box/config.json"
 mail_account_config=${XDG_CONFIG_HOME:-$HOME/.config}/dwm/mail.json
 
 # MPD
@@ -282,7 +281,7 @@ print_rss() {
 }
 
 print_singbox() {
-	[ -f "$sing_box_config" ] && pgrep sing-box >/dev/null && printf "^c$white^"
+	pgrep sing-box >/dev/null && printf "^c$white^"
 }
 
 print_notification() {
