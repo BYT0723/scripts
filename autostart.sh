@@ -7,7 +7,7 @@ TOOLS_DIR="$WORK_DIR/tools"
 CONKY_AUTOSTART=0
 
 # 显示器布局初始化
-bash $TOOLS_DIR/monitor-conf.sh
+[ -n "$(command -v autorandr)" ] && autorandr --change
 
 # 启动应用
 # $1 application name
