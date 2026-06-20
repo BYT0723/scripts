@@ -15,13 +15,10 @@ declare -A _url_map
 _menu=""
 
 _load() {
-	while IFS=$'\t' read -r icon name url; do
-		local key="$icon $name"
-		[ -n "$_menu" ] && _menu+=$'\n'
-		_menu+="$key"
+	while IFS=$'\t' read -r key url; do
 		_url_map["$key"]="$url"
-	done < <(jq -r '.links[] | "\(.icon)\t\(.name)\t\(.url)"' "$CONFIG")
-	_menu+=$'\n'"$NEW_LINK"
+		_menu+="${_menu:+$'\n'}$key"
+	done < <(jq -r '.links[] | "\((if (.icon // "") == "" then " " else .icon end)) \(.name)\t\(.url)"' "$CONFIG")
 }
 
 _load
