@@ -9,7 +9,6 @@ type="$ROFI_DIR/launchers/type-1"
 style='style-5.rasi'
 theme="$type/$style"
 font="JetBrains Mono Nerd Font 16"
-mesg="Using '"$(get_default_browser_name)"' Open Link"
 
 NEW_LINK=" New Link"
 
@@ -22,9 +21,7 @@ mapfile -t links < <(
 build_menu() {
 	for entry in "${links[@]}"; do
 		IFS='|' read -r icon name url <<<"$entry"
-
 		name=$(trim "$name")
-
 		echo "$icon $name"
 	done
 	echo $NEW_LINK
@@ -41,7 +38,7 @@ rofi_cmd() {
 		-p "$prompt" \
 		-markup-rows \
 		-theme ${theme} \
-		-mesg "$mesg" \
+		-mesg "Using Default Browser Open Link" \
 		-i \
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }
