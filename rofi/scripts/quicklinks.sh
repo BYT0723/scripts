@@ -2,82 +2,75 @@
 
 ROFI_DIR="$(dirname "$(dirname "$0")")"
 
-source "$(dirname "$0")"/util.sh
-
-# Import Current Theme
 type="$ROFI_DIR/launchers/type-1"
 style='style-5.rasi'
 theme="$type/$style"
 font="JetBrains Mono Nerd Font 16"
 
 NEW_LINK=" New Link"
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/dwm/quicklinks.json"
 
-CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/dwm/quicklinks.conf"
+# ---- parse links ----
+declare -A _url_map
+_menu=""
 
-mapfile -t links < <(
-	grep -v '^\s*#' "$CONFIG" | grep -v '^\s*$'
-)
-
-build_menu() {
-	for entry in "${links[@]}"; do
-		IFS='|' read -r icon name url <<<"$entry"
-		name=$(trim "$name")
-		echo "$icon $name"
-	done
-	echo $NEW_LINK
+_load() {
+	while IFS=$'\t' read -r icon name url; do
+		local key="$icon $name"
+		[ -n "$_menu" ] && _menu+=$'\n'
+		_menu+="$key"
+		_url_map["$key"]="$url"
+	done < <(jq -r '.links[] | "\(.icon)\t\(.name)\t\(.url)"' "$CONFIG")
+	_menu+=$'\n'"$NEW_LINK"
 }
 
-# Rofi CMD
+_load
+
+# ---- rofi ----
 rofi_cmd() {
-	rofi \
-		-dmenu \
+	rofi -dmenu -i \
 		-theme-str 'textbox-prompt-colon {str: " ";}' \
 		-theme-str "* {font: \"$font\";}" \
 		-theme-str 'configuration {show-icons:false;}' \
 		-theme-str 'window {width: 600px;}' \
-		-p "$prompt" \
-		-markup-rows \
-		-theme ${theme} \
+		-p "Quicklinks" \
 		-mesg "Using Default Browser Open Link" \
-		-i \
+		-markup-rows \
+		-theme "${theme}" \
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }
 
-run_rofi() {
-	build_menu | rofi_cmd
+_is_url() {
+	[[ "$1" =~ ^https?:// ]] && return 0
+	[[ "$1" =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,} ]] && return 0
+	return 1
 }
 
-google_search=https://www.google.com/search?q=
-bing_search=https://cn.bing.com/search?q=
-search_engine=$google_search
-
 QUICKLINKS_EDITOR=${QUICKLINKS_EDITOR:-"kitty nvim"}
+SEARCH="https://www.google.com/search?q="
 
 run_cmd() {
 	local chosen="$1"
 
-	[[ "$chosen" == "$NEW_LINK" ]] && $QUICKLINKS_EDITOR "$CONFIG" && return
+	[[ "$chosen" == "$NEW_LINK" ]] && {
+		$QUICKLINKS_EDITOR "$CONFIG"
+		return
+	}
 
-	for entry in "${links[@]}"; do
-		IFS="|" read -r icon name url <<<"$entry"
-
-		name=$(trim "$name")
-
-		if [[ "$chosen" == "$icon $name" ]]; then
-			chosen=$(trim "$url")
-			break
-		fi
-	done
-
-	# Direct URL
-	if is_url "$chosen"; then
-		[[ "$chosen" =~ ^https?:// ]] || chosen="https://$chosen"
-		xdg-open "$chosen"
-		exit
+	local url="${_url_map[$chosen]}"
+	if [[ -n "$url" ]]; then
+		xdg-open "$url"
+		return
 	fi
 
-	xdg-open "$search_engine$chosen"
+	if _is_url "$chosen"; then
+		[[ "$chosen" =~ ^https?:// ]] || chosen="https://$chosen"
+		xdg-open "$chosen"
+		return
+	fi
+
+	xdg-open "${SEARCH}${chosen}"
 }
 
-chosen="$(run_rofi)"
+chosen=$(echo "$_menu" | rofi_cmd)
 [ -n "$chosen" ] && run_cmd "$chosen"
