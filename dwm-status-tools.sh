@@ -92,15 +92,25 @@ print_battery() {
 	[ -z "$(command -v acpi)" ] && system-notify critical "Tool Not Found" "please install acpi" && return
 	[ -z "$(acpi)" ] && return
 
-	battery_icons=('' '' '' '' '' '' '' '' '󰂁' '󰂂' '󰁹')
-	charging_icons=('' '󰢜' '󰂆' '󰂇' '󰂈' '󰢝' '󰂉' '󰢞' '󰂊' '󰂋' '󰂅')
+	# icon style: 5 (coarse) or 11 (fine granularity)
+	if [ "${BATTERY_ICON_STYLE:-11}" = "11" ]; then
+		battery_icons=('' '' '' '' '' '' '' '' '󰂁' '󰂂' '󰁹')
+		charging_icons=('󰢜' '󰢜' '󰂆' '󰂇' '󰂈' '󰢝' '󰂉' '󰢞' '󰂊' '󰂋' '󰂅')
+	else
+		battery_icons=('' '' '' '' '')
+		charging_icons=('󰢜' '󰂇' '󰂉' '󰂊' '󰂅')
+	fi
+
 	IFS='|' read -r status percent < <(acpi -b | awk -F': |, |%' 'NR==1 {print $2"|"$3}')
 
+	max_idx=$((${#battery_icons[@]} - 1))
+	idx=$(((percent * max_idx + 50) / 100))
+
 	if [[ "$status" == "Discharging" ]]; then
-		icon=${battery_icons[$(((percent + 5) / 10))]}
+		icon=${battery_icons[$idx]}
 		fg="$white"
 	else
-		icon=${charging_icons[$(((percent + 5) / 10))]}
+		icon=${charging_icons[$idx]}
 		fg="$yellow"
 	fi
 	printf "^c$fg^$icon"
@@ -467,3 +477,5 @@ update_rss() {
 
 	newsboat -x print-unread 2>/dev/null | awk '{print $1}' >"$rss_unread_path"
 }
+
+print_battery
