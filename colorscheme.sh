@@ -102,6 +102,11 @@ set_fcitx5_theme() {
 	fi
 
 	fcitx5 -r &
+	# refresh pid file for autostart.sh launch check
+	sleep 0.3
+	local new_pid
+	new_pid=$(pgrep -n fcitx5 2>/dev/null)
+	[ -n "$new_pid" ] && echo "$new_pid" >"/tmp/dwm-status/autostart-launch-fcitx5.pid"
 }
 
 set_kitty_theme() {
