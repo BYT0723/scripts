@@ -10,20 +10,30 @@ CONKY_AUTOSTART=0
 [ -n "$(command -v autorandr)" ] && autorandr --change
 
 # 启动应用
-# $1 application name
-# $2 command
+# $1 policy           string [check/restart]
+# $2 application_name string
+# $3 command          string
 launch() {
-	local name=$1
-	shift
+	local policy=${1:-"check"} name=$2
+	shift 2
 	local cmd=$@
 	local pf="/tmp/dwm-status/autostart-launch-$name.pid"
+	local pid
 
+	# read pid + verify alive
 	[ -f "$pf" ] && pid=$(cat "$pf")
-	if [ ! -z "$pid" ]; then
-		kill $pid
-		sleep 0.1
-	fi
-	$cmd &
+	[ -n "${pid:-}" ] && kill -0 "$pid" 2>/dev/null || pid=""
+
+	case "$policy" in
+	check)
+		[ -z "$pid" ] || return 0
+		;;
+	restart)
+		[ -n "$pid" ] && kill "$pid" 2>/dev/null
+		;;
+	esac
+
+	$cmd &>/dev/null &
 	echo $! >"$pf"
 }
 
@@ -42,19 +52,19 @@ desktop_setting() {
 
 application_launch() {
 	# 窗口合成器 picom (window composer)
-	launch picom "picom --config ${XDG_CONFIG_HOME:-$HOME/.config}/dwm/picom.conf"
+	launch check picom "picom --config ${XDG_CONFIG_HOME:-$HOME/.config}/dwm/picom.conf"
 	# 启动通知
-	launch dunst "dunst"
+	launch check dunst "dunst"
 	# network manager 网络管理bar icon
-	launch nm-applet "nm-applet"
+	launch restart nm-applet "nm-applet"
 	# input method
-	launch fcitx5 "fcitx5"
+	launch restart fcitx5 "fcitx5"
 	# auto mount
-	launch udiskie "udiskie -sn"
+	launch restart udiskie "udiskie -sn"
 	# polkit (require lxsession or lxsession-gtk3) 鉴权
-	launch lxpolkit "lxpolkit"
+	launch check lxpolkit "lxpolkit"
 	# 音频控制
-	launch easyeffects "easyeffects --service-mode --hide-window"
+	launch check easyeffects "easyeffects --service-mode --hide-window"
 }
 
 keyboard_setting() {
