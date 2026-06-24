@@ -92,16 +92,17 @@ print_battery() {
 	[ -z "$(command -v acpi)" ] && system-notify critical "Tool Not Found" "please install acpi" && return
 	[ -z "$(acpi)" ] && return
 
-	battery_icons=('' '' '' '' '')
-	# battery_icons=('' '' '' '' '' '' '' '' '' '' '')
-	charging_icons=('')
+	battery_icons=('' '' '' '' '' '' '' '' '󰂁' '󰂂' '󰁹')
+	charging_icons=('' '󰢜' '󰂆' '󰂇' '󰂈' '󰢝' '󰂉' '󰢞' '󰂊' '󰂋' '󰂅')
 	IFS='|' read -r status percent < <(acpi -b | awk -F': |, |%' 'NR==1 {print $2"|"$3}')
 
-	icon=${battery_icons[$(((percent - 1) / 20))]}
-
-	[[ "$status" == "Discharging" ]] && fg="$white" || fg="$yellow"
-
-	# printf "$icon $percent"
+	if [[ "$status" == "Discharging" ]]; then
+		icon=${battery_icons[$(((percent + 5) / 10))]}
+		fg="$white"
+	else
+		icon=${charging_icons[$(((percent + 5) / 10))]}
+		fg="$yellow"
+	fi
 	printf "^c$fg^$icon"
 }
 
