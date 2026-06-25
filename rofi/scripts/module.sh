@@ -36,9 +36,9 @@ if [[ "$layout" == 'NO' ]]; then
 		"󰈀 Network                       $(icon active app NetworkManager)"
 		"󰂯 Bluetooth                     $(icon active service bluetooth)"
 		" Notification                  $(/bin/bash $ROFI_DIR/scripts/notification.sh unread)"
+		" SingBox                       $(icon active app sing-box)"
 		" Tools"
 		" Setting"
-		" SingBox"
 	)
 else
 	firstOpt=(
@@ -46,9 +46,9 @@ else
 		"󰈀 $(icon active app NetworkManager)"
 		"󰂯 $(icon active service bluetooth)"
 		" $(/bin/bash $ROFI_DIR/scripts/notification.sh unread)"
+		" $(icon active app sing-box)"
 		" "
 		" "
-		" "
 	)
 fi
 
@@ -147,15 +147,15 @@ run_cmd() {
 		return
 		;;
 	${optId[${firstOpt[4]}]})
-		/bin/bash $ROFI_DIR/scripts/system-tools.sh
+		/bin/bash $ROFI_DIR/scripts/clash.sh
 		return
 		;;
 	${optId[${firstOpt[5]}]})
-		/bin/bash $ROFI_DIR/scripts/setting.sh
+		/bin/bash $ROFI_DIR/scripts/system-tools.sh
 		return
 		;;
 	${optId[${firstOpt[6]}]})
-		/bin/bash $ROFI_DIR/scripts/clash.sh
+		/bin/bash $ROFI_DIR/scripts/setting.sh
 		return
 		;;
 	*)
