@@ -147,7 +147,7 @@ run_cmd() {
 		return
 		;;
 	${optId[${firstOpt[4]}]})
-		/bin/bash $ROFI_DIR/scripts/clash.sh
+		/bin/bash $ROFI_DIR/scripts/sing-box.sh
 		return
 		;;
 	${optId[${firstOpt[5]}]})

@@ -28,7 +28,7 @@ rofi/scripts/wallpaper.sh   ──sources──► rofi/scripts/util.sh
 rofi/scripts/notification.sh──sources──► rofi/scripts/util.sh
 rofi/scripts/setting.sh     ──sources──► rofi/scripts/util.sh
 rofi/scripts/system-tools.sh──sources──► rofi/scripts/util.sh
-rofi/scripts/clash.sh       ──sources──► rofi/scripts/util.sh, utils/notify.sh
+rofi/scripts/sing-box.sh    ──sources──► rofi/scripts/util.sh, utils/notify.sh
 
 # 死代码 (未被任何脚本 source)
 utils/print.sh   — number2icon() 无人调用
@@ -39,7 +39,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 
 ### utils/notify.sh → system-notify()
 被以下脚本调用:
-`brightness.sh` `calendar.sh` `keyboard.sh` `lock.sh` `volume.sh` `dwm-status-tools.sh` `dwm-statuscmd.sh` `clash.sh` `wallpaper.sh` `colorscheme.sh`
+`brightness.sh` `calendar.sh` `keyboard.sh` `lock.sh` `volume.sh` `dwm-status-tools.sh` `dwm-statuscmd.sh` `sing-box.sh` `wallpaper.sh` `colorscheme.sh`
 
 ### utils/monitor.sh
 | 函数 | 调用者 |

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Use Sing-Box’s clash api to control proxies
+
 ROFI_DIR="$(dirname "$(dirname "$0")")"
 WORK_DIR="$(dirname "$ROFI_DIR")"
 
@@ -105,7 +107,7 @@ rofi_cmd() {
 run_rofi() {
 	case "$1" in
 	--group)
-		prompt="Clash Proxies"
+		prompt="Sing-Box Proxies"
 		mesg="Selector Proxies"
 		get_selectors | rofi_cmd
 		;;

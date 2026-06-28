@@ -187,7 +187,7 @@ rssHandler() {
 singboxHandler() {
 	buttonType=$1
 	case "$buttonType" in
-	1) $WORK_DIR/rofi/scripts/clash.sh ;;
+	1) $WORK_DIR/rofi/scripts/sing-box.sh ;;
 	2) ;;
 	3) xdg-open "http://127.0.0.1:9090/ui" ;;
 	esac
