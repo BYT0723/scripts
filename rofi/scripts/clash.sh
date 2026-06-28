@@ -38,14 +38,37 @@ get_selectors() {
 	curl -s $(auth_header) "$API/proxies" |
 		jq -r '.proxies | to_entries[] | select(.value.type=="Selector") | "\(.key)\t\(.value.now)"' |
 		while IFS=$'\t' read -r key now; do
-			printf "%-10s\t %s\n" "$key" "$now"
+			printf "%-16s  %s\n" "$key" "$now"
 		done
 }
 
 get_options() {
 	local group="$1"
-	curl -s $(auth_header) "$API/proxies/$group" |
-		jq -r '.all[]'
+	local current="$2"
+	local proxies
+	proxies=$(curl -s $(auth_header) "$API/proxies")
+	echo "$proxies" | jq -r --arg group "$group" --arg current "$current" '
+		.proxies[$group].all[] as $name |
+		(.proxies[$name] // {type: "?", history: []}) |
+		[ $name, .type, (.history[0].delay // "✗") ] |
+		@tsv
+	' | awk -F'\t' -v current="$current" '
+		{
+			name = $1
+			type = $2
+			delay = $3
+			if (type == "Shadowsocks") type = "SS"
+			else if (type == "ShadowsocksR") type = "SSR"
+			else if (type == "Hysteria2") type = "Hy2"
+			else if (type == "WireGuard") type = "WG"
+			if (delay ~ /^[0-9]+$/)
+				delay_str = sprintf("%dms", delay)
+			else
+				delay_str = delay
+			marker = (name == current && current != "") ? "✓ " : "  "
+			printf "%2s%-18s%-8s%8s\n", marker, name, type, delay_str
+		}
+	'
 }
 
 get_now() {
@@ -90,8 +113,9 @@ run_rofi() {
 		group="$2"
 		prompt="$group"
 		current=$(get_now "$group")
-		mesg="Current: $current"
-		get_options "$group" | rofi_cmd
+		mesg="current: $current"
+		sleep 0.1
+		get_options "$group" "$current" | rofi_cmd
 		;;
 	*)
 		return
@@ -111,13 +135,12 @@ run_cmd() {
 	--node)
 		group="$2"
 		chosen="$(run_rofi --node "$group")"
-		[[ -n "$chosen" ]] && switch_node "$group" "$chosen"
+		[[ -z "$chosen" ]] && return
+		node=$(echo "$chosen" | sed 's/^✓ //;s/^  //' | awk '{$NF=""; $(NF-1)=""; $1=$1; sub(/  +$/, ""); print}')
+		[[ -z "$node" ]] && return
+		switch_node "$group" "$node"
 		;;
 	esac
 }
-
-# -----------------------------
-# Entry
-# -----------------------------
 
 run_cmd --group

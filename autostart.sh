@@ -22,7 +22,7 @@ launch() {
 
 	# read pid + verify alive
 	[ -f "$pf" ] && pid=$(cat "$pf")
-	[ -n "${pid:-}" ] && kill -0 "$pid" 2>/dev/null || pid=""
+	# [ -n "${pid:-}" ] && kill -0 "$pid" 2>/dev/null || pid=""
 
 	case "$policy" in
 	check)
@@ -30,6 +30,7 @@ launch() {
 		;;
 	restart)
 		[ -n "$pid" ] && kill "$pid" 2>/dev/null
+		sleep 0.1
 		;;
 	esac
 
