@@ -16,7 +16,10 @@ source "$WORK_DIR/utils/notify.sh"
 dateHandler() {
 	buttonType=$1
 	case "$buttonType" in
-	1) $WORK_DIR/tools/calendar.sh ;;
+	1)
+		local flag="/tmp/dwm-status/date-expanded"
+		[ -f "$flag" ] && rm -f "$flag" || touch "$flag"
+		;;
 	2) ;;
 	3) $WORK_DIR/tools/calendar.sh lunar ;;
 	esac

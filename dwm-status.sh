@@ -4,6 +4,7 @@ source "$(dirname $0)/dwm-status-tools.sh"
 
 DWM_STATUS_LEFT_RADIUS="^(^"
 DWM_STATUS_RIGHT_RADIUS="^)^"
+DWM_STATUS_VERTICAL_SPLIT="\x7F"
 
 # $1: background color
 # ${@:2} tools...
@@ -40,6 +41,8 @@ panes() {
 	panes+="$(new_pane $black "\x0b^c$white^$(print_speed)")"
 	# system monitor pane
 	panes+="$(new_pane $black "\x08$(print_cpu)$(print_temperature)" "\x07$(print_mem)" "\x06$(print_disk)")"
+
+	panes+="$DWM_STATUS_VERTICAL_SPLIT"
 
 	# notification pane
 	if [[ -n $rss_str || -n $mail_str || -n $notification_str ]]; then
