@@ -69,6 +69,60 @@ detect_file_type() {
     esac
 }
 
+get_video_dim() {
+	local file="$1"
+	ffprobe -v error -select_streams v:0 \
+		-show_entries stream=width,height \
+		-of csv=p=0 "$file" 2>/dev/null | tr ',' ' '
+}
+
+# Returns 0 (true) if monitor and video have different orientation (landscape vs portrait)
+orientation_mismatch() {
+	local mw="$1" mh="$2" vw="$3" vh="$4"
+	local ml=false vl=false
+	[ "$mw" -gt "$mh" ] && ml=true
+	[ "$vw" -gt "$vh" ] && vl=true
+	[ "$ml" != "$vl" ]
+}
+
+# Returns "width height" for the selected monitor (or screen)
+get_monitor_dim() {
+	local select="$1" list="$2"
+	if [[ "$select" == "Screen" ]]; then
+		get_screen_size | sed 's/\([0-9]*\)x\([0-9]*\).*/\1 \2/'
+	else
+		local mon="$select"
+		[[ "$mon" == "ALL" ]] && mon=$(echo "$list" | awk 'NR>1 {print $NF; exit}')
+		xrandr --current | awk -v m="$mon" '
+			$1==m {for(i=1;i<=NF;i++) if($i ~ /^[0-9]+x[0-9]+/) {split($i,a,"[x+]"); print a[1], a[2]; exit}}
+		'
+	fi
+}
+
+# Launch mpv preview with r=cycle rotation, q=quit; returns final rotation angle
+preview_rotation() {
+	local file="$1"
+	local tmp=$(mktemp -d)
+	local wld="$tmp/watch_later"; mkdir -p "$wld"
+	cat > "$tmp/input.conf" <<'EOF'
+r cycle-values video-rotate "90" "270" "0"
+q quit
+EOF
+	mpv --no-config --no-osc --video-rotate=90 --loop \
+		--input-conf="$tmp/input.conf" \
+		--save-position-on-quit \
+		--watch-later-directory="$wld" \
+		--watch-later-options="video-rotate" \
+		--autofit=800x600 \
+		"$file" &>/dev/null
+	local rotate="90"
+	for f in "$wld"/*; do
+		[ -f "$f" ] && rotate=$(grep "^video-rotate=" "$f" | cut -d= -f2) && break
+	done
+	rm -rf "$tmp"
+	echo "${rotate:-90}"
+}
+
 find_wallpapers() {
     local dir="$1"
     local depth="$2"
@@ -206,10 +260,14 @@ launch_video_xwinwrap() {
 
 	local position=$1
 	shift
+	local rotate="$1"
+	shift
 	local filepath=$@
 
 	local keymapConf=$(getConfig video_keymap_conf)
 	keymapConf=$(expand_path "$keymapConf")
+
+	[ -n "$rotate" ] && rotate="--video-rotate=$rotate"
 
 	xwinwrap -ov -g "$position" -- mpv -wid WID "$filepath" \
 		--no-config \
@@ -230,6 +288,7 @@ launch_video_xwinwrap() {
 		--framedrop=vo \
 		--no-sub \
 		--stop-screensaver=no \
+		$rotate \
 		--input-conf="$keymapConf" 2>&1 >~/.wallpaper.log &
 }
 
@@ -251,10 +310,11 @@ get_screen_size() {
 launch_dynamic_wallpaper() {
     local type="$1"
     local position="$2"
-    local filepath="$3"
+    local rotate="$3"
+    local filepath="$4"
 
     case "$type" in
-    "video") launch_video_xwinwrap "$position" "$filepath" || return 1 ;;
+    "video") launch_video_xwinwrap "$position" "$rotate" "$filepath" || return 1 ;;
     "page") launch_page_xwinwrap "$position" "$filepath" || return 1 ;;
     *) return 1 ;;
     esac
@@ -274,7 +334,7 @@ set_wallpaper_to_screen() {
         screen_size=$(get_screen_size) || return
 
         clean_latest
-        launch_dynamic_wallpaper "$Type" "$screen_size+0+0" "$filepath" || return
+        launch_dynamic_wallpaper "$Type" "$screen_size+0+0" "${WALLPAPER_ROTATION:-}" "$filepath" || return
 
         echo "$NEW_WALLPAPER_PID" >"$wallpaper_full_pid"
         echo "$filepath" >"$wallpaper_full_latest"
@@ -304,7 +364,7 @@ set_wallpaper_to_monitor() {
     case "$Type" in
     "video"|"page")
         clean_latest "$monitor_index"
-        launch_dynamic_wallpaper "$Type" "${width}x${height}+${x}+${y}" "$filepath" || return
+        launch_dynamic_wallpaper "$Type" "${width}x${height}+${x}+${y}" "${WALLPAPER_ROTATION:-}" "$filepath" || return
 
         echo "$NEW_WALLPAPER_PID" >"${wallpaper_pid}_${monitor_index}"
         echo "$filepath" >"${wallpaper_latest}_${monitor_index}"
@@ -405,6 +465,19 @@ set_wallpaper() {
     fi
     [ -z "$select" ] && return
 
+    # Video rotation prompt (only when landscape vs portrait mismatch)
+    WALLPAPER_ROTATION=""
+    if [[ $(detect_file_type "$select_file") == "video" ]] && command -v ffprobe >/dev/null 2>&1; then
+        local vid_dim=$(get_video_dim "$select_file")
+        if [ -n "$vid_dim" ]; then
+            read vid_w vid_h <<< "$vid_dim"
+            read mon_w mon_h <<< "$(get_monitor_dim "$select" "$monitors_list")"
+            if orientation_mismatch "$mon_w" "$mon_h" "$vid_w" "$vid_h"; then
+                WALLPAPER_ROTATION=$(preview_rotation "$select_file")
+            fi
+        fi
+    fi
+
     [[ "$select" = "Screen" ]] && set_wallpaper_to_screen "$select_file" && return
     echo "$monitors_list" | awk 'NR>1 {sub(":","",$1); print $1,$NF}' | while read -r monitor_index monitor_name; do
         if [[ $select = "ALL" ]] || [[ $select = "$monitor_name" ]]; then
@@ -448,7 +521,7 @@ case "$op" in
 '-r' | '--run') launch_wallpaper ;;
 '-s' | '--set')
 	shift
-	set_wallpaper $@
+	set_wallpaper "$@"
 	;;
 '-n' | '--next') set_wallpaper -s "$(random_wallpaper)" ;;
 '-S' | '--select')
