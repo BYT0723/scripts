@@ -75,7 +75,7 @@ mail_unread_path="$cache_dir/mail-unread"
 rss_unread_path="$cache_dir/rss-unread"
 mpd_status_path="$cache_dir/mpd-status"
 
-mail_account_config=${XDG_CONFIG_HOME:-$HOME/.config}/dwm/mail.json
+mail_account_config=$HOME/.config/dwm/mail.json
 
 # MPD
 mpd_single_pane=0

@@ -8,7 +8,7 @@ theme="$type/$style"
 font="JetBrains Mono Nerd Font 16"
 
 NEW_LINK=" New Link"
-CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/dwm/quicklinks.json"
+CONFIG="$HOME/.config/dwm/quicklinks.json"
 
 # ---- parse links ----
 declare -A _url_map

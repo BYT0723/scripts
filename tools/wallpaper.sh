@@ -12,7 +12,7 @@ source "$WORK_DIR/utils/notify.sh"
 wallpaper_launch_delay=1
 
 # wallpaper configuration file
-conf="${XDG_CONFIG_HOME:-$HOME/.config}/dwm/wallpaper.conf"
+conf="$HOME/.config/dwm/wallpaper.conf"
 cache_wallpaper_dir="$HOME/.cache/wallpaper"
 mkdir -p "$cache_wallpaper_dir"
 wallpaper_latest="$cache_wallpaper_dir/wallpaper_latest"

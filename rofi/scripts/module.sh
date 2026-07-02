@@ -17,7 +17,7 @@ elif [[ ("$theme" == *'type-2'*) || ("$theme" == *'type-4'*) ]]; then
 	list_row='1'
 fi
 
-CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}/dwm"
+CONFIG_HOME="$HOME/.config/dwm"
 
 # 配置文件路径
 declare -A confPath

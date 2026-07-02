@@ -53,7 +53,7 @@ desktop_setting() {
 
 application_launch() {
 	# 窗口合成器 picom (window composer)
-	launch check picom "picom --config ${XDG_CONFIG_HOME:-$HOME/.config}/dwm/picom.conf"
+	launch check picom "picom --config $HOME/.config/dwm/picom.conf"
 	# 启动通知
 	launch check dunst "dunst"
 	# network manager 网络管理bar icon

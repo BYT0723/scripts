@@ -132,7 +132,7 @@ set_qt_theme() {
 	local color_scheme_path="${cfg[qt]}"
 	[ -z "$color_scheme_path" ] && return
 
-	local cfg_file="${XDG_CONFIG_HOME:-$HOME/.config}/qt6ct/qt6ct.conf"
+	local cfg_file="$HOME/.config/qt6ct/qt6ct.conf"
 
 	mkdir -p "$(dirname "$cfg_file")"
 
@@ -157,7 +157,7 @@ EOF
 }
 
 set_dunst_theme() {
-	local cfg="${XDG_CONFIG_HOME:-$HOME/.config}/dunst/dunstrc"
+	local cfg="$HOME/.config/dunst/dunstrc"
 
 	read bg fg < <(get_bg_fg_colors)
 
@@ -184,8 +184,8 @@ set_gtk_theme() {
 	[ -z "$theme" ] && return
 
 	local gtk2_cfg="$HOME/.gtkrc-2.0"
-	local gtk3_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0/settings.ini"
-	local gtk4_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/gtk-4.0/settings.ini"
+	local gtk3_cfg="$HOME/.config/gtk-3.0/settings.ini"
+	local gtk4_cfg="$HOME/.config/gtk-4.0/settings.ini"
 
 	# ---------- GTK2 ----------
 	if [ -f "$gtk2_cfg" ]; then
