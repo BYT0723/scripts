@@ -6,7 +6,6 @@ ROFI_DIR="$(dirname "$(dirname "$0")")"
 WORK_DIR="$(dirname "$ROFI_DIR")"
 
 SDDM_SCRIPT="$(realpath $WORK_DIR)/tools/sddm.sh"
-THEME_PREVIEW="sddm-greeter-qt6 --test-mode --theme /usr/share/sddm/themes/sddm-astronaut-theme/"
 
 # Import Current Theme
 type="$ROFI_DIR/applets/type-1"
@@ -28,36 +27,36 @@ layout=$(cat ${theme} | grep 'USE_ICON' | cut -d'=' -f2)
 
 if [[ "$layout" == 'NO' ]]; then
 	firstOpt=(
-		" StatusBar"
 		"󰍂 SDDM"
 	)
 	sddmOpt=(
 		"Set Theme"
-		"Preview Theme"
-		"Edit Theme"
+		"Preview"
+		"Set Config"
+		"Edit Config"
 		"Install Themes"
 	)
 else
 	firstOpt=(
 		"SDDM"
-		"StatusBar"
 	)
 	sddmOpt=(
-		"Cur"
+		"Set Theme"
 		"Preview"
-		"Edit"
-		"Install"
+		"Set Config"
+		"Edit Config"
+		"Install Themes"
 	)
 fi
 
 declare -A optId
 optId[${firstOpt[0]}]="--opt1"
-optId[${firstOpt[1]}]="--opt2"
 
 optId[${sddmOpt[0]}]="--sddmOpt1"
 optId[${sddmOpt[1]}]="--sddmOpt2"
 optId[${sddmOpt[2]}]="--sddmOpt3"
 optId[${sddmOpt[3]}]="--sddmOpt4"
+optId[${sddmOpt[4]}]="--sddmOpt5"
 
 # Rofi CMD
 rofi_cmd() {
@@ -75,15 +74,20 @@ rofi_cmd() {
 # Pass variables to rofi dmenu
 run_rofi() {
 	case "$1" in
-	${optId[${firstOpt[1]}]})
+	${optId[${firstOpt[0]}]})
 		prompt='SDDM'
-		mesg="Current Theme: $(eval "$WORK_DIR/tools/sddm.sh cur")"
+		mesg="Current Theme: $(eval "$WORK_DIR/tools/sddm.sh cur_theme")"
 		opts=("${sddmOpt[@]}")
 		;;
 	${optId[${sddmOpt[0]}]})
 		prompt='SDDM Themes'
 		mesg="Available SDDM Themes"
-		opts=("$(eval "bash $SDDM_SCRIPT list")")
+		opts=("$(eval "bash $SDDM_SCRIPT list_theme")")
+		;;
+	${optId[${sddmOpt[2]}]})
+		prompt='SDDM Theme Configs'
+		mesg="Available SDDM Theme Configs"
+		opts=("$(eval "bash $SDDM_SCRIPT list_cfg")")
 		;;
 	*)
 		prompt='Setting'
@@ -105,9 +109,6 @@ run_rofi() {
 run_cmd() {
 	case "$@" in
 	${optId[${firstOpt[0]}]})
-		bash $HOME/.dwm/dwm-status.sh reboot
-		;;
-	${optId[${firstOpt[1]}]})
 		chosen="$(run_rofi $1)"
 		run_cmd ${optId[$chosen]}
 		return
@@ -115,21 +116,25 @@ run_cmd() {
 	${optId[${sddmOpt[0]}]})
 		chosen="$(run_rofi $1)"
 		[ -z "$chosen" ] && return
-		pkexec "$SDDM_SCRIPT" set $chosen
+		pkexec "$SDDM_SCRIPT" set_theme $chosen
 		return
 		;;
 	${optId[${sddmOpt[1]}]})
-		eval "$THEME_PREVIEW"
+		eval "$SDDM_SCRIPT preview"
 		return
 		;;
 	${optId[${sddmOpt[2]}]})
-		"$TERM" -e sudo -E nvim "$(eval "$SDDM_SCRIPT curp")"
+		chosen="$(run_rofi $1)"
+		[ -z "$chosen" ] && return
+		pkexec "$SDDM_SCRIPT" set_cfg $chosen
 		return
 		;;
 	${optId[${sddmOpt[3]}]})
-		"$TERM" -e bash -c "$(curl -fsSL https://raw.githubusercontent.com/keyitdev/sddm-astronaut-theme/master/setup.sh)"
-		rm -rf $HOME/sddm-astronaut-theme
+		"$TERM" -e sudo -E nvim "$(eval "$SDDM_SCRIPT cur_cfg_path")"
 		return
+		;;
+	${optId[${sddmOpt[4]}]})
+		"$TERM" -e /bin/bash -c "$SDDM_SCRIPT install; echo; read -p 'Press enter to close...'"
 		;;
 	esac
 }
