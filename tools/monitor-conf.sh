@@ -6,15 +6,15 @@ SINGLE_MONITOR_NAME=eDP
 declare -A SINGLE_MONITOR_MAP
 
 SINGLE_MONITOR_MAP["eDP"]="--primary --mode 3200x2000 --rate 120.00 --rotate normal --scale 0.8x0.8"
+SINGLE_MONITOR_MAP["DisplayPort-0"]="--primary --mode 2560x1440 --rate 260.00 --rotate normal"
 SINGLE_MONITOR_MAP["HDMI-A-0"]="--primary --mode 2560x1440 --rate 144.00 --rotate normal"
-SINGLE_MONITOR_MAP["DisplayPort-0"]="--primary --mode 2560x1440 --rate 240.00 --rotate normal"
 
 # monitor map
 declare -A MONITOR_MAP
 
 MONITOR_MAP["eDP"]="--primary --mode 1920x1200 --rate 120.00 --rotate normal --scale 1.2x1.2"
-MONITOR_MAP["HDMI-A-0"]="--mode 2560x1440 --rate 144.00 --set "TearFree" on --rotate normal --left-of eDP"
-MONITOR_MAP["DisplayPort-0"]="--mode 2560x1440 --rate 240.00 --set "TearFree" on --rotate normal --left-of eDP"
+MONITOR_MAP["DisplayPort-0"]="--mode 2560x1440 --rate 260.00 --set "TearFree" on --rotate normal --left-of eDP"
+MONITOR_MAP["HDMI-A-0"]="--mode 1920x1080 --rate 144.00 --set "TearFree" on --rotate left --left-of DisplayPort-0"
 
 current=$(xrandr | grep " connected " | wc -l)
 
