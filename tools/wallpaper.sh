@@ -337,7 +337,7 @@ set_wallpaper_to_screen() {
         launch_dynamic_wallpaper "$Type" "$screen_size+0+0" "${WALLPAPER_ROTATION:-}" "$filepath" || return
 
         echo "$NEW_WALLPAPER_PID" >"$wallpaper_full_pid"
-        echo "$filepath" >"$wallpaper_full_latest"
+        echo "$filepath|${WALLPAPER_ROTATION:-}" >"$wallpaper_full_latest"
         ;;
     "image")
         feh --no-xinerama --bg-scale "$filepath" || return
@@ -367,7 +367,7 @@ set_wallpaper_to_monitor() {
         launch_dynamic_wallpaper "$Type" "${width}x${height}+${x}+${y}" "${WALLPAPER_ROTATION:-}" "$filepath" || return
 
         echo "$NEW_WALLPAPER_PID" >"${wallpaper_pid}_${monitor_index}"
-        echo "$filepath" >"${wallpaper_latest}_${monitor_index}"
+        echo "$filepath|${WALLPAPER_ROTATION:-}" >"${wallpaper_latest}_${monitor_index}"
         ;;
     "image")
         # command detection
@@ -380,7 +380,8 @@ set_wallpaper_to_monitor() {
 
 		local wallpapers=()
 		for f in "${wallpaper_latest}"_[0-9]*; do
-			[ -f "$f" ] && read -r w <"$f" && [[ $(detect_file_type "$w") == image ]] \
+			IFS='|' read -r w _ <"$f" || continue
+			[[ $(detect_file_type "$w") == image ]] \
 				&& wallpapers+=("$w") || wallpapers+=("$filepath")
 		done
 
@@ -487,14 +488,20 @@ set_wallpaper() {
 }
 
 set_latest() {
-	[ -f "$wallpaper_full_latest" ] && set_wallpaper_to_screen "$(cat "$wallpaper_full_latest")" && return
+	if [ -f "$wallpaper_full_latest" ]; then
+		IFS='|' read -r fp rot < "$wallpaper_full_latest"
+		WALLPAPER_ROTATION="$rot"
+		set_wallpaper_to_screen "$fp" && return
+	fi
 
 	local files=()
 	files=("${wallpaper_latest}"_[0-9]*)
 	# 遍历每个匹配文件
 	for f in "${files[@]}"; do
-		local monitor_index=$(echo $f | awk -F '_' '{print $NF}')
-		set_wallpaper_to_monitor "$monitor_index" "$(cat $f)" &
+		local monitor_index=$(echo "$f" | awk -F '_' '{print $NF}')
+		IFS='|' read -r fp rot < "$f"
+		WALLPAPER_ROTATION="$rot"
+		set_wallpaper_to_monitor "$monitor_index" "$fp" &
 	done
 }
 
