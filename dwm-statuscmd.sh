@@ -17,7 +17,7 @@ dateHandler() {
 	buttonType=$1
 	case "$buttonType" in
 	1)
-		local flag="/tmp/dwm-status/date-expanded"
+		local flag="/tmp/dwm-status/date-collapse"
 		[ -f "$flag" ] && rm -f "$flag" || touch "$flag"
 		;;
 	2) ;;

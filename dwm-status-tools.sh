@@ -84,11 +84,11 @@ mpd_single_pane=0
 print_date() {
 	timeIcons=('' '' '' '' '' '' '' '' '' '' '' '')
 	local hour=$(date '+%l')
-	if [ -f /tmp/dwm-status/date-expanded ]; then
+	if [ -f /tmp/dwm-status/date-collapse ]; then
+		date '+'${timeIcons[$((hour % 12))]}' %R'
+	else
 		date '+ %m/%d(%a) '${timeIcons[$((hour % 12))]}' %R'
 		# date '+ %Y-%m-%d(%a) '${timeIcons[$((hour % 12))]}' %R'
-	else
-		date '+'${timeIcons[$((hour % 12))]}' %R'
 	fi
 }
 
