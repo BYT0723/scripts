@@ -10,6 +10,9 @@ current_hash=$(md5sum $0 | awk '{print $1}')
 # 检查间隔
 duration=300 # 检查间隔 5分钟
 
+# SCREEN_AUDIO_MODE: "any" 任何音频禁止熄屏 / "video" 仅视频音频禁止熄屏
+SCREEN_AUDIO_MODE="any"
+
 # DEBUG LOG
 SCREEN_DEBUG_NOTIFY=0
 
@@ -58,21 +61,25 @@ daemon() {
 	while true; do
 		# 判断系统当前是否有音频输出
 		if [ ! -z "$(pactl list short sinks | grep 'RUNNING')" ]; then
-			# 获取当前音频输入应用
-			# corked == false 表示没有暂停
-			# media.role == "video" 表示是视频
-			apps=$(pactl -f json list sink-inputs |
-				jq -r '.[] | select(.corked == false and (
-                .properties["media.role"] == "video" or
-                .properties["application.name"] == "Firefox" or
-                .properties["application.name"] == "Chromium"
-            )) | .properties["application.name"]')
-
-			# 如果存在视频音频流
-			if [ ! -z "$apps" ]; then
+			if [ "$SCREEN_AUDIO_MODE" = "any" ]; then
 				disable_screen_saver_and_dpms
-			else # 不存在视频音频流
-				enable_screen_saver_and_dpms
+			else
+				# 获取当前音频输入应用
+				# corked == false 表示没有暂停
+				# media.role == "video" 表示是视频
+				apps=$(pactl -f json list sink-inputs |
+					jq -r '.[] | select(.corked == false and (
+					.properties["media.role"] == "video" or
+					.properties["application.name"] == "Firefox" or
+					.properties["application.name"] == "Chromium"
+				)) | .properties["application.name"]')
+
+				# 如果存在视频音频流
+				if [ ! -z "$apps" ]; then
+					disable_screen_saver_and_dpms
+				else # 不存在视频音频流
+					enable_screen_saver_and_dpms
+				fi
 			fi
 		else # 没有正在播放的音频流
 			enable_screen_saver_and_dpms
