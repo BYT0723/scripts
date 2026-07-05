@@ -458,11 +458,19 @@ set_wallpaper() {
     elif [[ $skip_select = true ]]; then
         select="ALL"
     else
-        monitors="ALL\n"$(echo "$monitors_list" | awk 'NR>1 {print $NF}')"\nScreen"
+        screen_dim=$(get_screen_size | sed 's/+.*//')
+        monitors="All\n$(printf "%-22s %s" "Screen" ${screen_dim})\n$(echo "$monitors_list" | awk 'NR>1 {
+			gsub("/[0-9]+", "", $3)
+			split($3,a,"+")
+			split(a[1],b,"x")
+			printf "%-22s %sx%s\n", $NF, b[1], b[2]
+		}')"
         select=$(echo -e "$monitors" | bash $WORK_DIR/rofi/scripts/common_list.sh \
-			-w 1000 \
+			-w 500 \
+			-t 1-3 \
 			-F "JetBrains Mono Nerd Font 16" \
 			"Wallpaper" "Select a monitor")
+		select=$(echo "$select" | awk '{print $1}')
     fi
     [ -z "$select" ] && return
 
