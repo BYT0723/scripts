@@ -459,7 +459,7 @@ set_wallpaper() {
         select="ALL"
     else
         screen_dim=$(get_screen_size | sed 's/+.*//')
-        monitors="All\n$(printf "%-22s %s" "Screen" ${screen_dim})\n$(echo "$monitors_list" | awk 'NR>1 {
+        monitors="ALL\n$(printf "%-22s %s" "Screen" ${screen_dim})\n$(echo "$monitors_list" | awk 'NR>1 {
 			gsub("/[0-9]+", "", $3)
 			split($3,a,"+")
 			split(a[1],b,"x")
