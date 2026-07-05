@@ -69,5 +69,5 @@ run_cmd() {
 	xdg-open "${SEARCH}${chosen}"
 }
 
-chosen=$(echo "$_menu" | rofi_cmd)
+chosen=$(printf '%s\n%s' "$_menu" "$NEW_LINK" | rofi_cmd)
 [ -n "$chosen" ] && run_cmd "$chosen"
