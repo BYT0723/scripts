@@ -549,25 +549,68 @@ set_wallpaper() {
 }
 
 # ---- Interactive: monitor → action → execute ----
+_pick_config_dir() {
+	local key="$1"
+	local cur=$(getConfig -m "$name" "$key")
+	local cur_dir=$(expand_path "$cur")
+	[ ! -d "$cur_dir" ] && cur_dir="$HOME"
+	local tmp=$(mktemp)
+	YAZI_CONFIG_HOME=$HOME/.config/yazi_wallpaper $TERM yazi "$cur_dir" --chooser-file="$tmp"
+	local chosen=$(cat "$tmp" 2>/dev/null)
+	rm -f "$tmp"
+	if [ -n "$chosen" ]; then
+		[ -d "$chosen" ] && chosen="$chosen" || chosen=$(dirname "$chosen")
+		jq --arg d "$chosen" "${path}.${key} = \$d" "$conf" > "$conf.tmp" && mv "$conf.tmp" "$conf"
+	fi
+}
+
 interactive_wallpaper() {
 	local name=$(monitor_menu)
 	[ -z "$name" ] && return
 
-	local action=$(printf 'Select File\nNext Random' | bash $WORK_DIR/rofi/scripts/common_list.sh \
+	local action=$(printf 'Select File\nNext Random\nDuration\nDepth\nImage Dir\nVideo Dir' | \
+		bash $WORK_DIR/rofi/scripts/common_list.sh \
 		-w 300 \
 		-t 1-3 \
 		-F "JetBrains Mono Nerd Font 16" \
 		"Action" "Monitor: $name" | awk '{print $1}')
 	[ -z "$action" ] && return
 
-	local file
-	case "$action" in
-		Select) file=$(select_wallpaper "$name") ;;
-		Next) file=$(random_wallpaper "$name") ;;
-		*) return ;;
-	esac
+	local path=".defaults"
+	[ "$name" != "ALL" ] && path=".monitors[\"$name\"]"
 
-	[ -n "$file" ] && apply_wallpaper -f "$name" "$file"
+	case "$action" in
+		Select)
+			file=$(select_wallpaper "$name")
+			[ -n "$file" ] && apply_wallpaper -f "$name" "$file"
+			;;
+		Next)
+			file=$(random_wallpaper "$name")
+			[ -n "$file" ] && apply_wallpaper -f "$name" "$file"
+			;;
+		Duration)
+			local cur=$(getConfig -m "$name" duration)
+			local new=$(bash $WORK_DIR/rofi/scripts/common_input.sh \
+				-w 400 -d "$cur" \
+				"Duration (min)" "Number, must be > 0")
+			[ -n "$new" ] && [ "$new" -gt 0 ] 2>/dev/null \
+				&& jq "${path}.duration = $new" "$conf" > "$conf.tmp" && mv "$conf.tmp" "$conf"
+			;;
+		Depth)
+			local cur=$(getConfig -m "$name" random_depth)
+			local new=$(bash $WORK_DIR/rofi/scripts/common_input.sh \
+				-w 400 -d "$cur" \
+				"Depth" "Number, must be 1-10")
+			[ -n "$new" ] && [ "$new" -ge 1 ] 2>/dev/null && [ "$new" -le 10 ] 2>/dev/null \
+				&& jq "${path}.random_depth = $new" "$conf" > "$conf.tmp" && mv "$conf.tmp" "$conf"
+			;;
+		Image)
+			_pick_config_dir random_image_dir
+			;;
+		Video)
+			_pick_config_dir random_video_dir
+			;;
+	esac
 }
 
 set_latest() {

@@ -12,13 +12,14 @@ source "$(dirname "$0")"/util.sh
 
 if [[ ("$theme" == *'type-1'*) || ("$theme" == *'type-3'*) || ("$theme" == *'type-5'*) ]]; then
 	list_col='1'
-	list_row='6'
+	list_row='8'
 elif [[ ("$theme" == *'type-2'*) || ("$theme" == *'type-4'*) ]]; then
-	list_col='6'
+	list_col='8'
 	list_row='1'
 fi
 
 CONFIG_HOME="$HOME/.config/dwm"
+TERM=${TERMINAL:-"kitty --class float-term -o font_size=8 -o initial_window_width=160c -o initial_window_height=48c"}
 
 # 配置文件路径
 declare -A confPath
@@ -33,8 +34,8 @@ get_monitor_list() {
 		return
 	fi
 
-	local screen_dim=$(xrandr | awk -F',' '{for(i=1;i<=NF;i++) if($i ~ /current/) print $i}' \
-		| awk '{print $2 $3 $4}' | sed 's/+.*//')
+	local screen_dim=$(xrandr | awk -F',' '{for(i=1;i<=NF;i++) if($i ~ /current/) print $i}' |
+		awk '{print $2 $3 $4}' | sed 's/+.*//')
 	echo -e "ALL\n$(printf "%-22s %s" "Screen" ${screen_dim})\n$(echo "$monitors_list" | awk 'NR>1 {
 		gsub("/[0-9]+", "", $3)
 		split($3,a,"+")
@@ -68,7 +69,11 @@ if [[ "$layout" == 'NO' ]]; then
 		"Next"
 		"Select"
 		"Random                          $(icon toggle conf wallpaper random number $MONITOR)"
-		"Random Type                  $(getConfig wallpaper random_type $MONITOR)"
+		"Type                         $(printf "%5s" $(getConfig wallpaper random_type $MONITOR))"
+		"Duration                     $(printf "%5d" $(getConfig wallpaper duration $MONITOR))"
+		"Depth                        $(printf "%5d" $(getConfig wallpaper random_depth $MONITOR))"
+		"Images"
+		"Videos"
 	)
 else
 	firstOpt=(
@@ -76,6 +81,10 @@ else
 		"Select"
 		"$(icon toggle conf wallpaper random number $MONITOR)"
 		"$(getConfig wallpaper random_type $MONITOR)"
+		"$(getConfig wallpaper duration $MONITOR)"
+		"$(getConfig wallpaper random_depth $MONITOR)"
+		"Images"
+		"Videos"
 	)
 fi
 
@@ -84,6 +93,10 @@ optId[${firstOpt[0]}]="--opt1"
 optId[${firstOpt[1]}]="--opt2"
 optId[${firstOpt[2]}]="--opt3"
 optId[${firstOpt[3]}]="--opt4"
+optId[${firstOpt[4]}]="--opt5"
+optId[${firstOpt[5]}]="--opt6"
+optId[${firstOpt[6]}]="--opt7"
+optId[${firstOpt[7]}]="--opt8"
 
 # Rofi CMD
 rofi_cmd() {
@@ -114,7 +127,26 @@ run_rofi() {
 }
 
 # Execute Command
+_pick_config_dir() {
+	local key="$1"
+	local cur=$(getConfig wallpaper "$key" "$MONITOR")
+	local cur_dir="${cur/#\~/$HOME}"
+	[ ! -d "$cur_dir" ] && cur_dir="$HOME"
+	local tmp=$(mktemp)
+	YAZI_CONFIG_HOME=$HOME/.config/yazi_wallpaper $TERM yazi "$cur_dir" --chooser-file="$tmp"
+	local chosen=$(cat "$tmp" 2>/dev/null)
+	rm -f "$tmp"
+	if [ -n "$chosen" ]; then
+		[ -d "$chosen" ] && chosen="$chosen" || chosen=$(dirname "$chosen")
+		jq --arg d "$chosen" "${json_path}.${key} = \$d" "$w_conf" >"$w_conf.tmp" && mv "$w_conf.tmp" "$w_conf"
+	fi
+}
+
 run_cmd() {
+	local w_conf="$HOME/.config/dwm/wallpaper.json"
+	local json_path=".defaults"
+	[ "$MONITOR" != "ALL" ] && json_path=".monitors[\"$MONITOR\"]"
+
 	case "$1" in
 	${optId[${firstOpt[0]}]})
 		$WORK_DIR/tools/wallpaper.sh -m "$MONITOR" next
@@ -127,6 +159,28 @@ run_cmd() {
 		;;
 	${optId[${firstOpt[3]}]})
 		toggleConf wallpaper random_type wallpaper_type "$MONITOR"
+		;;
+	${optId[${firstOpt[4]}]})
+		local cur=$(getConfig wallpaper duration "$MONITOR")
+		local new=$(bash $ROFI_DIR/scripts/common_input.sh \
+			-w 600 -d "$cur" \
+			"Duration (min)" "Number, must be > 0")
+		[ -n "$new" ] && [ "$new" -gt 0 ] 2>/dev/null &&
+			jq "${json_path}.duration = $new" "$w_conf" >"$w_conf.tmp" && mv "$w_conf.tmp" "$w_conf"
+		;;
+	${optId[${firstOpt[5]}]})
+		local cur=$(getConfig wallpaper random_depth "$MONITOR")
+		local new=$(bash $ROFI_DIR/scripts/common_input.sh \
+			-w 600 -d "$cur" \
+			"Depth" "Number, must be 1-10")
+		[ -n "$new" ] && [ "$new" -ge 1 ] 2>/dev/null && [ "$new" -le 10 ] 2>/dev/null &&
+			jq "${json_path}.random_depth = $new" "$w_conf" >"$w_conf.tmp" && mv "$w_conf.tmp" "$w_conf"
+		;;
+	${optId[${firstOpt[6]}]})
+		_pick_config_dir random_image_dir
+		;;
+	${optId[${firstOpt[7]}]})
+		_pick_config_dir random_video_dir
 		;;
 	*)
 		chosen="$(run_rofi $1)"
