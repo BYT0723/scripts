@@ -28,10 +28,22 @@ icon() {
 		fi
 
 	elif [[ "$2" == "conf" ]]; then
-		if [[ -n $(cat ${confPath[$3]} | grep -E "^$4\s*=\s*$(typeToValue $5)") ]]; then
-			echo ${icon[0]}
+		if [ "$3" = "wallpaper" ]; then
+			local w_conf="$HOME/.config/dwm/wallpaper.json"
+			local val=""
+			[ "$6" != "ALL" ] && [ -n "$6" ] && val=$(jq -r ".monitors[\"$6\"].\"$4\" // empty" "$w_conf" 2>/dev/null)
+			[ -z "$val" ] && val=$(jq -r ".defaults.\"$4\" // empty" "$w_conf" 2>/dev/null)
+			if [ "$val" = "$(typeToValue $5)" ] || [ -z "$val" ]; then
+				echo ${icon[0]}
+			else
+				echo ${icon[1]}
+			fi
 		else
-			echo ${icon[1]}
+			if [[ -n $(cat ${confPath[$3]} | grep -E "^$4\s*=\s*$(typeToValue $5)") ]]; then
+				echo ${icon[0]}
+			else
+				echo ${icon[1]}
+			fi
 		fi
 
 	elif [[ "$2" == "cmd" ]]; then
@@ -69,6 +81,35 @@ toggleApplication() {
 
 # toggle conf property
 toggleConf() {
+	if [ "$1" = "wallpaper" ]; then
+		local key="$2"
+		local type="$3"
+		local monitor="${4:-}"
+		local conf="$HOME/.config/dwm/wallpaper.json"
+		local path=".defaults"
+		[ "$monitor" != "ALL" ] && [ -n "$monitor" ] && path=".monitors[\"$monitor\"]"
+
+		case "$type" in
+		bool | number)
+			local cur=$(jq -r "${path}.random // empty" "$conf" 2>/dev/null)
+			if [ "$cur" = "0" ] || [ -z "$cur" ]; then
+				jq "${path}.random = 1" "$conf" > "$conf.tmp" && mv "$conf.tmp" "$conf"
+			else
+				jq "${path}.random = 0" "$conf" > "$conf.tmp" && mv "$conf.tmp" "$conf"
+			fi
+			;;
+		wallpaper_type)
+			local cur=$(jq -r "${path}.random_type // empty" "$conf" 2>/dev/null)
+			if [ "$cur" = "image" ] || [ -z "$cur" ]; then
+				jq "${path}.random_type = \"video\"" "$conf" > "$conf.tmp" && mv "$conf.tmp" "$conf"
+			else
+				jq "${path}.random_type = \"image\"" "$conf" > "$conf.tmp" && mv "$conf.tmp" "$conf"
+			fi
+			;;
+		esac
+		return
+	fi
+
 	if [[ -n $(cat ${confPath[$1]} | grep -E "^$2\s*=\s*$(typeToValue $3)") ]]; then
 		case "$3" in
 		bool)
@@ -97,6 +138,19 @@ toggleConf() {
 }
 
 getConfig() {
+	if [ "$1" = "wallpaper" ]; then
+		local key="$2"
+		local monitor="$3"
+		local conf="$HOME/.config/dwm/wallpaper.json"
+		local val=""
+		# "ALL" uses defaults directly
+		if [ "$monitor" != "ALL" ] && [ -n "$monitor" ]; then
+			val=$(jq -r ".monitors[\"$monitor\"].\"$key\" // empty" "$conf" 2>/dev/null)
+		fi
+		[ -n "$val" ] && echo "$val" && return
+		jq -r ".defaults.\"$key\" // empty" "$conf" 2>/dev/null
+		return
+	fi
 	echo $(cat ${confPath[$1]} | grep -E "^$2\s*=" | tail -n 1 | awk -F '=' '{print $2}' | grep -o "[^ ]\+\( \+[^ ]\+\)*")
 }
 

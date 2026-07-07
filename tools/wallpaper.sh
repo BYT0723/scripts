@@ -12,13 +12,29 @@ source "$WORK_DIR/utils/notify.sh"
 wallpaper_launch_delay=1
 
 # wallpaper configuration file
-conf="$HOME/.config/dwm/wallpaper.conf"
+conf="$HOME/.config/dwm/wallpaper.json"
 cache_wallpaper_dir="$HOME/.cache/wallpaper"
 mkdir -p "$cache_wallpaper_dir"
+
+# Create default config if missing
+[ ! -f "$conf" ] && jq -n '{
+	defaults: {
+		random: 0,
+		random_type: "image",
+		random_image_dir: "~/Pictures",
+		random_video_dir: "~/Videos",
+		video_keymap_conf: "~/.config/dwm/wallpaperKeyMap.conf",
+		duration: 30,
+		random_depth: 3
+	},
+	monitors: {}
+}' > "$conf"
+
 wallpaper_latest="$cache_wallpaper_dir/wallpaper_latest"
 wallpaper_full_latest="${wallpaper_latest}_full"
 wallpaper_pid="$cache_wallpaper_dir/wallpaper_pid"
 wallpaper_full_pid="${wallpaper_pid}_full"
+rotation_cache="$cache_wallpaper_dir/rotation_cache"
 
 # Define the default configuration
 declare -A config
@@ -31,22 +47,25 @@ config["duration"]=30
 cmd="feh --no-fehbg --bg-scale /usr/share/backgrounds/archlinux/small.png"
 
 # Get configuration value by key, with fallback to defaults
+# Usage: getConfig [-m <monitor>] <key>
 getConfig() {
-    local key="$1"
-    local value=""
+	local monitor=""
+	[ "$1" = "-m" ] && monitor="$2" && shift 2
+	local key="$1"
 
-    # Try reading from config file
-    if [ -f "$conf" ]; then
-        value=$(grep -E "^[[:space:]]*${key}[[:space:]]*=" "$conf" 2>/dev/null \
-            | tail -1 | sed "s/^[^=]*=[[:space:]]*//;s/[[:space:]]*$//")
-    fi
+	if [ -f "$conf" ]; then
+		# "ALL" uses defaults directly
+		if [ "$monitor" != "ALL" ] && [ -n "$monitor" ]; then
+			local val=$(jq -r ".monitors[\"$monitor\"].\"$key\" // empty" "$conf" 2>/dev/null)
+			[ -n "$val" ] && echo "$val" && return
+		fi
+		# Try defaults
+		local val=$(jq -r ".defaults.\"$key\" // empty" "$conf" 2>/dev/null)
+		[ -n "$val" ] && echo "$val" && return
+	fi
 
-    # Fallback to default
-    if [ -z "$value" ]; then
-        value="${config[$key]}"
-    fi
-
-    echo "$value"
+	# Hardcoded fallback
+	echo "${config[$key]}"
 }
 
 # Utility functions
@@ -220,10 +239,11 @@ error() {
 # print help information
 echo_help() {
 	echo -e "Help Message"
-	echo "      -r | --run             run wallpaper"
-	echo "      -s | --set <path>      set wallpaper"
-	echo "      -n | --next            random next wallpaper"
-	echo "      -S | --select          use yazi select wallpaper to set"
+	echo "      -r | --run             run wallpaper daemon"
+	echo "      -s | --set <path>      set wallpaper (prompts monitor)"
+	echo "      -n | --next            random next (prompts monitor)"
+	echo "      -S | --select          interactive: monitor -> action"
+	echo "      -m <mon> <next|select> apply to specific monitor"
 }
 
 clean_latest() {
@@ -391,20 +411,21 @@ set_wallpaper_to_monitor() {
     esac
 }
 
-# return random wallpaper filepath
+# return random wallpaper filepath for given monitor
 random_wallpaper() {
-    local depth=$(getConfig random_depth)
-    local random_type=$(getConfig random_type)
-    local dir=""
+	local monitor="$1"
+	local depth=$(getConfig -m "$monitor" random_depth)
+	local random_type=$(getConfig -m "$monitor" random_type)
+	local dir=""
     local pattern=""
 
     case "$random_type" in
     "video")
-        dir=$(getConfig random_video_dir)
+        dir=$(getConfig -m "$monitor" random_video_dir)
         pattern=".*\.(mp4|avi|mkv)"
         ;;
     "image")
-        dir=$(getConfig random_image_dir)
+        dir=$(getConfig -m "$monitor" random_image_dir)
         pattern=".*\.(jpeg|jpg|png)"
         ;;
     *)
@@ -431,11 +452,13 @@ random_wallpaper() {
 }
 
 select_wallpaper() {
+	local monitor="$1"
 	local dir tmp=$(mktemp)
 
-	case "$(getConfig random_type)" in
-	video) dir=$(getConfig random_video_dir) ;;
-	image) dir=$(getConfig random_image_dir) ;;
+	case "$(getConfig -m "$monitor" random_type)" in
+	video) dir=$(getConfig -m "$monitor" random_video_dir) ;;
+	image) dir=$(getConfig -m "$monitor" random_image_dir) ;;
+	*) rm -f "$tmp"; return 1 ;;
 	esac
 
 	YAZI_CONFIG_HOME=$HOME/.config/yazi_wallpaper $TERM yazi "$dir" --chooser-file="$tmp"
@@ -444,55 +467,107 @@ select_wallpaper() {
 	rm -f "$tmp"
 }
 
+# ---- Monitor selection menu ----
+monitor_menu() {
+	local monitors_list
+	monitors_list=$(xrandr --listactivemonitors 2>/dev/null)
+
+	# Single monitor: auto-select
+	if [ $(echo "$monitors_list" | wc -l) = 2 ]; then
+		echo "$monitors_list" | awk 'END{print $NF}'
+		return
+	fi
+
+	local screen_dim=$(get_screen_size | sed 's/+.*//')
+	local monitors="ALL\n$(printf "%-22s %s" "Screen" ${screen_dim})\n$(echo "$monitors_list" | awk 'NR>1 {
+		gsub("/[0-9]+", "", $3)
+		split($3,a,"+")
+		split(a[1],b,"x")
+		printf "%-22s %sx%s\n", $NF, b[1], b[2]
+	}')"
+
+	echo -e "$monitors" | bash $WORK_DIR/rofi/scripts/common_list.sh \
+		-w 500 \
+		-t 1-3 \
+		-F "JetBrains Mono Nerd Font 16" \
+		"Wallpaper" "Select a monitor" | awk '{print $1}'
+}
+
+# ---- Apply wallpaper file to a given monitor ----
+apply_wallpaper() {
+	local force_preview=false
+	[ "$1" = "-f" ] && force_preview=true && shift
+	local name="$1"
+	shift
+	local file="$@"
+	local monitors_list
+	monitors_list=$(xrandr --listactivemonitors 2>/dev/null)
+
+	WALLPAPER_ROTATION=""
+	if [[ $(detect_file_type "$file") == "video" ]] && command -v ffprobe >/dev/null 2>&1; then
+		local vid_dim=$(get_video_dim "$file")
+		if [ -n "$vid_dim" ]; then
+			read vid_w vid_h <<< "$vid_dim"
+			read mon_w mon_h <<< "$(get_monitor_dim "$name" "$monitors_list")"
+			if orientation_mismatch "$mon_w" "$mon_h" "$vid_w" "$vid_h"; then
+				if ! $force_preview; then
+					local cached=$(awk -F'|' -v f="$file" -v m="$name" '$1 == f && $2 == m {print $3; exit}' "$rotation_cache" 2>/dev/null)
+					[ -n "$cached" ] && WALLPAPER_ROTATION="$cached"
+				fi
+				if [ -z "$WALLPAPER_ROTATION" ]; then
+					WALLPAPER_ROTATION=$(preview_rotation "$file")
+					awk -F'|' -v f="$file" -v m="$name" '!($1 == f && $2 == m)' "$rotation_cache" 2>/dev/null > "$rotation_cache.tmp"
+					echo "$file|$name|$WALLPAPER_ROTATION" >> "$rotation_cache.tmp"
+					mv "$rotation_cache.tmp" "$rotation_cache"
+				fi
+			fi
+		fi
+	fi
+
+	if [[ "$name" == "Screen" ]]; then
+		set_wallpaper_to_screen "$file" && return
+	fi
+
+	echo "$monitors_list" | awk 'NR>1 {sub(":","",$1); print $1,$NF}' | while read -r monitor_index monitor_name; do
+		if [[ "$name" == "ALL" || "$name" == "$monitor_name" ]]; then
+			set_wallpaper_to_monitor "$monitor_index" "$file"
+		fi
+	done
+}
+
+# ---- Set wallpaper (prompts monitor, auto-random if no file) ----
 set_wallpaper() {
-    local skip_select=false
-    [ "$1" == "-s" ] && skip_select=true && shift
-    local select_file="$@"
+	local file="$@"
 
-    # Get monitors list with caching
-    local monitors_list
-    monitors_list=$(xrandr --listactivemonitors 2>/dev/null)
+	local name=$(monitor_menu)
+	[ -z "$name" ] && return
 
-    if [ $(echo "$monitors_list" | wc -l) = 2 ]; then
-        select=$(echo "$monitors_list" | awk 'END{print $NF}')
-    elif [[ $skip_select = true ]]; then
-        select="ALL"
-    else
-        screen_dim=$(get_screen_size | sed 's/+.*//')
-        monitors="ALL\n$(printf "%-22s %s" "Screen" ${screen_dim})\n$(echo "$monitors_list" | awk 'NR>1 {
-			gsub("/[0-9]+", "", $3)
-			split($3,a,"+")
-			split(a[1],b,"x")
-			printf "%-22s %sx%s\n", $NF, b[1], b[2]
-		}')"
-        select=$(echo -e "$monitors" | bash $WORK_DIR/rofi/scripts/common_list.sh \
-			-w 500 \
-			-t 1-3 \
-			-F "JetBrains Mono Nerd Font 16" \
-			"Wallpaper" "Select a monitor")
-		select=$(echo "$select" | awk '{print $1}')
-    fi
-    [ -z "$select" ] && return
+	[ -z "$file" ] && file=$(random_wallpaper "$name")
+	[ -z "$file" ] && { error "No wallpaper found"; return 1; }
 
-    # Video rotation prompt (only when landscape vs portrait mismatch)
-    WALLPAPER_ROTATION=""
-    if [[ $(detect_file_type "$select_file") == "video" ]] && command -v ffprobe >/dev/null 2>&1; then
-        local vid_dim=$(get_video_dim "$select_file")
-        if [ -n "$vid_dim" ]; then
-            read vid_w vid_h <<< "$vid_dim"
-            read mon_w mon_h <<< "$(get_monitor_dim "$select" "$monitors_list")"
-            if orientation_mismatch "$mon_w" "$mon_h" "$vid_w" "$vid_h"; then
-                WALLPAPER_ROTATION=$(preview_rotation "$select_file")
-            fi
-        fi
-    fi
+	apply_wallpaper -f "$name" "$file"
+}
 
-    [[ "$select" = "Screen" ]] && set_wallpaper_to_screen "$select_file" && return
-    echo "$monitors_list" | awk 'NR>1 {sub(":","",$1); print $1,$NF}' | while read -r monitor_index monitor_name; do
-        if [[ $select = "ALL" ]] || [[ $select = "$monitor_name" ]]; then
-            set_wallpaper_to_monitor "$monitor_index" "$select_file"
-        fi
-    done
+# ---- Interactive: monitor → action → execute ----
+interactive_wallpaper() {
+	local name=$(monitor_menu)
+	[ -z "$name" ] && return
+
+	local action=$(printf 'Select File\nNext Random' | bash $WORK_DIR/rofi/scripts/common_list.sh \
+		-w 300 \
+		-t 1-3 \
+		-F "JetBrains Mono Nerd Font 16" \
+		"Action" "Monitor: $name" | awk '{print $1}')
+	[ -z "$action" ] && return
+
+	local file
+	case "$action" in
+		Select) file=$(select_wallpaper "$name") ;;
+		Next) file=$(random_wallpaper "$name") ;;
+		*) return ;;
+	esac
+
+	[ -n "$file" ] && apply_wallpaper -f "$name" "$file"
 }
 
 set_latest() {
@@ -523,9 +598,29 @@ launch_wallpaper() {
 
 	set_latest
 
+	declare -A last_update
+	local check_interval=60
+
 	while true; do
-		sleep "$(($(getConfig duration) * 60))"
-		[ "$(getConfig random)" -eq 1 ] && set_wallpaper "$(random_wallpaper)" true
+		sleep $check_interval
+		local now=$(date +%s)
+
+		while read -r monitor_name; do
+			[ "$(getConfig -m "$monitor_name" random)" -eq 1 ] || continue
+
+			# First time seeing this monitor: start timer, skip
+			if [ -z "${last_update[$monitor_name]}" ]; then
+				last_update[$monitor_name]=$now
+				continue
+			fi
+
+			local dur=$(getConfig -m "$monitor_name" duration)
+			local last="${last_update[$monitor_name]}"
+			[ $((now - last)) -lt $((dur * 60)) ] && continue
+
+			file=$(random_wallpaper "$monitor_name")
+			[ -n "$file" ] && apply_wallpaper "$monitor_name" "$file" && last_update[$monitor_name]=$now
+		done < <(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}')
 	done
 }
 
@@ -534,15 +629,24 @@ op=$1
 
 case "$op" in
 '-r' | '--run') launch_wallpaper ;;
+'-m')
+	shift
+	monitor="$1"
+	shift
+	action="$1"
+	case "$action" in
+		next) file=$(random_wallpaper "$monitor") ;;
+		select) file=$(select_wallpaper "$monitor") ;;
+		*) exit 1 ;;
+	esac
+	[ -n "$file" ] && apply_wallpaper -f "$monitor" "$file"
+	;;
 '-s' | '--set')
 	shift
 	set_wallpaper "$@"
 	;;
-'-n' | '--next') set_wallpaper -s "$(random_wallpaper)" ;;
-'-S' | '--select')
-	select_file="$(select_wallpaper)"
-	[ -n "$select_file" ] && set_wallpaper "$select_file"
-	;;
+'-n' | '--next') set_wallpaper ;;
+'-S' | '--select') interactive_wallpaper ;;
 '-h' | '--help') echo_help ;;
 *)
 	echo -e "\033[31mbad operator\033[0m"
