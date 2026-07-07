@@ -586,7 +586,7 @@ interactive_wallpaper() {
 			;;
 		Next)
 			file=$(random_wallpaper "$name")
-			[ -n "$file" ] && apply_wallpaper -f "$name" "$file"
+			[ -n "$file" ] && apply_wallpaper "$name" "$file"
 			;;
 		Duration)
 			local cur=$(getConfig -m "$name" duration)
@@ -678,11 +678,11 @@ case "$op" in
 	shift
 	action="$1"
 	case "$action" in
-		next) file=$(random_wallpaper "$monitor") ;;
-		select) file=$(select_wallpaper "$monitor") ;;
+		next) file=$(random_wallpaper "$monitor"); fflag="" ;;
+		select) file=$(select_wallpaper "$monitor"); fflag="-f" ;;
 		*) exit 1 ;;
 	esac
-	[ -n "$file" ] && apply_wallpaper -f "$monitor" "$file"
+	[ -n "$file" ] && apply_wallpaper $fflag "$monitor" "$file"
 	;;
 '-s' | '--set')
 	shift
