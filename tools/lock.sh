@@ -88,11 +88,13 @@ _lock() {
 _lock_before() {
 	[ "$mpd_status" == "[playing]" ] && mpc -q toggle
 	[ "$volume_status" == "on" ] && amixer set Master off >>/dev/null
+	pkill -STOP -f "mpv.*--player-operation-mode=cplayer" 2>/dev/null
 }
 
 _lock_after() {
 	[ "$mpd_status" == "[playing]" ] && mpc -q toggle
 	[ "$volume_status" == "on" ] && amixer set Master on >>/dev/null
+	pkill -CONT -f "mpv.*--player-operation-mode=cplayer" 2>/dev/null
 }
 
 _screen_lock_loop() {
