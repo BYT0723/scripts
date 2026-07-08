@@ -648,6 +648,9 @@ launch_wallpaper() {
 		sleep $check_interval
 		local now=$(date +%s)
 
+		# Skip wallpaper change while screen is locked
+		pgrep -x i3lock >/dev/null && continue
+
 		while read -r monitor_name; do
 			[ "$(getConfig -m "$monitor_name" random)" -eq 1 ] || continue
 
