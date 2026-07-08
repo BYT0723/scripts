@@ -644,12 +644,24 @@ launch_wallpaper() {
 	declare -A last_update
 	local check_interval=60
 
+	local was_locked=false
+
 	while true; do
 		sleep $check_interval
 		local now=$(date +%s)
 
-		# Skip wallpaper change while screen is locked
-		pgrep -x i3lock >/dev/null && continue
+		if pgrep -x i3lock >/dev/null; then
+			was_locked=true
+			continue
+		fi
+
+		# Reset all timers on unlock to avoid mass wallpaper change
+		if $was_locked; then
+			was_locked=false
+			for k in "${!last_update[@]}"; do
+				last_update[$k]=$now
+			done
+		fi
 
 		while read -r monitor_name; do
 			[ "$(getConfig -m "$monitor_name" random)" -eq 1 ] || continue
