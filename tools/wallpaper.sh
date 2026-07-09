@@ -127,7 +127,13 @@ preview_rotation() {
 r cycle-values video-rotate "90" "270" "0"
 q quit
 EOF
-	mpv --no-config --no-osc --video-rotate=90 --loop \
+	mpv \
+		--no-config \
+		--no-osc \
+		--video-rotate=90 \
+		--loop \
+		--mute \
+		--audio-client-name=wallpaper \
 		--input-conf="$tmp/input.conf" \
 		--save-position-on-quit \
 		--watch-later-directory="$wld" \
@@ -294,6 +300,7 @@ launch_video_xwinwrap() {
 		--load-scripts=no \
 		--no-keepaspect \
 		--mute \
+		--audio-client-name=wallpaper \
 		--no-osc \
 		--loop \
 		--vid=1 \

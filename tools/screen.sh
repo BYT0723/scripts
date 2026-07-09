@@ -59,30 +59,28 @@ disable_screen_saver_and_dpms() {
 daemon() {
 	enable_screen_saver_and_dpms
 	while true; do
-		# 判断系统当前是否有音频输出
-		if [ ! -z "$(pactl list short sinks | grep 'RUNNING')" ]; then
-			if [ "$SCREEN_AUDIO_MODE" = "any" ]; then
+		if [ "$SCREEN_AUDIO_MODE" = "any" ]; then
+			# 存在非 wallpaper 的未暂停音频流则禁止熄屏
+			if pactl -f json list sink-inputs | jq -e '
+				map(select(.properties["application.name"] != "wallpaper" and .corked == false)) | length > 0
+			' >/dev/null 2>&1; then
 				disable_screen_saver_and_dpms
 			else
-				# 获取当前音频输入应用
-				# corked == false 表示没有暂停
-				# media.role == "video" 表示是视频
-				apps=$(pactl -f json list sink-inputs |
-					jq -r '.[] | select(.corked == false and (
+				enable_screen_saver_and_dpms
+			fi
+		else
+			if pactl -f json list sink-inputs | jq -e '.[] | select(
+				.properties["application.name"] != "wallpaper" and
+				.corked == false and (
 					.properties["media.role"] == "video" or
 					.properties["application.name"] == "Firefox" or
 					.properties["application.name"] == "Chromium"
-				)) | .properties["application.name"]')
-
-				# 如果存在视频音频流
-				if [ ! -z "$apps" ]; then
-					disable_screen_saver_and_dpms
-				else # 不存在视频音频流
-					enable_screen_saver_and_dpms
-				fi
+				)
+			)' >/dev/null 2>&1; then
+				disable_screen_saver_and_dpms
+			else
+				enable_screen_saver_and_dpms
 			fi
-		else # 没有正在播放的音频流
-			enable_screen_saver_and_dpms
 		fi
 
 		# 如果文件内容发生变化, 则重新加载
