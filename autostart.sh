@@ -4,7 +4,7 @@ WORK_DIR=$(dirname $(realpath "$0"))
 TOOLS_DIR="$WORK_DIR/tools"
 
 # conky 是否自启动
-CONKY_AUTOSTART=0
+CONKY_AUTOSTART=1
 
 # 显示器布局初始化
 [ -n "$(command -v autorandr)" ] && autorandr --change
@@ -48,7 +48,7 @@ desktop_setting() {
 	# wallpaper.sh内部实现了
 	/bin/bash "$TOOLS_DIR"/wallpaper.sh -r &
 	# 屏保
-	/bin/bash $TOOLS_DIR/screen.sh &
+	launch restart screen "/bin/bash $TOOLS_DIR/screen.sh"
 }
 
 application_launch() {
