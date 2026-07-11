@@ -481,5 +481,3 @@ update_rss() {
 
 	newsboat -x print-unread 2>/dev/null | awk '{print $1}' >"$rss_unread_path"
 }
-
-print_battery
