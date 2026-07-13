@@ -11,7 +11,7 @@ source "$(dirname "$0")"/util.sh
 
 if [[ ("$theme" == *'type-1'*) || ("$theme" == *'type-3'*) || ("$theme" == *'type-5'*) ]]; then
 	list_col='1'
-	list_row='8'
+	list_row='9'
 elif [[ ("$theme" == *'type-2'*) || ("$theme" == *'type-4'*) ]]; then
 	list_col='8'
 	list_row='1'
@@ -39,6 +39,7 @@ if [[ "$layout" == 'NO' ]]; then
 		" SingBox                       $(icon active app sing-box)"
 		" Tools"
 		" Setting"
+		"󰎁 Media Scraping"
 	)
 else
 	firstOpt=(
@@ -49,6 +50,7 @@ else
 		" $(icon active app sing-box)"
 		" "
 		" "
+		"󰎁 "
 	)
 fi
 
@@ -60,6 +62,7 @@ optId[${firstOpt[3]}]="--opt4"
 optId[${firstOpt[4]}]="--opt5"
 optId[${firstOpt[5]}]="--opt6"
 optId[${firstOpt[6]}]="--opt7"
+optId[${firstOpt[7]}]="--opt8"
 
 # Rofi CMD
 rofi_cmd() {
@@ -156,6 +159,10 @@ run_cmd() {
 		;;
 	${optId[${firstOpt[6]}]})
 		/bin/bash $ROFI_DIR/scripts/setting.sh
+		return
+		;;
+	${optId[${firstOpt[7]}]})
+		bash "$HOME/Applications/media-scraping/open.sh" || notify-send "Media Scraping" "启动失败"
 		return
 		;;
 	*)

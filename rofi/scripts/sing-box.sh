@@ -9,7 +9,7 @@ WORK_DIR="$(dirname "$ROFI_DIR")"
 
 API=${1:-"http://127.0.0.1:9090"}
 SECRET=$2 # 如果有 secret 填这里
-width=550
+width=720
 font="JetBrains Mono Nerd Font 16"
 theme="$ROFI_DIR/applets/type-1/style-2.rasi"
 
@@ -37,10 +37,23 @@ auth_header() {
 }
 
 get_selectors() {
-	curl -s $(auth_header) "$API/proxies" |
-		jq -r '.proxies | to_entries[] | select(.value.type=="Selector") | "\(.key)\t\(.value.now)"' |
+	local proxies
+	proxies=$(curl -s $(auth_header) "$API/proxies")
+	printf '%s\n' "$proxies" | jq -r '.proxies | to_entries[] | select(.value.type=="Selector") | "\(.key)\t\(.value.now)"' |
 		while IFS=$'\t' read -r key now; do
-			printf "%-16s  %s\n" "$key" "$now"
+			local delay delay_str
+			delay=$(printf '%s\n' "$proxies" | jq -r --arg n "$now" '.proxies[$n].history[0].delay // empty')
+			if [[ ! "$delay" =~ ^[0-9]+$ ]]; then
+				local child
+				child=$(printf '%s\n' "$proxies" | jq -r --arg n "$now" '.proxies[$n].now // empty')
+				[[ -n "$child" && "$child" != "$now" ]] && delay=$(printf '%s\n' "$proxies" | jq -r --arg n "$child" '.proxies[$n].history[0].delay // "✗"')
+			fi
+			if [[ "$delay" =~ ^[0-9]+$ ]]; then
+				delay_str="${delay}ms"
+			else
+				delay_str="${delay:-✗}"
+			fi
+			printf "%-16s  %-20s%6s\n" "$key" "$now" "$delay_str"
 		done
 }
 
@@ -52,13 +65,14 @@ get_options() {
 	echo "$proxies" | jq -r --arg group "$group" --arg current "$current" '
 		.proxies[$group].all[] as $name |
 		(.proxies[$name] // {type: "?", history: []}) |
-		[ $name, .type, (.history[0].delay // "✗") ] |
+		[ $name, .type, (.history[0].delay // "✗"), (.now // "") ] |
 		@tsv
 	' | awk -F'\t' -v current="$current" '
 		{
 			name = $1
 			type = $2
 			delay = $3
+			now = $4
 			if (type == "Shadowsocks") type = "SS"
 			else if (type == "ShadowsocksR") type = "SSR"
 			else if (type == "Hysteria2") type = "Hy2"
@@ -68,7 +82,10 @@ get_options() {
 			else
 				delay_str = delay
 			marker = (name == current && current != "") ? "✓ " : "  "
-			printf "%2s%-18s%-8s%8s\n", marker, name, type, delay_str
+			show = name
+			if (type == "URLTest" && now != "" && now != name)
+				show = name " → " now
+			printf "%2s%-26s%-8s%8s\n", marker, show, type, delay_str
 		}
 	'
 }
@@ -138,7 +155,7 @@ run_cmd() {
 		group="$2"
 		chosen="$(run_rofi --node "$group")"
 		[[ -z "$chosen" ]] && return
-		node=$(echo "$chosen" | sed 's/^✓ //;s/^  //' | awk '{$NF=""; $(NF-1)=""; $1=$1; sub(/  +$/, ""); print}')
+		node=$(echo "$chosen" | sed 's/^✓ //;s/^  //' | awk '{print $1}')
 		[[ -z "$node" ]] && return
 		switch_node "$group" "$node"
 		;;
