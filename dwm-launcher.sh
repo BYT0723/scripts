@@ -26,7 +26,10 @@ apps() {
 }
 
 powermenu() {
-	/bin/bash "$WORK_DIR"/rofi/scripts/powermenu_t4
+	local type=4
+	source "$WORK_DIR"/utils/monitor.sh
+	is_portrait && type=2
+	/bin/bash "$WORK_DIR"/rofi/scripts/powermenu_t${type}
 }
 
 mpd() {

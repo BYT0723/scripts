@@ -28,6 +28,22 @@ get_monitor_info_by_index() {
 	get_monitor_info $name
 }
 
+is_portrait() {
+	local idx="${1:-}"
+	local mon_info
+	if [ -n "$idx" ]; then
+		mon_info=$(get_monitor_info_by_index "$idx")
+	else
+		mon_info=$(get_current_monitor)
+	fi
+	if [ -z "$mon_info" ]; then
+		return 1
+	fi
+	local width height
+	read _ _ width height _ _ <<<"$mon_info"
+	[ "$width" -lt "$height" ]
+}
+
 get_current_monitor() {
 	# 先尝试获取当前focus窗口ID
 	local win=$(xdotool getwindowfocus)

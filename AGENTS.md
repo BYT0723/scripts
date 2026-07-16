@@ -6,6 +6,7 @@
 ## Source 依赖图
 
 ```
+dwm-launcher.sh ──sources──► utils/monitor.sh
 dwm-status.sh ──sources──► dwm-status-tools.sh ──sources──► utils/weather.sh
                                                            utils/notify.sh
 dwm-statuscmd.sh ──sources──► utils/notify.sh
@@ -44,6 +45,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 ### utils/monitor.sh
 | 函数 | 调用者 |
 |------|--------|
+| `is_portrait()` | dwm-launcher.sh (powermenu) |
 | `get_monitor_info()` | wallpaper.sh (set_wallpaper_to_monitor) |
 | `get_monitor_info_by_index()` | wallpaper.sh |
 | `get_current_monitor()` | screencast.sh |
@@ -127,8 +129,9 @@ dwm-statuscmd.sh (状态栏点击)
 ### rofi 启动器链路
 ```
 dwm-launcher.sh (快捷键)
+  → source utils/monitor.sh (is_portrait 判断方向)
   → rofi -show drun          (应用启动)
-  → rofi/powermenu/type-*/powermenu.sh  (电源菜单)
+  → rofi/scripts/powermenu_t2 (竖屏) / powermenu_t4 (横屏)  (电源菜单)
   → rofi/scripts/mpd.sh      (音乐控制)
   → rofi/scripts/module.sh   (模块管理)
   → rofi/scripts/screenshot.sh
