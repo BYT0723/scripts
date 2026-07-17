@@ -45,15 +45,7 @@ is_portrait() {
 }
 
 get_current_monitor() {
-	# 先尝试获取当前focus窗口ID
-	local win=$(xdotool getwindowfocus)
-	local use_mouse=$((win == 0 || win == 1 ? 1 : 0))
-
-	if [ "$use_mouse" = 0 ]; then
-		read px py < <(xdotool getwindowgeometry "$win" | awk 'NR==2 {print $2}' | awk -F ',' '{print $1 " " $2}')
-	else
-		read px py < <(xdotool getmouselocation | awk -F'[: ]' '{print $2, $4}')
-	fi
+	read px py < <(xdotool getmouselocation | awk -F'[: ]' '{print $2, $4}')
 
 	xrandr --listactivemonitors | {
 		read
