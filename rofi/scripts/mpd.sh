@@ -94,7 +94,6 @@ rofi_cmd() {
 		-mesg "$mesg" \
 		${active} ${urgent} \
 		-markup-rows \
-		-monitor -4 \
 		-theme ${theme} \
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }

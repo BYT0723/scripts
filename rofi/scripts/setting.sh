@@ -66,7 +66,6 @@ rofi_cmd() {
 		-p "$prompt" \
 		-mesg "$mesg" \
 		-markup-rows \
-		-monitor -4 \
 		-theme ${theme} \
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }

@@ -52,7 +52,6 @@ monitor_selection() {
 		-p "Monitor" \
 		-mesg "Select a monitor" \
 		-markup-rows \
-		-monitor -4 \
 		-theme "$ROFI_DIR/applets/type-1/style-3.rasi" \
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary | awk '{print $1}'
 }
@@ -106,7 +105,6 @@ rofi_cmd() {
 		-p "$prompt" \
 		-mesg "$mesg" \
 		-markup-rows \
-		-monitor -4 \
 		-theme ${theme} \
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }
