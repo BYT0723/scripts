@@ -213,7 +213,7 @@ weather-forecast() {
 ipinfo-openMeteo() {
 	IFS=, read LAT LON < <(curl -m 2 -fsS https://ipinfo.io/loc) || return 1
 
-	curl -m 2 -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&current_weather=true" |
+	curl -m 2 -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&models=cma_grapes_global&current_weather=true" |
 		jq -r "$JQ_WMO"'
 			.current_weather.weathercode as $code |
 			.current_weather.temperature as $temp |
