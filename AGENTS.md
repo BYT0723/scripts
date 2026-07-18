@@ -30,6 +30,7 @@ rofi/scripts/notification.sh──sources──► rofi/scripts/util.sh
 rofi/scripts/setting.sh     ──sources──► rofi/scripts/util.sh
 rofi/scripts/system-tools.sh──sources──► rofi/scripts/util.sh
 rofi/scripts/sing-box.sh    ──sources──► rofi/scripts/util.sh, utils/notify.sh
+rofi/scripts/media-scraping.sh──sources──► rofi/scripts/util.sh
 
 # 死代码 (未被任何脚本 source)
 utils/print.sh   — number2icon() 无人调用
@@ -77,6 +78,13 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `is_url()` | quicklinks.sh |
 | `get_default_browser_name()` | quicklinks.sh |
 | `log()` | (deprecated: kcptun-sync.sh, trojan-sync.sh) |
+
+### rofi/scripts/media-scraping.sh
+| 函数 | 调用者 |
+|------|--------|
+| `_toggle_icon()` | media-scraping.sh (模板生成 Toggle 开关图标) |
+| `_is_running()` | media-scraping.sh (Open 前检查容器状态) |
+| `_toggle()` | media-scraping.sh (启停 docker compose 服务) |
 
 ## 调用链 (Call Chain)
 
@@ -134,6 +142,7 @@ dwm-launcher.sh (快捷键)
   → rofi/scripts/powermenu_t2 (竖屏) / powermenu_t4 (横屏)  (电源菜单)
   → rofi/scripts/mpd.sh      (音乐控制)
   → rofi/scripts/module.sh   (模块管理)
+  → rofi/scripts/media-scraping.sh  (Media 启停子菜单，由 module.sh 调用)
   → rofi/scripts/screenshot.sh
   → rofi/scripts/screencast.sh
   → rofi/scripts/quicklinks.sh

@@ -162,7 +162,7 @@ run_cmd() {
 		return
 		;;
 	${optId[${firstOpt[7]}]})
-		bash "$HOME/Applications/media-scraping/open.sh" || notify-send "Media Scraping" "启动失败"
+		/bin/bash $ROFI_DIR/scripts/media-scraping.sh
 		return
 		;;
 	*)
