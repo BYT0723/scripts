@@ -153,6 +153,7 @@ wallpaper.sh → source utils/monitor.sh, utils/notify.sh
 - `rofi/` 下各 type 目录的 `*.rasi` 文件
 - `rofi/fonts/` 字体文件
 - `rofi/colors/` `rofi/images/`
+- `~/.config/dwm/colorscheme.json` — `colorscheme.sh` 的外部化主题配置 (light/dark)
 
 ## 已知问题
 - `tools/calendar.sh:3` source 路径已修复为 `$(dirname "$0")/../utils/notify.sh`

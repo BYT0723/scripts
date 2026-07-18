@@ -2,23 +2,12 @@
 
 WORK_DIR=$(dirname $0)
 
-declare -A light=(
-	[rofi]="paper"
-	[fcitx5]="macOS-light"
-	[kitty]="Tokyo Night Day"
-	[qt]="/usr/share/qt6ct/colors/simple.conf"
-	[gtk]="WhiteSur-Light-solid"
-	[gtk_icon]="WhiteSur-light"
-)
+COLORSCHEME_CONF="$HOME/.config/dwm/colorscheme.json"
 
-declare -A dark=(
-	[rofi]="onedark"
-	[fcitx5]="macOS-dark"
-	[kitty]="Tokyo Night"
-	[qt]="/usr/share/qt6ct/colors/darker.conf"
-	[gtk]="WhiteSur-Dark-solid"
-	[gtk_icon]="WhiteSur-dark"
-)
+get_theme_config() {
+	local mode="$1" key="$2"
+	jq -r ".[\"$mode\"][\"$key\"] // empty" "$COLORSCHEME_CONF"
+}
 
 source "$(dirname $0)/utils/notify.sh"
 
@@ -65,8 +54,8 @@ set_dwm_theme() {
 
 set_rofi_theme() {
 	[ -z "$mode" ] && return
-	declare -n cfg="$mode"
-	local theme="${cfg[rofi]}"
+	local theme
+	theme=$(get_theme_config "$mode" "rofi") || return
 	[ -z "$theme" ] && return
 
 	files=(
@@ -82,8 +71,8 @@ set_rofi_theme() {
 
 set_fcitx5_theme() {
 	[ -z "$mode" ] && return
-	declare -n cfg="$mode"
-	local theme="${cfg[fcitx5]}"
+	local theme
+	theme=$(get_theme_config "$mode" "fcitx5") || return
 	[ -z "$theme" ] && return
 
 	if [ ! -d "/usr/share/fcitx5/themes/$theme" ]; then
@@ -112,8 +101,8 @@ set_fcitx5_theme() {
 set_kitty_theme() {
 	[ -z "$(command -v kitten)" ] && return
 	[ -z "$mode" ] && return
-	declare -n cfg="$mode"
-	local theme="${cfg[kitty]}"
+	local theme
+	theme=$(get_theme_config "$mode" "kitty") || return
 	[ -z "$theme" ] && return
 
 	kitten themes "$theme"
@@ -128,8 +117,8 @@ set_qt_theme() {
 		return
 	fi
 
-	declare -n cfg="$mode"
-	local color_scheme_path="${cfg[qt]}"
+	local color_scheme_path
+	color_scheme_path=$(get_theme_config "$mode" "qt") || return
 	[ -z "$color_scheme_path" ] && return
 
 	local cfg_file="$HOME/.config/qt6ct/qt6ct.conf"
@@ -178,9 +167,9 @@ set_dunst_theme() {
 
 set_gtk_theme() {
 	[ -z "$mode" ] && return
-	declare -n cfg="$mode"
-	local theme="${cfg[gtk]}"
-	local icon_theme="${cfg[gtk_icon]}"
+	local theme icon_theme
+	theme=$(get_theme_config "$mode" "gtk") || return
+	icon_theme=$(get_theme_config "$mode" "gtk_icon") || return
 	[ -z "$theme" ] && return
 
 	local gtk2_cfg="$HOME/.gtkrc-2.0"
