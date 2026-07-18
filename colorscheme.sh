@@ -117,9 +117,9 @@ set_qt_theme() {
 		return
 	fi
 
-	local color_scheme_path
+	local color_scheme_path icon_theme
 	color_scheme_path=$(get_theme_config "$mode" "qt") || return
-	[ -z "$color_scheme_path" ] && return
+	icon_theme=$(get_theme_config "$mode" "icon") || true
 
 	local cfg_file="$HOME/.config/qt6ct/qt6ct.conf"
 
@@ -127,21 +127,32 @@ set_qt_theme() {
 
 	if [ -f "$cfg_file" ]; then
 		if grep -q '^\[Appearance\]' "$cfg_file"; then
-			if grep -q '^color_scheme_path=' "$cfg_file"; then
-				sed -i 's|^color_scheme_path=.*|color_scheme_path='"$color_scheme_path"'|' "$cfg_file"
-			else
-				sed -i '/^\[Appearance\]/a color_scheme_path='"$color_scheme_path" "$cfg_file"
+			if [ -n "$color_scheme_path" ]; then
+				if grep -q '^color_scheme_path=' "$cfg_file"; then
+					sed -i 's|^color_scheme_path=.*|color_scheme_path='"$color_scheme_path"'|' "$cfg_file"
+				else
+					sed -i '/^\[Appearance\]/a color_scheme_path='"$color_scheme_path" "$cfg_file"
+				fi
+			fi
+			if [ -n "$icon_theme" ]; then
+				if grep -q '^icon_theme=' "$cfg_file"; then
+					sed -i 's|^icon_theme=.*|icon_theme='"$icon_theme"'|' "$cfg_file"
+				else
+					sed -i '/^\[Appearance\]/a icon_theme='"$icon_theme" "$cfg_file"
+				fi
 			fi
 		else
 			echo "" >>"$cfg_file"
 			echo "[Appearance]" >>"$cfg_file"
-			echo "color_scheme_path=$color_scheme_path" >>"$cfg_file"
+			[ -n "$color_scheme_path" ] && echo "color_scheme_path=$color_scheme_path" >>"$cfg_file"
+			[ -n "$icon_theme" ] && echo "icon_theme=$icon_theme" >>"$cfg_file"
 		fi
 	else
-		cat >"$cfg_file" <<EOF
-[Appearance]
-color_scheme_path=$color_scheme_path
-EOF
+		{
+			echo "[Appearance]"
+			[ -n "$color_scheme_path" ] && echo "color_scheme_path=$color_scheme_path"
+			[ -n "$icon_theme" ] && echo "icon_theme=$icon_theme"
+		} >"$cfg_file"
 	fi
 }
 
@@ -169,7 +180,7 @@ set_gtk_theme() {
 	[ -z "$mode" ] && return
 	local theme icon_theme
 	theme=$(get_theme_config "$mode" "gtk") || return
-	icon_theme=$(get_theme_config "$mode" "gtk_icon") || return
+	icon_theme=$(get_theme_config "$mode" "icon") || return
 	[ -z "$theme" ] && return
 
 	local gtk2_cfg="$HOME/.gtkrc-2.0"
