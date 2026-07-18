@@ -233,6 +233,25 @@ set_gtk_theme() {
 }
 
 case "$1" in
+check)
+	pkgs=(
+		"tela-icon-theme-git"
+		"orchis-theme"
+		"fcitx5-themes-candlelight"
+	)
+	missing=()
+	for pkg in "${pkgs[@]}"; do
+		if ! pacman -Qi "$pkg" &>/dev/null; then
+			missing+=("$pkg")
+		fi
+	done
+	if [ ${#missing[@]} -gt 0 ]; then
+		system-notify normal "Installing Themes" "Installing: ${missing[*]}"
+		paru -S --noconfirm --needed "${missing[@]}"
+	else
+		system-notify normal "Themes Check" "All theme packages are already installed"
+	fi
+	;;
 before)
 	mode=$(select_theme)
 	cur=$(get_current_theme)
