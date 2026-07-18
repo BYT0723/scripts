@@ -110,15 +110,15 @@ set_kitty_theme() {
 
 set_qt_theme() {
 	[ -z "$mode" ] && return
-	[ -z "$(command -v qt6ct)" ] && return
+	[ -z "$(command -v kvantummanager)" ] && return
 
 	if [ "$QT_QPA_PLATFORMTHEME" != "qt6ct" ]; then
 		system-notify normal "Environment Variable Not Set" "please set QT_QPA_PLATFORMTHEME=qt6ct"
 		return
 	fi
 
-	local color_scheme_path icon_theme
-	color_scheme_path=$(get_theme_config "$mode" "qt") || return
+	local kvantum_theme icon_theme
+	kvantum_theme=$(get_theme_config "$mode" "qt") || return
 	icon_theme=$(get_theme_config "$mode" "icon") || true
 
 	local cfg_file="$HOME/.config/qt6ct/qt6ct.conf"
@@ -127,12 +127,10 @@ set_qt_theme() {
 
 	if [ -f "$cfg_file" ]; then
 		if grep -q '^\[Appearance\]' "$cfg_file"; then
-			if [ -n "$color_scheme_path" ]; then
-				if grep -q '^color_scheme_path=' "$cfg_file"; then
-					sed -i 's|^color_scheme_path=.*|color_scheme_path='"$color_scheme_path"'|' "$cfg_file"
-				else
-					sed -i '/^\[Appearance\]/a color_scheme_path='"$color_scheme_path" "$cfg_file"
-				fi
+			if grep -q '^style=' "$cfg_file"; then
+				sed -i 's|^style=.*|style=kvantum|' "$cfg_file"
+			else
+				sed -i '/^\[Appearance\]/a style=kvantum' "$cfg_file"
 			fi
 			if [ -n "$icon_theme" ]; then
 				if grep -q '^icon_theme=' "$cfg_file"; then
@@ -144,16 +142,18 @@ set_qt_theme() {
 		else
 			echo "" >>"$cfg_file"
 			echo "[Appearance]" >>"$cfg_file"
-			[ -n "$color_scheme_path" ] && echo "color_scheme_path=$color_scheme_path" >>"$cfg_file"
+			echo "style=kvantum" >>"$cfg_file"
 			[ -n "$icon_theme" ] && echo "icon_theme=$icon_theme" >>"$cfg_file"
 		fi
 	else
 		{
 			echo "[Appearance]"
-			[ -n "$color_scheme_path" ] && echo "color_scheme_path=$color_scheme_path"
+			echo "style=kvantum"
 			[ -n "$icon_theme" ] && echo "icon_theme=$icon_theme"
 		} >"$cfg_file"
 	fi
+
+	kvantummanager --set "$kvantum_theme"
 }
 
 set_dunst_theme() {
@@ -238,6 +238,9 @@ check)
 		"tela-icon-theme-git"
 		"orchis-theme"
 		"fcitx5-themes-candlelight"
+		"kvantum"
+		"kvantum-qt5"
+		"kvantum-theme-orchis-git"
 	)
 	missing=()
 	for pkg in "${pkgs[@]}"; do
