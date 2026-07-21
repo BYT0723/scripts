@@ -18,7 +18,7 @@ elif [[ ("$theme" == *'type-2'*) || ("$theme" == *'type-4'*) ]]; then
 	list_row='1'
 fi
 
-HUB=("emby" "metatube")
+HUB=("jellyfin" "metatube")
 SCRAPER=("sonarr" "radarr" "prowlarr" "bazarr" "qbittorrent")
 
 _toggle() {
