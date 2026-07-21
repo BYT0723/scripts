@@ -35,8 +35,15 @@ _toggle() {
 
 	if $any_running; then
 		bash "$MEDIA_DIR/launch.sh" down "$target"
+		if [[ "$target" == "hub" ]]; then
+			pkill -f "jellyfin-mpv-shim" >/dev/null 2>&1 || true
+		fi
 	else
 		bash "$MEDIA_DIR/launch.sh" up "$target"
+		if [[ "$target" == "hub" ]]; then
+			sleep 8
+			/usr/bin/env jellyfin-mpv-shim >/dev/null 2>&1 &
+		fi
 	fi
 }
 
