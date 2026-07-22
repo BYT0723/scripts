@@ -43,16 +43,16 @@ fi
 # Options
 layout=$(cat ${theme} | grep 'USE_ICON' | cut -d'=' -f2)
 if [[ "$layout" == 'NO' ]]; then
-	option_1=" Capture Desktop"
-	option_2=" Capture Area"
-	option_3=" Capture Window"
-	option_4=" Capture in 5s"
-	option_5=" Capture in 10s"
+	option_1=" Flameshot"
+	option_2=" Capture Desktop"
+	option_3=" Capture Area"
+	option_4=" Capture Window"
+	option_5=" Capture in 5s"
 else
-	option_1=""
-	option_2=""
-	option_3=""
-	option_4=""
+	option_1=""
+	option_2=""
+	option_3=""
+	option_4=""
 	option_5=""
 fi
 
@@ -111,12 +111,6 @@ shot5() {
 	notify_view
 }
 
-shot10() {
-	countdown '10'
-	sleep 1 && cd $DIR && maim -u -f png | copy_shot
-	notify_view
-}
-
 shotwin() {
 	cd $DIR && maim -u -f png -i $(xdotool getactivewindow) | copy_shot
 	notify_view
@@ -130,15 +124,15 @@ shotarea() {
 # Execute Command
 run_cmd() {
 	if [[ "$1" == '--opt1' ]]; then
-		shotnow
+		flameshot gui
 	elif [[ "$1" == '--opt2' ]]; then
-		shotarea
+		shotnow
 	elif [[ "$1" == '--opt3' ]]; then
-		shotwin
+		shotarea
 	elif [[ "$1" == '--opt4' ]]; then
-		shot5
+		shotwin
 	elif [[ "$1" == '--opt5' ]]; then
-		shot10
+		shot5
 	fi
 }
 
