@@ -3,32 +3,20 @@
 ROFI_DIR="$(dirname "$(dirname "$0")")"
 WORK_DIR="$(dirname "$ROFI_DIR")"
 
-# Import Current Theme
-theme="$ROFI_DIR/applets/type-1/style-2.rasi"
-width=500
+MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
+MODULE_WIDTH=500
+MODULE_MAX_LINES=8
 
 source "$(dirname "$0")"/util.sh
-
-if [[ ("$theme" == *'type-1'*) || ("$theme" == *'type-3'*) || ("$theme" == *'type-5'*) ]]; then
-	list_col='1'
-	list_row='6'
-elif [[ ("$theme" == *'type-2'*) || ("$theme" == *'type-4'*) ]]; then
-	list_col='6'
-	list_row='1'
-fi
+source "$(dirname "$0")"/lib-module.sh
 
 CONFIG_HOME="$HOME/.config/dwm"
 
-# 配置文件路径
-declare -A confPath
+declare -A confPath applicationCmd
 confPath["picom"]="$CONFIG_HOME/picom.conf"
-
-# 定义运行命令的Map
-declare -A applicationCmd
 applicationCmd["picom"]="picom --config ${confPath["picom"]} -b"
 applicationCmd["conky"]="conky -U -d &"
 
-# toggle application
 toggleApplication() {
 	if [[ -n $(pgrep $1) ]]; then
 		killall $1
@@ -37,167 +25,50 @@ toggleApplication() {
 	fi
 }
 
-# Options
-layout=$(cat ${theme} | grep 'USE_ICON' | cut -d'=' -f2)
+module_parse <<MODULES
+picom|󰋩|Picom|Windows Composer|toggle
+conky|󰏘|Conky|System Monitor|toggle
+network|󰈀|Network||active:NetworkManager
+bluetooth|󰂯|Bluetooth||active-svc
+notification||Notification||
+sddm|󰍂|SDDM Setting||
+media-scraping|󰎁|Media Scraping||
+sing-box||SingBox||active
+calendar||Calendar||
+calendar-lunar||Calendar (Lunar)||
+MODULES
 
-if [[ "$layout" == 'NO' ]]; then
-	firstOpt=(
-		"󰋩 Picom                     $(icon toggle app picom)"
-		"󰏘 Conky                     $(icon toggle app conky)"
-		"󰈀 Network                   $(icon active app NetworkManager)"
-		"󰂯 Bluetooth                 $(icon active service bluetooth)"
-		" Notification              $(/bin/bash $ROFI_DIR/scripts/notification.sh unread)"
-		" SingBox                   $(icon active app sing-box)"
-		" Tools"
-		" Setting"
-		"󰎁 Media Scraping"
-	)
-else
-	firstOpt=(
-		"󰋩 $(icon active app picom)"
-		"󰏘 $(icon toggle app conky)"
-		"󰈀 $(icon active app NetworkManager)"
-		"󰂯 $(icon active service bluetooth)"
-		" $(/bin/bash $ROFI_DIR/scripts/notification.sh unread)"
-		" $(icon active app sing-box)"
-		" "
-		" "
-		"󰎁 "
-	)
-fi
+# ====== Handlers ======
+handle_picom() { toggleApplication picom; }
+handle_conky() { toggleApplication conky; }
 
-declare -A optId
-optId[${firstOpt[0]}]="--opt1"
-optId[${firstOpt[1]}]="--opt2"
-optId[${firstOpt[2]}]="--opt3"
-optId[${firstOpt[3]}]="--opt4"
-optId[${firstOpt[4]}]="--opt5"
-optId[${firstOpt[5]}]="--opt6"
-optId[${firstOpt[6]}]="--opt7"
-optId[${firstOpt[7]}]="--opt8"
-optId[${firstOpt[8]}]="--opt9"
-
-# Rofi CMD
-rofi_cmd() {
-	rofi -theme-str "listview {columns: $list_col; lines: $list_row;}" \
-		-theme-str 'textbox-prompt-colon {str: " Module";}' \
-		-theme-str 'window {width: '$width'px;}' \
-		-theme-str 'inputbar {children: [ "textbox-prompt-colon", "entry"];}' \
-		-theme-str 'entry {padding:8px;background-color:inherit;text-color:inherit;}' \
-		-dmenu \
-		-i \
-		-p "$prompt" \
-		-mesg "$mesg" \
-		-markup-rows \
-		-theme ${theme} \
-		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
+handle_network() {
+	local eth wifi mesg=""
+	eth=$(nmcli -t -f DEVICE,TYPE,STATE dev status | awk -F: '$2=="ethernet" && $3=="connected" {print $1}')
+	wifi=$(nmcli -t -f IN-USE,SSID,SIGNAL dev wifi list | grep '^*' | awk -F : '{printf "%s(%s%%)", $2, $3}')
+	[ "$eth" != "" ] && mesg="  $eth"
+	[[ "$wifi" != "" ]] && { [ "$mesg" != "" ] && mesg="$mesg\n  $wifi" || mesg="  $wifi"; }
+	local opts=$(nmcli device wifi list --rescan auto | awk 'NR!=1 {print substr($0,9)}' | awk '{print $8," ",$2}' | awk '!a[$0]++')
+	local chosen=$(echo "$opts" | module_sub_rofi "Network" "$mesg")
+	[[ "$chosen" == "" || "$chosen" == "$(nmcli connection show -active | grep -E 'wifi' | awk '{print $1}')" ]] && return
+	nmcli device wifi connect $(echo $chosen | awk '{print $2}')
 }
 
-# Pass variables to rofi dmenu
-run_rofi() {
-	if [[ "$1" == ${optId[${firstOpt[0]}]} ]]; then
-		prompt='Picom'
-		mesg="Windows Composer"
-		toggleApplication picom
-		return
-	elif [[ "$1" == ${optId[${firstOpt[1]}]} ]]; then
-		prompt='Conky'
-		mesg="System Monitor"
-		toggleApplication conky
-		return
-	elif [[ "$1" == ${optId[${firstOpt[2]}]} ]]; then
-		prompt='Network'
-		mesg=""
-		eth="$(nmcli -t -f DEVICE,TYPE,STATE dev status | awk -F: '$2=="ethernet" && $3=="connected" {print $1}')"
-		wifi="$(nmcli -t -f IN-USE,SSID,SIGNAL dev wifi list | grep '^*' | awk -F : '{printf "%s(%s%%)", $2, $3}')"
-		if [ "$eth" != "" ]; then
-			mesg="  $eth"
-		fi
-		if [[ "$wifi" != "" ]]; then
-			if [ "$mesg" != "" ]; then
-				mesg="$mesg
-  $wifi"
-			else
-				mesg="  $wifi"
-			fi
-		fi
-		opts=$(nmcli device wifi list --rescan auto | awk 'NR!=1 {print substr($0,9)}' | awk '{print $8," ",$2}' | awk '!a[$0]++')
-	elif [[ "$1" == ${optId[${firstOpt[3]}]} ]]; then
-		prompt='Bluetooth'
-		connected_device=$(bluetoothctl devices Connected | awk '{print substr($0,25)}')
-		if [ "$connected_device" != "" ]; then
-			mesg="Connected:$connected_device"
-		else
-			mesg="No device connected"
-		fi
-		opts=$(bluetoothctl devices | awk '{print substr($0,26)}')
-	else
-		prompt='Module'
-		mesg="Manage Module Of System"
-		opts=("${firstOpt[@]}")
-	fi
-
-	for ((i = 0; i < ${#opts[@]}; i++)); do
-		if [[ $i > 0 ]]; then
-			msg=$msg"\n"
-		fi
-		msg=$msg${opts[$i]}
-	done
-	echo -e "$msg" | rofi_cmd
+handle_bluetooth() {
+	local connected_device=$(bluetoothctl devices Connected | awk '{print substr($0,25)}')
+	local mesg="No device connected"
+	[ "$connected_device" != "" ] && mesg="Connected:$connected_device"
+	local opts=$(bluetoothctl devices | awk '{print substr($0,26)}')
+	local chosen=$(echo "$opts" | module_sub_rofi "Bluetooth" "$mesg")
+	[[ "$chosen" == "" ]] && return
+	bluetoothctl disconnect $(bluetoothctl devices Connected | grep "$chosen" | awk '{print $2}')
 }
 
-# Execute Command
-run_cmd() {
-	case "$1" in
-	${optId[${firstOpt[2]}]})
-		chosen="$(run_rofi $1)"
-		if [[ "$chosen" == "" || "$chosen" == "$(nmcli connection show -active | grep -E 'wifi' | awk '{print $1}')" ]]; then
-			exit
-		fi
-		nmcli device wifi connect $(echo $chosen | awk '{print $2}')
-		;;
-	${optId[${firstOpt[3]}]})
-		chosen="$(run_rofi $1)"
-		if [[ "$chosen" == "" ]]; then
-			exit
-		fi
-		bluetoothctl disconnect $(bluetoothctl devices Connected | grep "$chosen" | awk '{print $2}')
-		;;
-	${optId[${firstOpt[4]}]})
-		$ROFI_DIR/scripts/notification.sh
-		return
-		;;
-	${optId[${firstOpt[5]}]})
-		/bin/bash $ROFI_DIR/scripts/sing-box.sh
-		return
-		;;
-	${optId[${firstOpt[6]}]})
-		/bin/bash $ROFI_DIR/scripts/system-tools.sh
-		return
-		;;
-	${optId[${firstOpt[7]}]})
-		/bin/bash $ROFI_DIR/scripts/setting.sh
-		return
-		;;
-	${optId[${firstOpt[8]}]})
-		/bin/bash $ROFI_DIR/scripts/media-scraping.sh
-		return
-		;;
-	*)
-		chosen="$(run_rofi $1)"
-		if [[ "$chosen" == "" ]]; then
-			exit
-		fi
-		run_cmd ${optId[$chosen]}
-		;;
-	esac
-}
+handle_notification() { $ROFI_DIR/scripts/notification.sh; }
+handle_sing_box() { /bin/bash $ROFI_DIR/scripts/sing-box.sh; }
+handle_calendar() { /bin/bash $WORK_DIR/tools/calendar.sh; }
+handle_calendar_lunar() { /bin/bash $WORK_DIR/tools/calendar.sh lunar; }
+handle_media_scraping() { /bin/bash $ROFI_DIR/scripts/media-scraping.sh; }
+handle_sddm() { /bin/bash $ROFI_DIR/scripts/sddm.sh; }
 
-# Actions
-chosen="$(run_rofi)"
-if [[ "$chosen" == "" ]]; then
-	exit
-fi
-run_cmd ${optId[$chosen]}
-
-exit
+module_loop

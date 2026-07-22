@@ -24,10 +24,11 @@ tools/volume.sh ──sources──► utils/notify.sh
 tools/youtube/yt.sh ──sources──► tools/youtube/opus-webm.sh
 
 rofi/scripts/quicklinks.sh  ──sources──► rofi/scripts/util.sh
-rofi/scripts/module.sh      ──sources──► rofi/scripts/util.sh
+rofi/scripts/module.sh      ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/wallpaper.sh   ──sources──► rofi/scripts/util.sh
 rofi/scripts/notification.sh──sources──► rofi/scripts/util.sh
 rofi/scripts/setting.sh     ──sources──► rofi/scripts/util.sh
+rofi/scripts/sddm.sh       ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/system-tools.sh──sources──► rofi/scripts/util.sh
 rofi/scripts/sing-box.sh    ──sources──► rofi/scripts/util.sh, utils/notify.sh
 rofi/scripts/media-scraping.sh──sources──► rofi/scripts/util.sh
@@ -71,13 +72,24 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | 函数 | 调用者 |
 |------|--------|
 | `icon()` | module.sh, wallpaper.sh |
-| `toggleApplication()` | module.sh |
 | `toggleConf()` | wallpaper.sh |
 | `getConfig()` | wallpaper.sh |
 | `trim()` | quicklinks.sh |
 | `is_url()` | quicklinks.sh |
 | `get_default_browser_name()` | quicklinks.sh |
 | `log()` | (deprecated: kcptun-sync.sh, trojan-sync.sh) |
+
+### rofi/scripts/module.sh
+| 函数 | 调用者 |
+|------|--------|
+| `toggleApplication()` | module.sh (handle_picom, handle_conky) |
+
+### rofi/scripts/lib-module.sh
+| 函数 | 调用者 |
+|------|--------|
+| `module_parse()` | module.sh, sddm.sh (读取注册表) |
+| `module_loop()` | module.sh, sddm.sh (主循环, 唯一入口) |
+| `module_sub_rofi()` | module.sh (handle_network, handle_bluetooth 的子菜单), sddm.sh (handle_set_theme, handle_set_config 的子菜单) |
 
 ### rofi/scripts/media-scraping.sh
 | 函数 | 调用者 |
