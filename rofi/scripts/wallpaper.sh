@@ -4,9 +4,7 @@ ROFI_DIR="$(dirname "$(dirname "$0")")"
 WORK_DIR="$(dirname "$ROFI_DIR")"
 
 # Import Current Theme
-type="$ROFI_DIR/applets/type-1"
-style='style-3.rasi'
-theme="$type/$style"
+theme="$ROFI_DIR/applets/type-1/style-3.rasi"
 
 source "$(dirname "$0")"/util.sh
 
@@ -113,15 +111,7 @@ rofi_cmd() {
 run_rofi() {
 	prompt="$(icon active cmd 'wallpaper.sh -r') Wallpaper"
 	mesg="Monitor: $MONITOR"
-	opts=("${firstOpt[@]}")
-
-	for ((i = 0; i < ${#opts[@]}; i++)); do
-		if [[ $i > 0 ]]; then
-			msg=$msg"\n"
-		fi
-		msg=$msg${opts[$i]}
-	done
-	echo -e "$msg" | rofi_cmd
+	printf '%s\n' "${firstOpt[@]}" | rofi_cmd
 }
 
 # Execute Command
@@ -179,13 +169,6 @@ run_cmd() {
 		;;
 	${optId[${firstOpt[7]}]})
 		_pick_config_dir random_video_dir
-		;;
-	*)
-		chosen="$(run_rofi $1)"
-		if [[ "$chosen" == "" ]]; then
-			exit
-		fi
-		run_cmd ${optId[$chosen]}
 		;;
 	esac
 }

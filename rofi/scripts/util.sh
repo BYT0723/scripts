@@ -70,15 +70,6 @@ typeToValue() {
 	esac
 }
 
-# toggle application
-toggleApplication() {
-	if [[ -n $(pgrep $1) ]]; then
-		killall $1
-	else
-		${applicationCmd[$1]}
-	fi
-}
-
 # toggle conf property
 toggleConf() {
 	if [ "$1" = "wallpaper" ]; then
@@ -93,17 +84,17 @@ toggleConf() {
 		bool | number)
 			local cur=$(jq -r "${path}.random // empty" "$conf" 2>/dev/null)
 			if [ "$cur" = "0" ] || [ -z "$cur" ]; then
-				jq "${path}.random = 1" "$conf" > "$conf.tmp" && mv "$conf.tmp" "$conf"
+				jq "${path}.random = 1" "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
 			else
-				jq "${path}.random = 0" "$conf" > "$conf.tmp" && mv "$conf.tmp" "$conf"
+				jq "${path}.random = 0" "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
 			fi
 			;;
 		wallpaper_type)
 			local cur=$(jq -r "${path}.random_type // empty" "$conf" 2>/dev/null)
 			if [ "$cur" = "image" ] || [ -z "$cur" ]; then
-				jq "${path}.random_type = \"video\"" "$conf" > "$conf.tmp" && mv "$conf.tmp" "$conf"
+				jq "${path}.random_type = \"video\"" "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
 			else
-				jq "${path}.random_type = \"image\"" "$conf" > "$conf.tmp" && mv "$conf.tmp" "$conf"
+				jq "${path}.random_type = \"image\"" "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
 			fi
 			;;
 		esac

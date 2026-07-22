@@ -5,15 +5,15 @@ WORK_DIR="$(dirname "$ROFI_DIR")"
 
 # Import Current Theme
 theme="$ROFI_DIR/applets/type-1/style-2.rasi"
-width=550
+width=500
 
 source "$(dirname "$0")"/util.sh
 
 if [[ ("$theme" == *'type-1'*) || ("$theme" == *'type-3'*) || ("$theme" == *'type-5'*) ]]; then
 	list_col='1'
-	list_row='9'
+	list_row='6'
 elif [[ ("$theme" == *'type-2'*) || ("$theme" == *'type-4'*) ]]; then
-	list_col='8'
+	list_col='6'
 	list_row='1'
 fi
 
@@ -26,17 +26,28 @@ confPath["picom"]="$CONFIG_HOME/picom.conf"
 # 定义运行命令的Map
 declare -A applicationCmd
 applicationCmd["picom"]="picom --config ${confPath["picom"]} -b"
+applicationCmd["conky"]="conky -U -d &"
+
+# toggle application
+toggleApplication() {
+	if [[ -n $(pgrep $1) ]]; then
+		killall $1
+	else
+		${applicationCmd[$1]}
+	fi
+}
 
 # Options
 layout=$(cat ${theme} | grep 'USE_ICON' | cut -d'=' -f2)
 
 if [[ "$layout" == 'NO' ]]; then
 	firstOpt=(
-		"󰋩 Picom                         $(icon toggle app picom)"
-		"󰈀 Network                       $(icon active app NetworkManager)"
-		"󰂯 Bluetooth                     $(icon active service bluetooth)"
-		" Notification                  $(/bin/bash $ROFI_DIR/scripts/notification.sh unread)"
-		" SingBox                       $(icon active app sing-box)"
+		"󰋩 Picom                     $(icon toggle app picom)"
+		"󰏘 Conky                     $(icon toggle app conky)"
+		"󰈀 Network                   $(icon active app NetworkManager)"
+		"󰂯 Bluetooth                 $(icon active service bluetooth)"
+		" Notification              $(/bin/bash $ROFI_DIR/scripts/notification.sh unread)"
+		" SingBox                   $(icon active app sing-box)"
 		" Tools"
 		" Setting"
 		"󰎁 Media Scraping"
@@ -44,6 +55,7 @@ if [[ "$layout" == 'NO' ]]; then
 else
 	firstOpt=(
 		"󰋩 $(icon active app picom)"
+		"󰏘 $(icon toggle app conky)"
 		"󰈀 $(icon active app NetworkManager)"
 		"󰂯 $(icon active service bluetooth)"
 		" $(/bin/bash $ROFI_DIR/scripts/notification.sh unread)"
@@ -63,6 +75,7 @@ optId[${firstOpt[4]}]="--opt5"
 optId[${firstOpt[5]}]="--opt6"
 optId[${firstOpt[6]}]="--opt7"
 optId[${firstOpt[7]}]="--opt8"
+optId[${firstOpt[8]}]="--opt9"
 
 # Rofi CMD
 rofi_cmd() {
@@ -88,6 +101,11 @@ run_rofi() {
 		toggleApplication picom
 		return
 	elif [[ "$1" == ${optId[${firstOpt[1]}]} ]]; then
+		prompt='Conky'
+		mesg="System Monitor"
+		toggleApplication conky
+		return
+	elif [[ "$1" == ${optId[${firstOpt[2]}]} ]]; then
 		prompt='Network'
 		mesg=""
 		eth="$(nmcli -t -f DEVICE,TYPE,STATE dev status | awk -F: '$2=="ethernet" && $3=="connected" {print $1}')"
@@ -104,7 +122,7 @@ run_rofi() {
 			fi
 		fi
 		opts=$(nmcli device wifi list --rescan auto | awk 'NR!=1 {print substr($0,9)}' | awk '{print $8," ",$2}' | awk '!a[$0]++')
-	elif [[ "$1" == ${optId[${firstOpt[2]}]} ]]; then
+	elif [[ "$1" == ${optId[${firstOpt[3]}]} ]]; then
 		prompt='Bluetooth'
 		connected_device=$(bluetoothctl devices Connected | awk '{print substr($0,25)}')
 		if [ "$connected_device" != "" ]; then
@@ -131,37 +149,37 @@ run_rofi() {
 # Execute Command
 run_cmd() {
 	case "$1" in
-	${optId[${firstOpt[1]}]})
+	${optId[${firstOpt[2]}]})
 		chosen="$(run_rofi $1)"
 		if [[ "$chosen" == "" || "$chosen" == "$(nmcli connection show -active | grep -E 'wifi' | awk '{print $1}')" ]]; then
 			exit
 		fi
 		nmcli device wifi connect $(echo $chosen | awk '{print $2}')
 		;;
-	${optId[${firstOpt[2]}]})
+	${optId[${firstOpt[3]}]})
 		chosen="$(run_rofi $1)"
 		if [[ "$chosen" == "" ]]; then
 			exit
 		fi
 		bluetoothctl disconnect $(bluetoothctl devices Connected | grep "$chosen" | awk '{print $2}')
 		;;
-	${optId[${firstOpt[3]}]})
+	${optId[${firstOpt[4]}]})
 		$ROFI_DIR/scripts/notification.sh
 		return
 		;;
-	${optId[${firstOpt[4]}]})
+	${optId[${firstOpt[5]}]})
 		/bin/bash $ROFI_DIR/scripts/sing-box.sh
 		return
 		;;
-	${optId[${firstOpt[5]}]})
+	${optId[${firstOpt[6]}]})
 		/bin/bash $ROFI_DIR/scripts/system-tools.sh
 		return
 		;;
-	${optId[${firstOpt[6]}]})
+	${optId[${firstOpt[7]}]})
 		/bin/bash $ROFI_DIR/scripts/setting.sh
 		return
 		;;
-	${optId[${firstOpt[7]}]})
+	${optId[${firstOpt[8]}]})
 		/bin/bash $ROFI_DIR/scripts/media-scraping.sh
 		return
 		;;
