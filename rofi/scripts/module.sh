@@ -6,6 +6,8 @@ WORK_DIR="$(dirname "$ROFI_DIR")"
 MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
 MODULE_WIDTH=500
 MODULE_MAX_LINES=8
+MODULE_NAME=" Modules"
+MODULE_MESG="Manage Module Of System"
 
 source "$(dirname "$0")"/util.sh
 source "$(dirname "$0")"/lib-module.sh

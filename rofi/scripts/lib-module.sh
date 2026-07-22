@@ -35,18 +35,19 @@ _module_status() {
 	active) icon active app "$key" ;;
 	active-svc:*) icon active service "${expr#*:}" ;;
 	active-svc) icon active service "$key" ;;
-	*/*) $($expr) ;;
+	cmd:*) eval "${expr#cmd:}" ;;
+	*/*) eval "$expr" ;;
 	esac
 }
 
 _module_rofi() {
 	rofi -theme-str "listview {columns: $_module_col; lines: $_module_row;}" \
-		-theme-str 'textbox-prompt-colon {str: " Module";}' \
+		-theme-str 'textbox-prompt-colon {str: "'"${MODULE_NAME}"'";}' \
 		-theme-str 'window {width: '$MODULE_WIDTH'px;}' \
 		-theme-str 'inputbar {children: [ "textbox-prompt-colon", "entry"];}' \
 		-theme-str 'entry {padding:8px;background-color:inherit;text-color:inherit;}' \
 		-dmenu -i -markup-rows \
-		-p 'Module' -mesg 'Manage Module Of System' \
+		-mesg "${MODULE_MESG:-}" \
 		-theme ${MODULE_THEME} \
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }
@@ -54,6 +55,7 @@ _module_rofi() {
 module_sub_rofi() {
 	local prompt="${1:-}" mesg="${2:-}"
 	rofi -theme-str "listview {columns: 1;}" \
+		-theme-str 'window {width: '$MODULE_WIDTH'px;}' \
 		-dmenu -i -markup-rows \
 		-p "$prompt" -mesg "$mesg" \
 		-theme ${MODULE_THEME} \
@@ -84,7 +86,7 @@ module_loop() {
 
 	_module_menu_build
 	local chosen=$(printf '%s\n' "${MAIN_OPTS[@]}" | _module_rofi)
-	[[ -z "$chosen" ]] && break
+	[[ -z "$chosen" ]] && return
 
 	local key=""
 	for i in "${!MAIN_OPTS[@]}"; do
@@ -93,7 +95,7 @@ module_loop() {
 			break
 		}
 	done
-	[[ -z "$key" ]] && break
+	[[ -z "$key" ]] && return
 
 	local handler="handle_${key//-/_}"
 	declare -F "$handler" &>/dev/null && "$handler"

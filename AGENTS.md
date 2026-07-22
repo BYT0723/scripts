@@ -27,11 +27,11 @@ rofi/scripts/quicklinks.sh  ──sources──► rofi/scripts/util.sh
 rofi/scripts/module.sh      ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/wallpaper.sh   ──sources──► rofi/scripts/util.sh
 rofi/scripts/notification.sh──sources──► rofi/scripts/util.sh
-rofi/scripts/setting.sh     ──sources──► rofi/scripts/util.sh
 rofi/scripts/sddm.sh       ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
-rofi/scripts/system-tools.sh──sources──► rofi/scripts/util.sh
+rofi/scripts/screenshot.sh  ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
+rofi/scripts/screencast.sh  ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/monitor.sh
+rofi/scripts/media-scraping.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/sing-box.sh    ──sources──► rofi/scripts/util.sh, utils/notify.sh
-rofi/scripts/media-scraping.sh──sources──► rofi/scripts/util.sh
 
 # 死代码 (未被任何脚本 source)
 utils/print.sh   — number2icon() 无人调用
@@ -87,16 +87,15 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 ### rofi/scripts/lib-module.sh
 | 函数 | 调用者 |
 |------|--------|
-| `module_parse()` | module.sh, sddm.sh (读取注册表) |
-| `module_loop()` | module.sh, sddm.sh (主循环, 唯一入口) |
+| `module_parse()` | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh (读取注册表) |
+| `module_loop()` | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh (主循环, 唯一入口) |
 | `module_sub_rofi()` | module.sh (handle_network, handle_bluetooth 的子菜单), sddm.sh (handle_set_theme, handle_set_config 的子菜单) |
 
 ### rofi/scripts/media-scraping.sh
 | 函数 | 调用者 |
 |------|--------|
-| `_toggle_icon()` | media-scraping.sh (模板生成 Toggle 开关图标) |
-| `_is_running()` | media-scraping.sh (Open 前检查容器状态) |
 | `_toggle()` | media-scraping.sh (启停 docker compose 服务) |
+| `_is_running()` | media-scraping.sh (Open 前检查容器状态, Toggle 图标状态检查) |
 
 ## 调用链 (Call Chain)
 
