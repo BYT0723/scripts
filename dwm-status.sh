@@ -60,7 +60,7 @@ panes() {
 }
 
 launch_daemon() {
-	local pids=()
+	pids=()
 	mkdir -p /tmp/dwm-status
 
 	update_cpu_daemon &
@@ -81,8 +81,14 @@ launch_daemon() {
 	# 保存当前进程 PID
 	echo $BASHPID >/tmp/dwm-status/status-daemon-pid
 
-	# 退出时杀掉所有子进程
-	trap 'kill "${pids[@]}" 2>/dev/null; rm -f /tmp/dwm-status/status-daemon-pid' EXIT
+	# 退出时杀掉所有子进程(含孙进程)
+	trap '
+		for p in "${pids[@]}"; do
+			pkill -P $p 2>/dev/null
+			kill $p 2>/dev/null
+		done
+		rm -f /tmp/dwm-status/status-daemon-pid
+	' EXIT
 
 	# Keep daemon running
 	wait
