@@ -125,8 +125,8 @@ element-text {
     background-color:            transparent;
     text-color:                  inherit;
     cursor:                      inherit;
-    vertical-align:              0.5;
-    horizontal-align:            0.5;
+    vertical-align:              0;
+    horizontal-align:            0.6;
 }
 
 element normal.normal,

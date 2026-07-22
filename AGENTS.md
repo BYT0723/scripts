@@ -31,6 +31,7 @@ rofi/scripts/sddm.sh       ──sources──► rofi/scripts/lib-module.sh, ro
 rofi/scripts/screenshot.sh  ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/screencast.sh  ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/monitor.sh
 rofi/scripts/media-scraping.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
+rofi/scripts/mpd.sh         ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/sing-box.sh    ──sources──► rofi/scripts/util.sh, utils/notify.sh
 
 # 死代码 (未被任何脚本 source)
@@ -71,13 +72,9 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 ### rofi/scripts/util.sh
 | 函数 | 调用者 |
 |------|--------|
-| `icon()` | module.sh, wallpaper.sh |
+| `icon()` | lib-module.sh, wallpaper.sh |
 | `toggleConf()` | wallpaper.sh |
 | `getConfig()` | wallpaper.sh |
-| `trim()` | quicklinks.sh |
-| `is_url()` | quicklinks.sh |
-| `get_default_browser_name()` | quicklinks.sh |
-| `log()` | (deprecated: kcptun-sync.sh, trojan-sync.sh) |
 
 ### rofi/scripts/module.sh
 | 函数 | 调用者 |

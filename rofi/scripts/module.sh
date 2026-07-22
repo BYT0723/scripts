@@ -32,7 +32,7 @@ picom|󰋩|Picom|Windows Composer|toggle
 conky|󰏘|Conky|System Monitor|toggle
 network|󰈀|Network||active:NetworkManager
 bluetooth|󰂯|Bluetooth||active-svc
-notification||Notification||
+notification||Notification||str:$($ROFI_DIR/scripts/notification.sh unread)
 sddm|󰍂|SDDM Setting||
 media-scraping|󰎁|Media Scraping||
 sing-box||SingBox||active

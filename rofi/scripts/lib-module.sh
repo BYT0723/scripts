@@ -36,16 +36,25 @@ _module_status() {
 	active-svc:*) icon active service "${expr#*:}" ;;
 	active-svc) icon active service "$key" ;;
 	cmd:*) eval "${expr#cmd:}" ;;
-	*/*) eval "$expr" ;;
+	str:*) echo "${expr#str:}" ;;
 	esac
 }
 
 _module_rofi() {
+	local extra=()
+	if [[ "${MODULE_SEARCH_BAR:-true}" == 'true' ]]; then
+		extra=(
+			-theme-str 'inputbar {children: [ "textbox-prompt-colon", "entry"];}'
+			-theme-str 'entry {padding:8px;background-color:inherit;text-color:inherit;}'
+		)
+	else
+		extra=(-theme-str 'inputbar {children: [ "textbox-prompt-colon"];}')
+	fi
 	rofi -theme-str "listview {columns: $_module_col; lines: $_module_row;}" \
 		-theme-str 'textbox-prompt-colon {str: "'"${MODULE_NAME}"'";}' \
 		-theme-str 'window {width: '$MODULE_WIDTH'px;}' \
-		-theme-str 'inputbar {children: [ "textbox-prompt-colon", "entry"];}' \
-		-theme-str 'entry {padding:8px;background-color:inherit;text-color:inherit;}' \
+		"${extra[@]}" \
+		${MODULE_ACTIVE:+-a "$MODULE_ACTIVE"} ${MODULE_URGENT:+-u "$MODULE_URGENT"} \
 		-dmenu -i -markup-rows \
 		-mesg "${MODULE_MESG:-}" \
 		-theme ${MODULE_THEME} \
