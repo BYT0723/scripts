@@ -7,14 +7,15 @@
 
 ```
 dwm-launcher.sh ──sources──► utils/monitor.sh
-dwm-status.sh ──sources──► dwm-status-tools.sh ──sources──► utils/weather.sh
+dwm-status.sh ──sources──► dwm-status-tools.sh ──sources──► dwm-status-print.sh
+                                                           utils/weather.sh
                                                            utils/notify.sh
 dwm-statuscmd.sh ──sources──► utils/notify.sh
 colorscheme.sh ──sources──► utils/notify.sh
 
 tools/lock.sh ──sources──► utils/notify.sh
               ◄──sourced by── rofi/powermenu/type-{1..6}/powermenu.sh
-tools/wallpaper.sh ──sources──► utils/monitor.sh, utils/notify.sh
+tools/wallpaper.sh ──sources──► utils/monitor.sh, utils/notify.sh, tools/wallpaper-lib.sh, tools/wallpaper-render.sh
 tools/screencast.sh ──sources──► utils/monitor.sh
 tools/brightness.sh ──sources──► utils/notify.sh
 tools/calendar.sh ──sources──► utils/notify.sh
