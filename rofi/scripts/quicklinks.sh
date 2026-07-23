@@ -5,7 +5,7 @@ ROFI_DIR="$(dirname "$(dirname "$0")")"
 type="$ROFI_DIR/launchers/type-1"
 style='style-5.rasi'
 theme="$type/$style"
-font="JetBrains Mono Nerd Font 16"
+font="JetBrains Mono Nerd Font 14"
 
 NEW_LINK=" New Link"
 CONFIG="$HOME/.config/dwm/quicklinks.json"
@@ -29,7 +29,7 @@ rofi_cmd() {
 		-theme-str 'textbox-prompt-colon {str: " ";}' \
 		-theme-str "* {font: \"$font\";}" \
 		-theme-str 'configuration {show-icons:false;}' \
-		-theme-str 'window {width: 600px;}' \
+		-theme-str 'window {width: 500px;}' \
 		-p "Quicklinks" \
 		-mesg "Using Default Browser Open Link" \
 		-markup-rows \
