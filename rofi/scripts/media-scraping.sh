@@ -52,8 +52,12 @@ _is_running() {
 }
 
 module_parse <<MODULES
-open-hub|󰎁|Open Hub||
-open-scraper|󰎁|Open Scraper||
+open-hub|󰎁|Hub (jellyfin)||
+open-index|󰎁|Index (prowlarr)||
+open-movie|󰎁|Movie (radarr)||
+open-tv|󰎁|TV (sonarr)||
+open-downloader|󰎁|Downloader (qbittorrent)||
+open-subtitle|󰎁|Subtitle (bazarr)||
 toggle-hub|󰙉|Toggle Hub||cmd:_is_running jellyfin metatube && echo " " || echo " "
 toggle-scraper|󰙉|Toggle Scraper||cmd:_is_running sonarr radarr prowlarr bazarr qbittorrent && echo " " || echo " "
 MODULES
@@ -61,6 +65,10 @@ MODULES
 handle_toggle_hub() { _toggle hub "${HUB[@]}"; }
 handle_toggle_scraper() { _toggle scraper "${SCRAPER[@]}"; }
 handle_open_hub() { _is_running "${HUB[@]}" && bash "$MEDIA_DIR/open.sh" "${HUB[@]}"; }
-handle_open_scraper() { _is_running "${SCRAPER[@]}" && bash "$MEDIA_DIR/open.sh" "${SCRAPER[@]}"; }
+handle_open_index()     { _is_running prowlarr    && bash "$MEDIA_DIR/open.sh" prowlarr; }
+handle_open_movie()     { _is_running radarr     && bash "$MEDIA_DIR/open.sh" radarr; }
+handle_open_tv()        { _is_running sonarr     && bash "$MEDIA_DIR/open.sh" sonarr; }
+handle_open_downloader(){ _is_running qbittorrent && bash "$MEDIA_DIR/open.sh" qbittorrent; }
+handle_open_subtitle()  { _is_running bazarr     && bash "$MEDIA_DIR/open.sh" bazarr; }
 
 module_loop
