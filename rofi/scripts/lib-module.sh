@@ -50,22 +50,31 @@ _module_rofi() {
 	else
 		extra=(-theme-str 'inputbar {children: [ "textbox-prompt-colon"];}')
 	fi
+	local mesg_safe="${MODULE_MESG:-}"
+	mesg_safe="${mesg_safe//&/&amp;}"
+	local font_str=()
+	[[ -n "${MODULE_FONT:-}" ]] && font_str=(-theme-str "* {font: \"${MODULE_FONT}\";}")
 	rofi -theme-str "listview {columns: $_module_col; lines: $_module_row;}" \
 		-theme-str 'textbox-prompt-colon {str: "'"${MODULE_NAME}"'";}' \
 		-theme-str 'window {width: '$MODULE_WIDTH'px;}' \
 		"${extra[@]}" \
+		"${font_str[@]}" \
 		${MODULE_ACTIVE:+-a "$MODULE_ACTIVE"} ${MODULE_URGENT:+-u "$MODULE_URGENT"} \
-		-dmenu -i -markup-rows \
-		-mesg "${MODULE_MESG:-}" \
+		-dmenu -i \
+		-mesg "${mesg_safe}" \
 		-theme ${MODULE_THEME} \
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }
 
 module_sub_rofi() {
 	local prompt="${1:-}" mesg="${2:-}"
+	mesg="${mesg//&/&amp;}"
+	local font_str=()
+	[[ -n "${MODULE_FONT:-}" ]] && font_str=(-theme-str "* {font: \"${MODULE_FONT}\";}")
 	rofi -theme-str "listview {columns: 1;}" \
 		-theme-str 'window {width: '$MODULE_WIDTH'px;}' \
-		-dmenu -i -markup-rows \
+		"${font_str[@]}" \
+		-dmenu -i \
 		-p "$prompt" -mesg "$mesg" \
 		-theme ${MODULE_THEME} \
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
