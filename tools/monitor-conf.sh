@@ -29,7 +29,7 @@ cmd=(xrandr)
 while read -r monitor; do
 	cmd+=(--output "$monitor")
 
-	if [[ $SINGLE_MONITOR_ENABLE > 0 ]] && [[ -n $SINGLE_MONITOR_NAME ]] && [[ "$name" != "$SINGLE_MONITOR_NAME" ]]; then
+	if (( SINGLE_MONITOR_ENABLE > 0 )) && [[ -n $SINGLE_MONITOR_NAME ]] && [[ "$name" != "$SINGLE_MONITOR_NAME" ]]; then
 		cmd+=(--off)
 	else
 		cmd+=(${MONITOR_MAP[$monitor]})

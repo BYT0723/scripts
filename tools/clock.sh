@@ -8,7 +8,7 @@
 
 LEVEL="critical"
 CATEGORY=""
-TAG="x-custom-clock-$(echo "$CATEGORY|$MESG" | md5sum | cut -d' ' -f1)"
+TAG=""
 
 while getopts "l:c:" opt; do
 	case $opt in
@@ -21,6 +21,7 @@ done
 shift $((OPTIND - 1))
 
 MESG=${1:-""}
+TAG="x-custom-clock-$(echo "$CATEGORY|$MESG" | md5sum | cut -d' ' -f1)"
 
 declare -A icons
 

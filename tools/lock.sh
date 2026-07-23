@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source "$(dirname $0)/../utils/notify.sh"
+source "$(dirname "$0")/../utils/notify.sh"
 
 [ -z "$(command -v i3lock)" ] && system-notify critical "Tool Not Found" "please install i3lock-color and archlinux-wallpaper for aur" && exit 1
 
@@ -30,7 +30,7 @@ cyan='#2aa198'
 green='#859900'
 
 wallpaperDir=/usr/share/backgrounds/archlinux/
-wallpaper=$(find $wallpaperDir -maxdepth 1 -type f -regextype posix-extended -regex ".*\.(jpg|png|jpeg)" | shuf -n 1)
+wallpaper=$(find "$wallpaperDir" -maxdepth 1 -type f -regextype posix-extended -regex ".*\.(jpg|png|jpeg)" | shuf -n 1)
 
 # PERF: use --image，keypress and keyrelease handle will be slow
 # or use https://github.com/BYT0723/i3lock-color (i3lock-color fork)

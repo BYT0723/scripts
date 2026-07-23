@@ -2,7 +2,7 @@
 
 msgTag="volume"
 
-source "$(dirname $0)/../utils/notify.sh"
+source "$(dirname "$0")/../utils/notify.sh"
 
 [ -z "$(command -v amixer)" ] && system-notify critical "Tool Not Found" "please install amixer" && exit
 

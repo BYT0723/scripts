@@ -72,7 +72,7 @@ case "$1" in
 	;;
 "set_theme")
 	shift
-	set_theme $@
+	set_theme "$@"
 	;;
 "list_theme")
 	shift
@@ -80,7 +80,7 @@ case "$1" in
 	;;
 "set_cfg")
 	shift
-	set_cfg $@
+	set_cfg "$@"
 	;;
 "cur_cfg_path")
 	cur_cfg_path

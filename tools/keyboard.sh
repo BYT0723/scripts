@@ -9,7 +9,7 @@
 # 	fi
 # fi
 
-source "$(dirname $0)/../utils/notify.sh"
+source "$(dirname "$0")/../utils/notify.sh"
 
 [ -z "$(command -v setxkbmap)" ] && system-notify critical "Tool Not Found" "setxkbmap not be found, please install xorg-setxkbmap" && exit
 [ -z "$(command -v xset)" ] && system-notify critical "Tool Not Found" "xset not be found, please install xorg-xset" && exit

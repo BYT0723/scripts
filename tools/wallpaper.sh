@@ -2,7 +2,7 @@
 
 WORK_DIR=$(dirname "$(dirname "$0")")
 
-source $WORK_DIR/utils/monitor.sh
+source "$WORK_DIR/utils/monitor.sh"
 source "$WORK_DIR/utils/notify.sh"
 
 #

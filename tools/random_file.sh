@@ -9,7 +9,7 @@ random() {
 
 	[[ "$dir" != /* ]] && dir=$(realpath "$dir")
 
-	cd $dir
+	cd "$dir"
 	mpv \
 		--really-quiet \
 		--playlist=<(
@@ -26,12 +26,12 @@ recency_random() {
 	local len=${2:-10}
 	local recent_day=${3:-90}
 
-	[ -z "$dir" ] && echo "Usage: $(basename $0) <dir> [len]" && exit 1
+	[ -z "$dir" ] && echo "Usage: $(basename "$0") <dir> [len]" && exit 1
 	[ ! -d "$dir" ] && echo "$dir is not a directory" && exit 1
 
 	[[ "$dir" != /* ]] && dir=$(realpath "$dir")
 
-	cd $dir
+	cd "$dir"
 
 	# 衰减时间常数（秒）
 	# 7天 = 偏向最近内容
@@ -85,9 +85,9 @@ recency_random() {
 case "$1" in
 "recent")
 	shift
-	recency_random $@
+	recency_random "$@"
 	;;
 *)
-	random $@
+	random "$@"
 	;;
 esac

@@ -6,7 +6,7 @@ dpms_sleep_time=900    # dpms待机时间 15分钟
 dpms_suspend_time=1200 # dpms挂起时间 20分钟
 dpms_off_time=1800     # dpms关机时间 30分钟
 # 获取文件的当前哈希值
-current_hash=$(md5sum $0 | awk '{print $1}')
+current_hash=$(md5sum "$0" | awk '{print $1}')
 # 检查间隔
 duration=300 # 检查间隔 5分钟
 
@@ -84,7 +84,7 @@ daemon() {
 		fi
 
 		# 如果文件内容发生变化, 则重新加载
-		if [[ "$(md5sum $0 | awk '{print $1}')" != "$current_hash" ]]; then
+		if [[ "$(md5sum "$0" | awk '{print $1}')" != "$current_hash" ]]; then
 			/bin/bash $0 &
 			exit 0
 		fi
