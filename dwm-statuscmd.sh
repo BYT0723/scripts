@@ -82,9 +82,9 @@ cpuHandler() {
 	1) ;;
 	2) ;;
 	3)
-		[ ! -z "$(command -v htop)" ] && eval "$terminal -e htop" && return
-		[ ! -z "$(command -v btop)" ] && eval "$terminal -e btop" && return
-		[ ! -z "$(command -v top)" ] && eval "$terminal -e top" && return
+		[ ! -z "$(command -v htop)" ] && "$terminal" -e htop && return
+		[ ! -z "$(command -v btop)" ] && "$terminal" -e btop && return
+		[ ! -z "$(command -v top)" ] && "$terminal" -e top && return
 		system-notify normal "Tool Not Found" "please install one of btop,htop,top"
 		;;
 	esac
@@ -96,7 +96,7 @@ netSpeedHandler() {
 	1) ;;
 	2) ;;
 	3)
-		[ ! -z "$(command -v speedtest)" ] && eval "$terminal -e speedtest" && return
+		[ ! -z "$(command -v speedtest)" ] && "$terminal" -e speedtest && return
 		system-notify normal "Tool Not Found" "please install speedtest-cli"
 		;;
 	esac
@@ -112,7 +112,7 @@ mpdHandler() {
 		mpd --kill
 		;;
 	3)
-		[ ! -z "$(command -v rmpc)" ] && eval "$float_terminal -e rmpc" && return
+		[ ! -z "$(command -v rmpc)" ] && "$float_terminal" -e rmpc && return
 		system-notify normal "Tool Not Found" "please install rmpc"
 		;;
 	esac
@@ -141,7 +141,7 @@ volumeHandler() {
 		;;
 	2) ;;
 	3)
-		[ ! -z "$(command -v ncpamixer)" ] && eval "$float_terminal -e ncpamixer" && return
+		[ ! -z "$(command -v ncpamixer)" ] && "$float_terminal" -e ncpamixer && return
 		system-notify normal "Tool Not Found" "please install ncpamixer"
 		;;
 	4)
@@ -163,7 +163,7 @@ mailHandler() {
 	2) ;;
 	3)
 		if [ ! -z "$(command -v aerc)" ]; then
-			eval "$terminal -e aerc"
+			"$terminal" -e aerc
 			[ -z "$(pgrep -f "bash $TOOLS_DIR/mail.sh")" ] && bash $TOOLS_DIR/mail.sh &
 			return
 		fi
@@ -181,7 +181,7 @@ rssHandler() {
 		;;
 	2) ;;
 	3)
-		[ ! -z "$(command -v newsboat)" ] && eval "$terminal -e newsboat" && return
+		[ ! -z "$(command -v newsboat)" ] && "$terminal" -e newsboat && return
 		system-notify normal "Tool Not Found" "please install newsboat"
 		;;
 	esac
@@ -215,42 +215,42 @@ shift
 
 case "$cmdIndex" in
 1)
-	dateHandler $@
+	dateHandler "$@"
 	;;
 2)
-	batteryHandler $@
+	batteryHandler "$@"
 	;;
 3)
-	volumeHandler $@
+	volumeHandler "$@"
 	;;
 6)
-	diskHandler $@
+	diskHandler "$@"
 	;;
 7)
-	memoryHandler $@
+	memoryHandler "$@"
 	;;
 8)
-	cpuHandler $@
+	cpuHandler "$@"
 	;;
 11)
-	netSpeedHandler $@
+	netSpeedHandler "$@"
 	;;
 10)
-	mpdHandler $@
+	mpdHandler "$@"
 	;;
 9)
-	weatherHandler $@
+	weatherHandler "$@"
 	;;
 12)
-	mailHandler $@
+	mailHandler "$@"
 	;;
 13)
-	rssHandler $@
+	rssHandler "$@"
 	;;
 14)
-	singboxHandler $@
+	singboxHandler "$@"
 	;;
 15)
-	notificationHandler $@
+	notificationHandler "$@"
 	;;
 esac

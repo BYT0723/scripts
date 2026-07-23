@@ -1,6 +1,6 @@
 #!/usr/bin/env /bin/bash
 
-source "$(dirname $0)/dwm-status-tools.sh"
+source "$(dirname "$0")/dwm-status-tools.sh"
 
 DWM_STATUS_LEFT_RADIUS="^(^"
 DWM_STATUS_RIGHT_RADIUS="^)^"
@@ -116,7 +116,7 @@ reboot_daemon() {
 	if [ -f "$pid_file" ]; then
 		local pid=$(cat "$pid_file")
 		kill $pid 2>/dev/null
-		waitpid $pid 2>/dev/null
+		wait $pid 2>/dev/null
 	fi
 
 	launch_daemon &
@@ -127,7 +127,7 @@ reboot_refresh() {
 	if [ -f "$pid_file" ]; then
 		local pid=$(cat "$pid_file")
 		kill $pid 2>/dev/null
-		waitpid $pid 2>/dev/null
+		wait $pid 2>/dev/null
 	fi
 
 	launch_refresh &

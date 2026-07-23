@@ -16,7 +16,7 @@ CONKY_AUTOSTART=1
 launch() {
 	local policy=${1:-"check"} name=$2
 	shift 2
-	local cmd=$@
+	local cmd="$*"
 	local pf="/tmp/dwm-status/autostart-launch-$name.pid"
 	local pid
 

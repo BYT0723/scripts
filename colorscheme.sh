@@ -1,6 +1,6 @@
 #!/bin/bash
 
-WORK_DIR=$(dirname $0)
+WORK_DIR=$(dirname "$0")
 
 COLORSCHEME_CONF="$HOME/.config/dwm/colorscheme.json"
 
@@ -9,7 +9,7 @@ get_theme_config() {
 	jq -r ".[\"$mode\"][\"$key\"] // empty" "$COLORSCHEME_CONF"
 }
 
-source "$(dirname $0)/utils/notify.sh"
+source "$(dirname "$0")/utils/notify.sh"
 
 get_current_theme() {
 	xrdb -query | awk -F': *\t*' '$1=="dwm.col_theme" {print $2}'

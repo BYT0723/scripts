@@ -1,6 +1,6 @@
 #!/bin/bash
 
-WORK_DIR=$(dirname $0)
+WORK_DIR=$(dirname "$0")
 source "$WORK_DIR/utils/weather.sh"
 source "$WORK_DIR/utils/notify.sh"
 
@@ -467,12 +467,17 @@ update_weather_forecast() {
 # 不支持163邮箱，因为伞兵网易做了不信任客户端校验
 update_mail() {
 	local count=0
+	local tmpfile
+	tmpfile=$(mktemp) || return
 
-	while read -r server user pass; do
-		ws=$(curl -s --user "$user:$pass" "imaps://$server/INBOX;MAILINDEX=1" -X 'SEARCH UNSEEN' | wc -w)
+	jq -r '.[] | select(.disabled!=true) | "machine \(.server) login \(.user) password \(.pass)"' "$mail_account_config" >"$tmpfile"
+
+	while read -r server; do
+		ws=$(curl -s --netrc-file "$tmpfile" "imaps://$server/INBOX;MAILINDEX=1" -X 'SEARCH UNSEEN' | wc -w)
 		((ws > 2)) && ((count += ws - 2))
-	done < <(jq -r '.[] | select(.disabled!=true) | "\(.server) \(.user) \(.pass)"' "$mail_account_config")
+	done < <(jq -r '.[] | select(.disabled!=true) | .server' "$mail_account_config")
 
+	rm -f "$tmpfile"
 	echo "$count" >"$mail_unread_path"
 }
 

@@ -57,7 +57,7 @@ emoji() {
 }
 
 toggle_conky() {
-	[ ! -z "$(pgrep conky)" ] && pkill conky && return
+	[ ! -z "$(pgrep -x conky)" ] && pkill conky && return
 	conky -U -d
 }
 
@@ -66,7 +66,7 @@ wallpaper() {
 }
 
 case "$1" in
-"term") term $2 ;;
+"term") term "$2" ;;
 "apps") apps ;;
 "powermenu") powermenu ;;
 "modules") modules ;;
