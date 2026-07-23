@@ -13,9 +13,13 @@ source "$(dirname "$0")"/util.sh
 source "$(dirname "$0")"/lib-module.sh
 
 SCRCPY_FLAGS=" \
---turn-screen-off \
---max-size=1920 \
+--video-codec=h265 \
+--video-bit-rate=8M \
+--max-size=1600 \
+--max-fps=60 \
 --keyboard=uhid \
+--turn-screen-off \
+--power-off-on-close \
 "
 
 _sanitize_key() {
@@ -56,7 +60,7 @@ _is_device_connected() {
 _connect() {
 	local serial="$1"
 	nohup scrcpy ${SCRCPY_FLAGS} -s "$serial" >/dev/null 2>&1 &
-	echo $! > "$(_device_pid_file "$serial")"
+	echo $! >"$(_device_pid_file "$serial")"
 }
 
 _disconnect() {
