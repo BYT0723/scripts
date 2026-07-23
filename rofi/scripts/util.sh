@@ -68,13 +68,5 @@ toggleConf() {
 }
 
 getConfig() {
-	if [ "$1" = "wallpaper" ]; then
-		local key="$2" monitor="$3" conf="$HOME/.config/dwm/wallpaper.json"
-		local val=""
-		[ "$monitor" != "ALL" ] && [ -n "$monitor" ] && val=$(jq -r ".monitors[\"$monitor\"].\"$key\" // empty" "$conf" 2>/dev/null)
-		[ -n "$val" ] && echo "$val" && return
-		jq -r ".defaults.\"$key\" // empty" "$conf" 2>/dev/null
-		return
-	fi
 	grep -E "^$2\s*=" "${confPath[$1]}" | tail -1 | awk -F '=' '{print $2}' | grep -o "[^ ]\+\( \+[^ ]\+\)*"
 }
