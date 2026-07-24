@@ -1,15 +1,27 @@
 #!/bin/bash
 
 WORK_DIR=$(dirname "$0")
-
 COLORSCHEME_CONF="$HOME/.config/dwm/colorscheme.json"
+
+source "$(dirname "$0")/utils/notify.sh"
+
+# ---------- helpers ----------
 
 get_theme_config() {
 	local mode="$1" key="$2"
 	jq -r ".[\"$mode\"][\"$key\"] // empty" "$COLORSCHEME_CONF"
 }
 
-source "$(dirname "$0")/utils/notify.sh"
+_ensure_config_line() {
+	local file="$1" search="$2" replacement="$3"
+	if grep -q "$search" "$file" 2>/dev/null; then
+		sed -i "s|$search|$replacement|" "$file"
+	else
+		echo "$replacement" >>"$file"
+	fi
+}
+
+# ---------- queries ----------
 
 get_current_theme() {
 	xrdb -query | awk -F': *\t*' '$1=="dwm.col_theme" {print $2}'
@@ -32,28 +44,27 @@ get_bg_fg_colors() {
 }
 
 select_theme() {
-	echo -e "dark\nlight" | bash $WORK_DIR/rofi/scripts/common_list.sh \
+	printf 'dark\nlight\n' | bash $WORK_DIR/rofi/scripts/common_list.sh \
 		-w 800 \
 		-F "JetBrains Mono Nerd Font 16" \
 		"Colorscheme" "Select a mode | Current: $(get_current_theme)"
 }
 
+# ---------- setters ----------
+
 set_dwm_theme() {
-	local file="$HOME/.Xresources"
-	local key="dwm.col_theme"
+	local mode="$1"
 	[ -z "$mode" ] && return
 
-	if grep -q "^$key:" "$file"; then
-		# 替换已有
-		sed -i "s/^$key:.*/$key: $mode/" "$file"
-	else
-		# 不存在就追加
-		echo "$key: $mode" >>"$file"
-	fi
+	local file="$HOME/.Xresources"
+	local key="dwm.col_theme"
+	_ensure_config_line "$file" "^$key:.*" "$key: $mode"
 }
 
 set_rofi_theme() {
+	local mode="$1"
 	[ -z "$mode" ] && return
+
 	local theme
 	theme=$(get_theme_config "$mode" "rofi") || return
 	[ -z "$theme" ] && return
@@ -70,7 +81,9 @@ set_rofi_theme() {
 }
 
 set_fcitx5_theme() {
+	local mode="$1"
 	[ -z "$mode" ] && return
+
 	local theme
 	theme=$(get_theme_config "$mode" "fcitx5") || return
 	[ -z "$theme" ] && return
@@ -81,26 +94,27 @@ set_fcitx5_theme() {
 	fi
 
 	local file="$HOME/.config/fcitx5/conf/classicui.conf"
-
 	[ -f "$file" ] || return
 
-	if grep -q '^Theme=' "$file"; then
-		sed -i "s/^Theme=.*/Theme=$theme/" "$file"
-	else
-		echo "Theme=$theme" >>"$file"
-	fi
+	_ensure_config_line "$file" "^Theme=.*" "Theme=$theme"
 
 	fcitx5 -r &
-	# refresh pid file for autostart.sh launch check
-	sleep 0.3
 	local new_pid
-	new_pid=$(pgrep -n fcitx5 2>/dev/null)
-	[ -n "$new_pid" ] && echo "$new_pid" >"/tmp/dwm-status/autostart-launch-fcitx5.pid"
+	for i in {1..10}; do
+		sleep 0.1
+		new_pid=$(pgrep -n fcitx5 2>/dev/null) && break
+	done
+	if [ -n "$new_pid" ]; then
+		mkdir -p "/tmp/dwm-status" &&
+			echo "$new_pid" >"/tmp/dwm-status/autostart-launch-fcitx5.pid"
+	fi
 }
 
 set_kitty_theme() {
+	local mode="$1"
 	[ -z "$(command -v kitten)" ] && return
 	[ -z "$mode" ] && return
+
 	local theme
 	theme=$(get_theme_config "$mode" "kitty") || return
 	[ -z "$theme" ] && return
@@ -109,6 +123,7 @@ set_kitty_theme() {
 }
 
 set_qt_theme() {
+	local mode="$1"
 	[ -z "$mode" ] && return
 	[ -z "$(command -v kvantummanager)" ] && return
 
@@ -122,7 +137,6 @@ set_qt_theme() {
 	icon_theme=$(get_theme_config "$mode" "icon") || true
 
 	local cfg_file="$HOME/.config/qt6ct/qt6ct.conf"
-
 	mkdir -p "$(dirname "$cfg_file")"
 
 	if [ -f "$cfg_file" ]; then
@@ -157,27 +171,39 @@ set_qt_theme() {
 }
 
 set_dunst_theme() {
+	local mode="$1"
+	[ -z "$mode" ] && return
+
 	local cfg="$HOME/.config/dunst/dunstrc"
 
 	read bg fg < <(get_bg_fg_colors)
+	[ -z "$bg" ] && return
 
-	grep -q 'background' "$cfg" &&
-		sed -i "s/^\([[:space:]]*\)background[[:space:]]*=.*/\1background = \"$bg\"/" "$cfg" ||
+	if grep -q 'background' "$cfg"; then
+		sed -i "s/^\([[:space:]]*\)background[[:space:]]*=.*/\1background = \"$bg\"/" "$cfg"
+	else
 		echo "background = \"$bg\"" >>"$cfg"
+	fi
 
-	grep -q 'foreground' "$cfg" &&
-		sed -i "s/^\([[:space:]]*\)foreground[[:space:]]*=.*/\1foreground = \"$fg\"/" "$cfg" ||
+	if grep -q 'foreground' "$cfg"; then
+		sed -i "s/^\([[:space:]]*\)foreground[[:space:]]*=.*/\1foreground = \"$fg\"/" "$cfg"
+	else
 		echo "foreground = \"$fg\"" >>"$cfg"
+	fi
 
-	grep -q 'frame_color' "$cfg" &&
-		sed -i "s/^\([[:space:]]*\)frame_color[[:space:]]*=.*/\1frame_color = \"$fg\"/" "$cfg" ||
+	if grep -q 'frame_color' "$cfg"; then
+		sed -i "s/^\([[:space:]]*\)frame_color[[:space:]]*=.*/\1frame_color = \"$fg\"/" "$cfg"
+	else
 		echo "frame_color = \"$fg\"" >>"$cfg"
+	fi
 
 	dunstctl reload 2>/dev/null || killall -SIGUSR1 dunst
 }
 
 set_gtk_theme() {
+	local mode="$1"
 	[ -z "$mode" ] && return
+
 	local theme icon_theme
 	theme=$(get_theme_config "$mode" "gtk") || return
 	icon_theme=$(get_theme_config "$mode" "icon") || return
@@ -187,40 +213,18 @@ set_gtk_theme() {
 	local gtk3_cfg="$HOME/.config/gtk-3.0/settings.ini"
 	local gtk4_cfg="$HOME/.config/gtk-4.0/settings.ini"
 
-	# ---------- GTK2 ----------
 	if [ -f "$gtk2_cfg" ]; then
-		if grep -q '^gtk-theme-name=' "$gtk2_cfg"; then
-			sed -i 's/^gtk-theme-name=.*/gtk-theme-name="'"$theme"'"/' "$gtk2_cfg"
-		else
-			echo 'gtk-theme-name="'"$theme"'"' >>"$gtk2_cfg"
-		fi
-
-		if grep -q '^gtk-icon-theme-name=' "$gtk2_cfg"; then
-			sed -i 's/^gtk-icon-theme-name=.*/gtk-icon-theme-name="'"$icon_theme"'"/' "$gtk2_cfg"
-		else
-			echo 'gtk-icon-theme-name="'"$icon_theme"'"' >>"$gtk2_cfg"
-		fi
+		_ensure_config_line "$gtk2_cfg" '^gtk-theme-name=.*' 'gtk-theme-name="'"$theme"'"'
+		_ensure_config_line "$gtk2_cfg" '^gtk-icon-theme-name=.*' 'gtk-icon-theme-name="'"$icon_theme"'"'
 	else
 		echo 'gtk-theme-name="'"$theme"'"' >"$gtk2_cfg"
 		echo 'gtk-icon-theme-name="'"$icon_theme"'"' >>"$gtk2_cfg"
 	fi
 
-	# ---------- GTK3 / GTK4 ----------
 	for conf in "$gtk3_cfg" "$gtk4_cfg"; do
-		mkdir -p "$(dirname "$conf")"
-
 		if [ -f "$conf" ] && grep -q '^\[Settings\]' "$conf" 2>/dev/null; then
-			if grep -q '^gtk-theme-name=' "$conf"; then
-				sed -i 's/^gtk-theme-name=.*/gtk-theme-name='"$theme"'/' "$conf"
-			else
-				sed -i '/^\[Settings\]/a gtk-theme-name='"$theme" "$conf"
-			fi
-
-			if grep -q '^gtk-icon-theme-name=' "$conf"; then
-				sed -i 's/^gtk-icon-theme-name=.*/gtk-icon-theme-name='"$icon_theme"'/' "$conf"
-			else
-				sed -i '/^\[Settings\]/a gtk-icon-theme-name='"$icon_theme" "$conf"
-			fi
+			_ensure_config_line "$conf" '^gtk-theme-name=.*' "gtk-theme-name=$theme"
+			_ensure_config_line "$conf" '^gtk-icon-theme-name=.*' "gtk-icon-theme-name=$icon_theme"
 		else
 			mkdir -p "$(dirname "$conf")"
 			{
@@ -257,23 +261,22 @@ check)
 	;;
 before)
 	mode=$(select_theme)
-	cur=$(get_current_theme)
+	[ -z "$mode" ] && exit
 
+	cur=$(get_current_theme)
 	[ -z "$cur" ] && exit
 	[[ "$mode" == "$cur" ]] && exit
 
-	set_dwm_theme
-	set_rofi_theme
-	set_kitty_theme &
-	set_qt_theme
-	set_gtk_theme
-	set_fcitx5_theme
+	set_dwm_theme "$mode"
+	set_rofi_theme "$mode"
+	set_kitty_theme "$mode" &
+	set_qt_theme "$mode"
+	set_gtk_theme "$mode"
+	set_fcitx5_theme "$mode"
 
-	# reload xrdb
-	[ -f $HOME/.Xresources ] && xrdb -merge $HOME/.Xresources
+	[ -f "$HOME/.Xresources" ] && xrdb -merge "$HOME/.Xresources"
 
-	# after reload (xrdb has been updated)
-	set_dunst_theme
+	set_dunst_theme "$mode"
 	;;
 after)
 	/bin/bash $WORK_DIR/dwm-status.sh reboot-refresh
