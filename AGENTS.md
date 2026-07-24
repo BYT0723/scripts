@@ -26,7 +26,7 @@ tools/youtube/yt.sh ──sources──► tools/youtube/opus-webm.sh
 
 rofi/scripts/quicklinks.sh  ──sources──► rofi/scripts/util.sh
 rofi/scripts/module.sh      ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
-rofi/scripts/wallpaper.sh   ──sources──► rofi/scripts/util.sh, tools/wallpaper-lib.sh
+rofi/scripts/wallpaper.sh   ──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh, tools/wallpaper-lib.sh
 rofi/scripts/notification.sh──sources──► rofi/scripts/util.sh
 rofi/scripts/sddm.sh       ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/screenshot.sh  ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
@@ -87,8 +87,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | 函数 | 调用者 |
 |------|--------|
 | `module_parse()` | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh (读取注册表) |
-| `module_loop()` | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, scrcpy.sh (主循环, 唯一入口) |
-| `module_sub_rofi()` | module.sh (handle_network, handle_bluetooth 的子菜单), sddm.sh (handle_set_theme, handle_set_config 的子菜单), scrcpy.sh (handle_select_device 的子菜单) |
+| `module_loop()` | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, scrcpy.sh, wallpaper.sh (主循环, 唯一入口) |
+| `module_sub_rofi()` | module.sh (handle_network, handle_bluetooth 的子菜单), sddm.sh (handle_set_theme, handle_set_config 的子菜单), scrcpy.sh (handle_select_device 的子菜单), wallpaper.sh (monitor_selection 的子菜单) |
 
 ### rofi/scripts/media-scraping.sh
 | 函数 | 调用者 |
