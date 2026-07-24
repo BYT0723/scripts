@@ -116,7 +116,7 @@ reboot_daemon() {
 	if [ -f "$pid_file" ]; then
 		local pid=$(cat "$pid_file")
 		kill $pid 2>/dev/null
-		wait $pid 2>/dev/null
+		waitpid $pid
 	fi
 
 	launch_daemon &
@@ -127,7 +127,7 @@ reboot_refresh() {
 	if [ -f "$pid_file" ]; then
 		local pid=$(cat "$pid_file")
 		kill $pid 2>/dev/null
-		wait $pid 2>/dev/null
+		waitpid $pid
 	fi
 
 	launch_refresh &

@@ -15,7 +15,7 @@ _module_menu_build() {
 		local status=$(_module_status "$key" "${MODULE_STATUS[$key]}")
 
 		if [[ "$layout" == 'NO' ]]; then
-			MAIN_OPTS+=("$(printf "%-30s %s" "${icon} ${label}" "$status")")
+			MAIN_OPTS+=("$(printf "%-38s %s" "${icon} ${label}" "$status")")
 		else
 			MAIN_OPTS+=("$icon $status")
 		fi

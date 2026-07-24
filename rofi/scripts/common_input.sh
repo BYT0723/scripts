@@ -2,9 +2,8 @@
 
 ROFI_DIR="$(dirname "$(dirname "$0")")"
 
-width=400
+width=500
 theme_str="2-2"
-font="JetBrains Mono Nerd Font 16"
 
 while getopts "w:f:d:" opt; do
 	case $opt in
@@ -28,7 +27,7 @@ theme="$ROFI_DIR/applets/type-$(echo $theme_str | cut -d'-' -f1)/style-$(echo $t
 rofi_cmd() {
 	rofi \
 		-theme-str 'window {width: '$width'px;}' \
-		-theme-str "* {font: \"$font\";}" \
+		${font:+-theme-str "* {font: \"$font\";}"} \
 		-theme-str 'mainbox { children: ["message", "inputbar"];}' \
 		-theme-str 'inputbar {children: [ "prompt", "entry"];}' \
 		-theme-str 'entry {padding:10px;background-color:inherit;text-color:inherit;placeholder: "'$default'";}' \

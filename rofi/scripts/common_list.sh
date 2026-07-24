@@ -3,9 +3,7 @@
 ROFI_DIR="$(dirname "$(dirname "$0")")"
 
 theme_str="2-2"
-font="JetBrains Mono Nerd Font 16"
-width=600
-element_font="JetBrains Mono Nerd Font 20"
+width=500
 
 while getopts "t:f:F:w:m" opt; do
 	case $opt in
@@ -35,8 +33,8 @@ rofi_cmd() {
 
 	rofi -theme-str 'textbox-prompt-colon {str: " ";}' \
 		-theme-str 'window {width: '$width'px;}' \
-		-theme-str "* {font: \"$font\";}" \
-		-theme-str "element-text {font: \"$element_font\";}" \
+		${font:+-theme-str "* {font: \"$font\";}"} \
+		${element_font:+-theme-str "element-text {font: \"$element_font\";}"} \
 		-dmenu \
 		-p "$prompt" \
 		-mesg "$mesg" \

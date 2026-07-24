@@ -43,12 +43,6 @@ get_bg_fg_colors() {
   '
 }
 
-select_theme() {
-	printf 'dark\nlight\n' | bash $WORK_DIR/rofi/scripts/common_list.sh \
-		-w 800 \
-		-F "JetBrains Mono Nerd Font 16" \
-		"Colorscheme" "Select a mode | Current: $(get_current_theme)"
-}
 
 # ---------- setters ----------
 
@@ -260,12 +254,14 @@ check)
 	fi
 	;;
 before)
-	mode=$(select_theme)
-	[ -z "$mode" ] && exit
-
 	cur=$(get_current_theme)
 	[ -z "$cur" ] && exit
-	[[ "$mode" == "$cur" ]] && exit
+
+	case "$cur" in
+		dark) mode="light" ;;
+		light) mode="dark" ;;
+		*) exit ;;
+	esac
 
 	set_dwm_theme "$mode"
 	set_rofi_theme "$mode"
