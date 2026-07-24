@@ -33,7 +33,7 @@ rofi/scripts/screenshot.sh  ──sources──► rofi/scripts/lib-module.sh, r
 rofi/scripts/screencast.sh  ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/monitor.sh
 rofi/scripts/media-scraping.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/mpd.sh         ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
-rofi/scripts/sing-box.sh    ──sources──► rofi/scripts/util.sh, utils/notify.sh
+rofi/scripts/sing-box.sh    ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh
 rofi/scripts/scrcpy.sh    ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 
 # 死代码 (未被任何脚本 source)
@@ -88,7 +88,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 |------|--------|
 | `module_parse()` | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh (读取注册表) |
 | `module_loop()` | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, scrcpy.sh, wallpaper.sh (主循环, 唯一入口) |
-| `module_sub_rofi()` | module.sh (handle_network, handle_bluetooth 的子菜单), sddm.sh (handle_set_theme, handle_set_config 的子菜单), scrcpy.sh (handle_select_device 的子菜单), wallpaper.sh (monitor_selection 的子菜单) |
+| `module_sub_rofi()` | module.sh (handle_network, handle_bluetooth 的子菜单), sddm.sh (handle_set_theme, handle_set_config 的子菜单), scrcpy.sh (handle_select_device 的子菜单), wallpaper.sh (monitor_selection 的子菜单), sing-box.sh (主菜单) |
 
 ### rofi/scripts/media-scraping.sh
 | 函数 | 调用者 |

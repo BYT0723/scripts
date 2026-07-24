@@ -5,26 +5,17 @@
 ROFI_DIR="$(dirname "$(dirname "$0")")"
 WORK_DIR="$(dirname "$ROFI_DIR")"
 
-# Import Current Theme
-
-API=${1:-"http://127.0.0.1:9090"}
-SECRET=$2 # 如果有 secret 填这里
-width=720
-font="JetBrains Mono Nerd Font 16"
-theme="$ROFI_DIR/applets/type-1/style-2.rasi"
+MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
+MODULE_WIDTH=600
 
 source "$(dirname "$0")"/util.sh
+source "$(dirname "$0")"/lib-module.sh
 source "$WORK_DIR/utils/notify.sh"
 
-[ -z "$(pgrep sing-box)" ] && system-notify critical "Module" "Sing-Box is not running!" && exit
+API=${1:-"http://127.0.0.1:9090"}
+SECRET=$2
 
-if [[ ("$theme" == *'type-1'*) || ("$theme" == *'type-3'*) || ("$theme" == *'type-5'*) ]]; then
-	list_col='1'
-	list_row='6'
-elif [[ ("$theme" == *'type-2'*) || ("$theme" == *'type-4'*) ]]; then
-	list_col='6'
-	list_row='1'
-fi
+[ -z "$(pgrep sing-box)" ] && system-notify critical "Module" "Sing-Box is not running!" && exit
 
 # -----------------------------
 # Clash API
@@ -106,59 +97,15 @@ switch_node() {
 		"$API/proxies/$group" >/dev/null
 }
 
-# Rofi CMD
-rofi_cmd() {
-	rofi -theme-str "listview {columns: $list_col; lines: $list_row;}" \
-		-theme-str 'textbox-prompt-colon {str: " ";}' \
-		-theme-str 'window {width: '$width';}' \
-		-theme-str "* {font: \"$font\";}" \
-		-dmenu \
-		-p "$prompt" \
-		-mesg "$mesg" \
-		-markup-rows \
-		-theme "$theme" \
-		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
-}
+# Group select
+chosen=$(get_selectors | module_sub_rofi " Proxies" "Selector Proxies")
+[[ -z "$chosen" ]] && exit 0
+read -r group __ <<<"$chosen"
 
-run_rofi() {
-	case "$1" in
-	--group)
-		prompt="Sing-Box Proxies"
-		mesg="Selector Proxies"
-		get_selectors | rofi_cmd
-		;;
-	--node)
-		group="$2"
-		prompt="$group"
-		current=$(get_now "$group")
-		mesg="current: $current"
-		sleep 0.1
-		get_options "$group" "$current" | rofi_cmd
-		;;
-	*)
-		return
-		;;
-	esac
-}
-
-# Execute Command
-run_cmd() {
-	case "$1" in
-	--group)
-		chosen="$(run_rofi --group)"
-		[[ -z "$chosen" ]] && return
-		read -r group now <<<"$chosen"
-		run_cmd --node "$group"
-		;;
-	--node)
-		group="$2"
-		chosen="$(run_rofi --node "$group")"
-		[[ -z "$chosen" ]] && return
-		node=$(echo "$chosen" | sed 's/^✓ //;s/^  //' | awk '{print $1}')
-		[[ -z "$node" ]] && return
-		switch_node "$group" "$node"
-		;;
-	esac
-}
-
-run_cmd --group
+# Node select
+current=$(get_now "$group")
+sleep 0.1
+chosen=$(get_options "$group" "$current" | module_sub_rofi " $group" "current: $current")
+[[ -z "$chosen" ]] && exit 0
+node=$(echo "$chosen" | sed 's/^✓ //;s/^  //' | awk '{print $1}')
+[[ -n "$node" ]] && switch_node "$group" "$node"
