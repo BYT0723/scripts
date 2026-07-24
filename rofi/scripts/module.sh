@@ -32,7 +32,7 @@ picom|󰋩|Picom|Windows Composer|toggle
 conky|󰏘|Conky|System Monitor|toggle
 network|󰈀|Network||active:NetworkManager
 bluetooth|󰂯|Bluetooth||active-svc
-notification||Notification||str:$($ROFI_DIR/scripts/notification.sh unread)
+notification||Notification||cmd:$ROFI_DIR/scripts/notification.sh unread
 sddm|󰍂|SDDM Setting||
 media-scraping|󰎁|Media Scraping||
 sing-box||SingBox||active
@@ -67,7 +67,7 @@ handle_bluetooth() {
 	bluetoothctl disconnect $(bluetoothctl devices Connected | grep "$chosen" | awk '{print $2}')
 }
 
-handle_notification() { $ROFI_DIR/scripts/notification.sh; }
+handle_notification() { /bin/bash $ROFI_DIR/scripts/notification.sh; }
 handle_sing_box() { /bin/bash $ROFI_DIR/scripts/sing-box.sh; }
 handle_calendar() { /bin/bash $WORK_DIR/tools/calendar.sh; }
 handle_calendar_lunar() { /bin/bash $WORK_DIR/tools/calendar.sh lunar; }

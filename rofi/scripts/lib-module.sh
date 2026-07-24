@@ -72,10 +72,12 @@ module_sub_rofi() {
 	local font_str=()
 	[[ -n "${MODULE_FONT:-}" ]] && font_str=(-theme-str "* {font: \"${MODULE_FONT}\";}")
 	rofi -theme-str "listview {columns: 1;}" \
+		-theme-str 'inputbar {children: [ "textbox-prompt-colon"];}' \
+		-theme-str 'textbox-prompt-colon {str: "'"$prompt"'";}' \
 		-theme-str 'window {width: '$MODULE_WIDTH'px;}' \
 		"${font_str[@]}" \
 		-dmenu -i \
-		-p "$prompt" -mesg "$mesg" \
+		-mesg "$mesg" \
 		-theme ${MODULE_THEME} \
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }
