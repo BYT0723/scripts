@@ -275,6 +275,6 @@ before)
 	set_dunst_theme "$mode"
 	;;
 after)
-	/bin/bash $WORK_DIR/dwm-status.sh reboot-refresh
+	pkill -SIGHUP dwm
 	;;
 esac
