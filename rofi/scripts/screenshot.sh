@@ -3,7 +3,6 @@
 ROFI_DIR="$(dirname "$(dirname "$0")")"
 
 MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
-MODULE_WIDTH=500
 MODULE_NAME=" Screenshot"
 MODULE_MESG="screen capture"
 

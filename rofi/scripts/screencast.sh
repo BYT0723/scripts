@@ -4,7 +4,6 @@ ROFI_DIR="$(dirname "$(dirname "$0")")"
 WORK_DIR="$(dirname "$ROFI_DIR")"
 
 MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
-MODULE_WIDTH=500
 MODULE_NAME=" Screencast"
 MODULE_MESG="screen record"
 

@@ -115,10 +115,7 @@ for key in "${!_device_map[@]}"; do
 done
 
 handle_wireless_connect() {
-	local connect_addr=$(bash "$ROFI_DIR/scripts/common_input.sh" \
-		-w 500 \
-		"Address:" \
-		"IP:Port from Wireless Debugging screen")
+	local connect_addr=$(module_input "Device Address" "IP and port from Wireless Debugging screen")
 	[[ -z "$connect_addr" ]] && return
 
 	if ! adb connect "$connect_addr" 2>/dev/null; then
@@ -131,16 +128,10 @@ handle_wireless_connect() {
 }
 
 handle_wireless_pair() {
-	local pair_addr=$(bash "$ROFI_DIR/scripts/common_input.sh" \
-		-w 500 \
-		"Address:" \
-		"IP:port from pairing section")
+	local pair_addr=$(module_input "Pairing Address" "IP and port shown in pairing section")
 	[[ -z "$pair_addr" ]] && return
 
-	local pair_code=$(bash "$ROFI_DIR/scripts/common_input.sh" \
-		-w 500 \
-		"Code:" \
-		"6-digit code shown on your device")
+	local pair_code=$(module_input "Pairing Code" "6-digit code displayed on your device")
 	[[ -z "$pair_code" ]] && return
 
 	if ! adb pair "$pair_addr" "$pair_code" 2>/dev/null; then

@@ -1,11 +1,13 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
-# dwm layout menu using rofi
-# Display names only, output number for dwm
+SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+ROFI_DIR="$SCRIPT_DIR/rofi"
 
-WORK_DIR=$(dirname "$0")
+MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
 
-# 定义 layout 显示名字数组
+source "$ROFI_DIR/scripts/util.sh"
+source "$ROFI_DIR/scripts/lib-module.sh"
+
 layouts=(
 	"[]= Tiled"
 	"[F] Floating"
@@ -23,20 +25,11 @@ layouts=(
 	">M> CenteredFloatingMaster"
 )
 
-# 生成 rofi 列表（只显示名字）
 choice=$(printf "%s\n" "${layouts[@]}" |
-	bash "$WORK_DIR/rofi/scripts/common_list.sh" \
-	-t 1-3 \
-	-f "JetBrains Mono Nerd Font 18" \
-	-F "JetBrains Mono Nerd Font 16" \
-	-w 450 \
-	"DWM Layout Setting" \
-	"Select a layout")
+	module_sub_rofi " DWM Layouts" "Select a dwm window layout")
 
-# 用户取消
 [ -z "$choice" ] && exit
 
-# 查找选择在数组中的索引 → 输出给 dwm
 for i in "${!layouts[@]}"; do
 	if [ "${layouts[$i]}" = "$choice" ]; then
 		echo "$i"

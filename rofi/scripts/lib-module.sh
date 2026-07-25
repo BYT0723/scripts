@@ -1,8 +1,11 @@
 # lib-module.sh — rofi 模块菜单框架
 #
 # 依赖: util.sh (需调用方先 source)
-# 调用方需设定: MODULE_THEME MODULE_WIDTH ROFI_DIR
+# 调用方需设定: MODULE_THEME ROFI_DIR
+# 可选: MODULE_WIDTH (默认 500) MODULE_FONT
 # 使用方法见末尾注释
+
+MODULE_WIDTH="${MODULE_WIDTH:-500}"
 
 _module_menu_build() {
 	local layout=$(grep 'USE_ICON' ${MODULE_THEME} | cut -d'=' -f2)
@@ -82,6 +85,26 @@ module_sub_rofi() {
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }
 
+module_input() {
+	local prompt="${1:-Input}"
+	local mesg="${2:-}"
+	local default="${3:-}"
+	mesg="${mesg//&/&amp;}"
+	local font_str=()
+	[[ -n "${MODULE_FONT:-}" ]] && font_str=(-theme-str "* {font: \"${MODULE_FONT}\";}")
+	rofi \
+		-theme-str 'window {width: '$MODULE_WIDTH'px;}' \
+		-theme-str 'mainbox { children: ["inputbar", "message"];}' \
+		-theme-str 'inputbar {children: ["textbox-prompt-colon", "entry"];}' \
+		-theme-str 'textbox-prompt-colon {str: "'"$prompt"'";}' \
+		-theme-str 'entry {padding:10px;background-color:inherit;text-color:inherit;placeholder: "'"$default"'";}' \
+		"${font_str[@]}" \
+		-dmenu \
+		-mesg "$mesg" \
+		-theme ${MODULE_THEME} \
+		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
+}
+
 # 从 stdin 读取注册表 (pipe 分隔)
 # 格式: key|icon|label|mesg|status_expr
 module_parse() {
@@ -126,7 +149,7 @@ module_loop() {
 # #!/usr/bin/env bash
 # ROFI_DIR="$(dirname "$(dirname "$0")")"
 # MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
-# MODULE_WIDTH=500
+# # MODULE_WIDTH 可选，默认 500
 # MODULE_MAX_LINES=8          # 可选，限制菜单可视行数
 # source "$(dirname "$0")"/util.sh
 # source "$(dirname "$0")"/lib-module.sh

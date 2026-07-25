@@ -6,7 +6,6 @@ MEDIA_DIR="$HOME/Applications/media-scraping"
 COMPOSE_FILE="$MEDIA_DIR/docker-compose.yml"
 
 MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
-MODULE_WIDTH=500
 MODULE_NAME="󰎁 Media Scraping"
 MODULE_MESG="Media Hub And Scraper"
 

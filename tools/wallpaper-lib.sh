@@ -33,7 +33,6 @@ config["random_image_dir"]="~/Pictures"
 config["random_video_dir"]="~/Videos"
 config["random_depth"]=3
 config["duration"]=30
-cmd="feh --no-fehbg --bg-scale /usr/share/backgrounds/archlinux/small.png"
 
 # Get configuration value by key, with fallback to defaults
 # Usage: getConfig [-m <monitor>] <key>
@@ -235,9 +234,6 @@ error() {
 echo_help() {
 	echo -e "Help Message"
 	echo "      -r | --run             run wallpaper daemon"
-	echo "      -s | --set <path>      set wallpaper (prompts monitor)"
-	echo "      -n | --next            random next (prompts monitor)"
-	echo "      -S | --select          interactive: monitor -> action"
 	echo "      -m <mon> <next|select> apply to specific monitor"
 }
 
@@ -270,4 +266,73 @@ clean_latest() {
 
 get_screen_size() {
 	xrandr | awk -F',' '{for(i=1;i<=NF;i++) if($i ~ /current/) print $i}' | awk '{print $2 $3 $4}'
+}
+
+# ---- Shared helpers for tools/wallpaper.sh and rofi/scripts/wallpaper.sh ----
+
+_WALLPAPER_HOME_DIR="$(dirname "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")")"
+source "$_WALLPAPER_HOME_DIR/rofi/scripts/lib-module.sh"
+
+# Format xrandr monitor list for display. Single monitor returns just its name.
+get_monitor_list_text() {
+	local monitors_list
+	monitors_list=$(xrandr --listactivemonitors 2>/dev/null)
+
+	if [ "$(echo "$monitors_list" | wc -l)" = 2 ]; then
+		echo "$monitors_list" | awk 'END{print $NF}'
+		return
+	fi
+
+	local screen_dim=$(get_screen_size | sed 's/+.*//')
+	printf "ALL\n%-28s %s\n" "Screen" "$screen_dim"
+	echo "$monitors_list" | awk 'NR>1 {
+		gsub("/[0-9]+", "", $3)
+		split($3,a,"+")
+		split(a[1],b,"x")
+		printf "%-28s %sx%s\n", $NF, b[1], b[2]
+	}'
+}
+
+# Get JSON path for jq config writes
+_json_path_for() {
+	local monitor="$1"
+	if [ "$monitor" != "ALL" ]; then
+		echo ".monitors[\"$monitor\"]"
+	else
+		echo ".defaults"
+	fi
+}
+
+# Pick config directory via yazi, write to wallpaper.json
+pick_config_dir() {
+	local monitor="$1"
+	local key="$2"
+	local json_path=$(_json_path_for "$monitor")
+	local cur=$(getConfig -m "$monitor" "$key")
+	local cur_dir=$(expand_path "$cur")
+	[ ! -d "$cur_dir" ] && cur_dir="$HOME"
+	local tmp=$(mktemp)
+	YAZI_CONFIG_HOME=$HOME/.config/yazi_wallpaper $TERM yazi "$cur_dir" --chooser-file="$tmp"
+	local chosen=$(cat "$tmp" 2>/dev/null)
+	rm -f "$tmp"
+	if [ -n "$chosen" ]; then
+		[ -d "$chosen" ] && chosen="$chosen" || chosen=$(dirname "$chosen")
+		jq --arg d "$chosen" "${json_path}.${key} = \$d" "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
+	fi
+}
+
+# Prompt for a numeric config value via rofi, validate, and write to wallpaper.json
+set_numeric_config() {
+	local monitor="$1"
+	local key="$2"
+	local prompt="$3"
+	local mesg="$4"
+	local min="${5:-1}"
+	local max="${6:-99999}"
+
+	local json_path=$(_json_path_for "$monitor")
+	local cur=$(getConfig -m "$monitor" "$key")
+	local new=$(module_input "$prompt" "$mesg" "$cur")
+	[ -n "$new" ] && [ "$new" -ge "$min" ] 2>/dev/null && [ "$new" -le "$max" ] 2>/dev/null &&
+		jq "${json_path}.${key} = $new" "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
 }
