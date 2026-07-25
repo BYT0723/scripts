@@ -2,15 +2,12 @@
 
 ROFI_DIR="$(dirname "$(dirname "$0")")"
 
-source "$(dirname "$0")"/util.sh
+MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
+MODULE_MESSAGE_DISABLE="true"
+MODULE_WIDTH=800
 
-# Import Current Theme
-type="$ROFI_DIR/launchers/type-1"
-style='style-5.rasi'
-theme="$type/$style"
-font="JetBrains Mono Nerd Font 16"
-# font="Noto Sans CJK SC 12"
-width=1200px
+source "$(dirname "$0")"/util.sh
+source "$(dirname "$0")"/lib-module.sh
 
 read_all_entry="Mark all as read"
 
@@ -19,22 +16,18 @@ unread_count() {
 }
 
 build_menu() {
-	# 读取通知
 	mapfile -t DATA < <(
 		dunstctl history | jq -r '
 		.data[0][] |
 		"\( .id.data )|\( .appname.data )|\( .summary.data | gsub("\n";"") )|\( .body.data | gsub("\n";" ") )|\( .timestamp.data )"
 		'
 	)
-	# 获取系统 uptime（秒）
 	uptime_sec=$(awk '{print int($1)}' /proc/uptime)
 	for i in "${DATA[@]}"; do
 		IFS="|" read -r id app summary body ts_micro <<<"$i"
 
-		# dunst timestamp 是 microseconds
 		ts_sec=$((ts_micro / 1000000))
 
-		# 计算相对时间
 		diff=$((uptime_sec - ts_sec))
 		if ((diff < 60)); then
 			rel_time="just now"
@@ -46,38 +39,28 @@ build_menu() {
 			rel_time="$(date -d "@$(($(date +%s) - diff))" "+%m-%d %H:%M")"
 		fi
 
-		echo "$id [$rel_time] [$app]: $summary $body"
+		local body_display="$body"
+		if ((${#body_display} > 80)); then
+			body_display="${body_display:0:80}…"
+		fi
+		if [[ -n "$body_display" ]]; then
+			echo "$id $app · $summary: $body_display  ($rel_time)"
+		else
+			echo "$id $app · $summary  ($rel_time)"
+		fi
 	done
 	echo $read_all_entry
-}
-
-# Rofi CMD
-rofi_cmd() {
-	rofi \
-		-dmenu \
-		-theme-str 'textbox-prompt-colon {str: " ";}' \
-		-theme-str "mainbox {children: ["inputbar","listview"];}" \
-		-theme-str "* {font: \"$font\";}" \
-		-theme-str 'configuration {show-icons:false;}' \
-		-theme-str 'window {width: '$width';}' \
-		-p "$prompt" \
-		-markup-rows \
-		-theme ${theme} \
-		-i \
-		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }
 
 run() {
 	[[ $(dunstctl count displayed) > 0 ]] && dunstctl close-all
 	[[ $(dunstctl count history) = 0 ]] && return
-	local chosen="$(build_menu | rofi_cmd)"
+	local chosen="$(build_menu | module_sub_rofi " Notifications")"
 	[ -z "$chosen" ] && return
 
 	case "$chosen" in
 	"$read_all_entry") dunstctl history-clear ;;
-	*)
-		pop "$(echo $chosen | cut -d' ' -f1)"
-		;;
+	*) pop "${chosen%% *}" ;;
 	esac
 }
 

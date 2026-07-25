@@ -46,12 +46,15 @@ _module_status() {
 _module_rofi() {
 	local extra=()
 	if [[ "${MODULE_SEARCH_BAR:-true}" == 'true' ]]; then
-		extra=(
+		extra+=(
 			-theme-str 'inputbar {children: [ "textbox-prompt-colon", "entry"];}'
 			-theme-str 'entry {padding:8px;background-color:inherit;text-color:inherit;}'
 		)
 	else
-		extra=(-theme-str 'inputbar {children: [ "textbox-prompt-colon"];}')
+		extra+=(-theme-str 'inputbar {children: [ "textbox-prompt-colon"];}')
+	fi
+	if [[ "${MODULE_MESSAGE_DISABLE:-false}" == 'true' ]]; then
+		extra+=(-theme-str 'mainbox { children: ["inputbar", "listview"];}')
 	fi
 	local mesg_safe="${MODULE_MESG:-}"
 	mesg_safe="${mesg_safe//&/&amp;}"
@@ -70,14 +73,26 @@ _module_rofi() {
 }
 
 module_sub_rofi() {
+	local extra=()
+	if [[ "${MODULE_SEARCH_BAR:-true}" == 'true' ]]; then
+		extra+=(
+			-theme-str 'inputbar {children: [ "textbox-prompt-colon", "entry"];}'
+			-theme-str 'entry {padding:8px;background-color:inherit;text-color:inherit;}'
+		)
+	else
+		extra+=(-theme-str 'inputbar {children: [ "textbox-prompt-colon"];}')
+	fi
+	if [[ "${MODULE_MESSAGE_DISABLE:-false}" == 'true' ]]; then
+		extra+=(-theme-str 'mainbox { children: ["inputbar", "listview"];}')
+	fi
 	local prompt="${1:-}" mesg="${2:-}"
 	mesg="${mesg//&/&amp;}"
 	local font_str=()
 	[[ -n "${MODULE_FONT:-}" ]] && font_str=(-theme-str "* {font: \"${MODULE_FONT}\";}")
 	rofi -theme-str "listview {columns: 1;}" \
-		-theme-str 'inputbar {children: [ "textbox-prompt-colon"];}' \
 		-theme-str 'textbox-prompt-colon {str: "'"$prompt"'";}' \
 		-theme-str 'window {width: '$MODULE_WIDTH'px;}' \
+		"${extra[@]}" \
 		"${font_str[@]}" \
 		-dmenu -i \
 		-mesg "$mesg" \
