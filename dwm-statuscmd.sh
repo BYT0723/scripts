@@ -5,252 +5,136 @@
 #  see file config.h variable statuscmds
 #
 #
-TOOLS_DIR="$(dirname $0)/tools"
+
 ROFI_SCRIPT_DIR="$(dirname $0)/rofi/scripts"
+TOOLS_DIR="$(dirname $0)/tools"
 WORK_DIR=$(dirname $0)
 terminal="kitty"
 float_terminal="kitty --class float-term -o font_size=10 -o initial_window_width=120c -o initial_window_height=36c"
 
 source "$WORK_DIR/utils/notify.sh"
 
-dateHandler() {
-	buttonType=$1
-	case "$buttonType" in
-	1)
-		local flag="/tmp/dwm-status/date-collapse"
-		[ -f "$flag" ] && rm -f "$flag" || touch "$flag"
-		;;
-	2) ;;
-	3) $WORK_DIR/tools/calendar.sh lunar ;;
-	esac
+# --- Command functions (only for actions that need flow control / return) ---
+
+_battery_dpms() {
+	local timeout=$(xset q | grep "timeout" | awk '{print $2}')
+	local dpms=$(xset q | grep "DPMS" | tail -n 1 | awk '{print $3}')
+	notify-send -c status -i display "DPMS" -h string:x-dunst-stack-tag:dpms "\
+ScreenSaver: $([ "$timeout" -gt 0 ] && echo "Enabled" || echo "Disabled")\n\
+DPMS:        $dpms"
 }
 
-batteryHandler() {
-	buttonType=$1
-	case "$buttonType" in
-	1)
-		notify-send -c status -i battery -h string:x-dunst-stack-tag:batteryInformation "Battery" "$(acpi -i)"
-		;;
-	2) ;;
-	3)
-		screen_saver_timeout=$(xset q | grep "timeout" | awk '{print $2}')
-		dpms_state=$(xset q | grep "DPMS" | tail -n 1 | awk '{print $3}')
-		# Display Power Management
-		# `xset -dpms`      : Turn off DPMS
-		# `xset s off -dpms`: Disable DPMS and prevent screen from blanking
-		# https://wiki.archlinux.org/title/Display_Power_Management_Signaling#Runtime_settings
-		notify-send -c status -i display "DPMS" -h string:x-dunst-stack-tag:dpms "\
-ScreenSaver: $([ $screen_saver_timeout -gt 0 ] && echo "Enabled" || echo "Disabled")\n\
-DPMS:        $dpms_state"
-		;;
-	4)
-		"$TOOLS_DIR"/brightness.sh up
-		;;
-	5)
-		"$TOOLS_DIR"/brightness.sh down
-		;;
-	esac
+_cpu_monitor() {
+	command -v htop >/dev/null 2>&1 && {
+		"$terminal" -e htop
+		return
+	}
+	command -v btop >/dev/null 2>&1 && {
+		"$terminal" -e btop
+		return
+	}
+	command -v top >/dev/null 2>&1 && {
+		"$terminal" -e top
+		return
+	}
+	system-notify normal "Tool Not Found" "please install one of btop,htop,top"
 }
 
-diskHandler() {
-	buttonType=$1
-	case "$buttonType" in
-	1)
-		notify-send \
-			-c status \
-			-h string:x-dunst-stack-tag:diskInformation \
-			"💾 Storage" \
-			"$(LANG=en_US.UTF-8 df -h -x tmpfs -x devtmpfs)"
-		;;
-	2) ;;
-	3) ;;
-	esac
+_net_speedtest() {
+	command -v speedtest >/dev/null 2>&1 && {
+		"$terminal" -e speedtest
+		return
+	}
+	system-notify normal "Tool Not Found" "please install speedtest-cli"
 }
 
-memoryHandler() {
-	buttonType=$1
-	case "$buttonType" in
-	1) ;;
-	2) ;;
-	3) ;;
-	esac
+_mpd_rmpc() {
+	command -v rmpc >/dev/null 2>&1 && {
+		"$float_terminal" -e rmpc
+		return
+	}
+	system-notify normal "Tool Not Found" "please install rmpc"
 }
 
-cpuHandler() {
-	buttonType=$1
-	case "$buttonType" in
-	1) ;;
-	2) ;;
-	3)
-		[ ! -z "$(command -v htop)" ] && "$terminal" -e htop && return
-		[ ! -z "$(command -v btop)" ] && "$terminal" -e btop && return
-		[ ! -z "$(command -v top)" ] && "$terminal" -e top && return
-		system-notify normal "Tool Not Found" "please install one of btop,htop,top"
-		;;
-	esac
+_volume_ncpamixer() {
+	command -v ncpamixer >/dev/null 2>&1 && {
+		"$float_terminal" -e ncpamixer
+		return
+	}
+	system-notify normal "Tool Not Found" "please install ncpamixer"
 }
 
-netSpeedHandler() {
-	buttonType=$1
-	case "$buttonType" in
-	1) ;;
-	2) ;;
-	3)
-		[ ! -z "$(command -v speedtest)" ] && "$terminal" -e speedtest && return
-		system-notify normal "Tool Not Found" "please install speedtest-cli"
-		;;
-	esac
+_mail_aerc() {
+	if command -v aerc >/dev/null 2>&1; then
+		"$terminal" -e aerc
+		[ -z "$(pgrep -f "bash $TOOLS_DIR/mail.sh")" ] && bash "$TOOLS_DIR/mail.sh" &
+		return
+	fi
+	system-notify normal "Tool Not Found" "please install aerc"
 }
 
-mpdHandler() {
-	buttonType=$1
-	case "$buttonType" in
-	1)
-		"$ROFI_SCRIPT_DIR"/mpd.sh
-		;;
-	2)
-		mpd --kill
-		;;
-	3)
-		[ ! -z "$(command -v rmpc)" ] && "$float_terminal" -e rmpc && return
-		system-notify normal "Tool Not Found" "please install rmpc"
-		;;
-	esac
+_rss_notify() {
+	command -v newsboat >/dev/null 2>&1 && {
+		notify-send -i rss "$(newsboat -x print-unread)"
+		return
+	}
+	system-notify normal "Tool Not Found" "please install newsboat"
 }
 
-weatherHandler() {
-	buttonType=$1
-	case "$buttonType" in
-	1)
-		notify-send -c status -i weather -h string:x-dunst-stack-tag:weatherForecast \
-			"Weather Forecast" \
-			"当前天气:$(cat "/tmp/dwm-status/weather")\n\n$(cat "/tmp/dwm-status/weather-forecast")"
-		;;
-	2)
-		xdg-open https://wttr.in/?T
-		;;
-	3) ;;
-	esac
+_rss_launch() {
+	command -v newsboat >/dev/null 2>&1 && {
+		"$terminal" -e newsboat
+		return
+	}
+	system-notify normal "Tool Not Found" "please install newsboat"
 }
 
-volumeHandler() {
-	buttonType=$1
-	case "$buttonType" in
-	1)
-		"$TOOLS_DIR"/volume.sh toggle
-		;;
-	2) ;;
-	3)
-		[ ! -z "$(command -v ncpamixer)" ] && "$float_terminal" -e ncpamixer && return
-		system-notify normal "Tool Not Found" "please install ncpamixer"
-		;;
-	4)
-		"$TOOLS_DIR"/volume.sh up
-		;;
-	5)
-		"$TOOLS_DIR"/volume.sh down
-		;;
-	esac
-}
+# --- Dispatch table ---
+# key = [cmdIndex,clickType]
+# value = function name (for multi-line) or inline command string (for one-liners)
 
-mailHandler() {
-	buttonType=$1
-	case "$buttonType" in
-	1)
-		# notify-send -i mail-unread-symbolic "New Mail" "$(notmuch search --output=files tag:unread | cut -d/ -f5 | sort | uniq -c | awk '{print "[" $2 "] \t" $1 " Unread"}')"
-		thunderbird -mail &
-		;;
-	2) ;;
-	3)
-		if [ ! -z "$(command -v aerc)" ]; then
-			"$terminal" -e aerc
-			[ -z "$(pgrep -f "bash $TOOLS_DIR/mail.sh")" ] && bash $TOOLS_DIR/mail.sh &
-			return
-		fi
-		system-notify normal "Tool Not Found" "please install aerc"
-		;;
-	esac
-}
+left=1 middle=2 right=3 scroll_up=4 scroll_down=5
 
-rssHandler() {
-	buttonType=$1
-	case "$buttonType" in
-	1)
-		[ ! -z "$(command -v newsboat)" ] && notify-send -i rss "$(newsboat -x print-unread)" && return
-		system-notify normal "Tool Not Found" "please install newsboat"
-		;;
-	2) ;;
-	3)
-		[ ! -z "$(command -v newsboat)" ] && "$terminal" -e newsboat && return
-		system-notify normal "Tool Not Found" "please install newsboat"
-		;;
-	esac
-}
+declare -A actions=(
+	[1,$left]='[[ -f /tmp/dwm-status/date-collapse ]] && rm -f /tmp/dwm-status/date-collapse || touch /tmp/dwm-status/date-collapse'
+	[1,$right]='"$WORK_DIR/tools/calendar.sh" lunar'
+	[2,$left]='notify-send -c status -i battery -h string:x-dunst-stack-tag:batteryInformation "Battery" "$(acpi -i)"'
+	[2,$right]=_battery_dpms
+	[2,$scroll_up]='"$TOOLS_DIR/brightness.sh" up'
+	[2,$scroll_down]='"$TOOLS_DIR/brightness.sh" down'
+	[3,$left]='"$TOOLS_DIR/volume.sh" toggle'
+	[3,$right]=_volume_ncpamixer
+	[3,$scroll_up]='"$TOOLS_DIR/volume.sh" up'
+	[3,$scroll_down]='"$TOOLS_DIR/volume.sh" down'
+	[6,$left]='notify-send -c status -h string:x-dunst-stack-tag:diskInformation "💾 Storage" "$(LANG=en_US.UTF-8 df -h -x tmpfs -x devtmpfs)"'
+	[8,$right]=_cpu_monitor
+	[9,$left]='notify-send -c status -i weather -h string:x-dunst-stack-tag:weatherForecast "Weather Forecast" "当前天气:$(cat /tmp/dwm-status/weather)\n\n$(cat /tmp/dwm-status/weather-forecast)"'
+	[9,$middle]='xdg-open https://wttr.in/?T'
+	[10,$left]='"$ROFI_SCRIPT_DIR/mpd.sh"'
+	[10,$middle]='mpd --kill'
+	[10,$right]=_mpd_rmpc
+	[11,$right]=_net_speedtest
+	[12,$left]='thunderbird -mail &'
+	[12,$right]=_mail_aerc
+	[13,$left]=_rss_notify
+	[13,$right]=_rss_launch
+	[14,$left]='"$ROFI_SCRIPT_DIR/sing-box.sh"'
+	[14,$right]='xdg-open "http://127.0.0.1:9090/ui"'
+	[15,$left]='"$ROFI_SCRIPT_DIR/notification.sh" pop-latest'
+	[15,$right]='"$ROFI_SCRIPT_DIR/notification.sh"'
+)
 
-singboxHandler() {
-	buttonType=$1
-	case "$buttonType" in
-	1) $WORK_DIR/rofi/scripts/sing-box.sh ;;
-	2) ;;
-	3) xdg-open "http://127.0.0.1:9090/ui" ;;
-	esac
-}
-
-notificationHandler() {
-	buttonType=$1
-	case "$buttonType" in
-	1) $WORK_DIR/rofi/scripts/notification.sh pop-latest ;;
-	2) ;;
-	3) $WORK_DIR/rofi/scripts/notification.sh ;;
-	esac
-}
+# --- Main dispatch ---
 
 cmdIndex=$1
 shift
+buttonType=${1:-0}
 
-# next param: button type
-# 1 left button
-# 2 middle button
-# 3 right button
-
-case "$cmdIndex" in
-1)
-	dateHandler "$@"
-	;;
-2)
-	batteryHandler "$@"
-	;;
-3)
-	volumeHandler "$@"
-	;;
-6)
-	diskHandler "$@"
-	;;
-7)
-	memoryHandler "$@"
-	;;
-8)
-	cpuHandler "$@"
-	;;
-11)
-	netSpeedHandler "$@"
-	;;
-10)
-	mpdHandler "$@"
-	;;
-9)
-	weatherHandler "$@"
-	;;
-12)
-	mailHandler "$@"
-	;;
-13)
-	rssHandler "$@"
-	;;
-14)
-	singboxHandler "$@"
-	;;
-15)
-	notificationHandler "$@"
-	;;
-esac
+action=${actions[$cmdIndex,$buttonType]}
+if [[ -n ${action:-} ]]; then
+	if declare -f "$action" >/dev/null 2>&1; then
+		"$action"
+	else
+		eval "$action"
+	fi
+fi

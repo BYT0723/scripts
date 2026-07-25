@@ -141,7 +141,7 @@ dwm-status.sh
   → xsetroot -name "$status"
 
 dwm-statuscmd.sh (状态栏点击)
-  → volume.sh / brightness.sh / keyboard.sh / screen.sh / ... (按模块)
+  → volume.sh / brightness.sh / calendar.sh / mpd.sh / sing-box.sh / notification.sh / ... (按模块)
 ```
 
 ### rofi 启动器链路
