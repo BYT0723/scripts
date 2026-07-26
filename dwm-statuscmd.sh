@@ -9,8 +9,20 @@
 ROFI_SCRIPT_DIR="$(dirname $0)/rofi/scripts"
 TOOLS_DIR="$(dirname $0)/tools"
 WORK_DIR=$(dirname $0)
-terminal="kitty"
-float_terminal="kitty --class float-term -o font_size=10 -o initial_window_width=120c -o initial_window_height=36c"
+terminal="${TERMINAL:-kitty}"
+
+_topen() {
+	case "$terminal" in
+	kitty) "$terminal" "$@" ;;
+	*) "$terminal" -e "$@" ;;
+	esac
+}
+_ftopen() {
+	case "$terminal" in
+	kitty) "$terminal" --class float-term -o font_size=10 -o initial_window_width=120c -o initial_window_height=36c "$@" ;;
+	*) "$terminal" --class float-term -e "$@" ;;
+	esac
+}
 
 source "$WORK_DIR/utils/notify.sh"
 
@@ -25,24 +37,15 @@ DPMS:        $dpms"
 }
 
 _cpu_monitor() {
-	command -v htop >/dev/null 2>&1 && {
-		"$terminal" -e htop
-		return
-	}
-	command -v btop >/dev/null 2>&1 && {
-		"$terminal" -e btop
-		return
-	}
-	command -v top >/dev/null 2>&1 && {
-		"$terminal" -e top
-		return
-	}
+	command -v htop >/dev/null 2>&1 && { _topen htop; return; }
+	command -v btop >/dev/null 2>&1 && { _topen btop; return; }
+	command -v top >/dev/null 2>&1 && { _topen top; return; }
 	system-notify normal "Tool Not Found" "please install one of btop,htop,top"
 }
 
 _net_speedtest() {
 	command -v speedtest >/dev/null 2>&1 && {
-		"$terminal" -e speedtest
+		_topen speedtest
 		return
 	}
 	system-notify normal "Tool Not Found" "please install speedtest-cli"
@@ -50,7 +53,7 @@ _net_speedtest() {
 
 _mpd_rmpc() {
 	command -v rmpc >/dev/null 2>&1 && {
-		"$float_terminal" -e rmpc
+		_ftopen rmpc
 		return
 	}
 	system-notify normal "Tool Not Found" "please install rmpc"
@@ -58,7 +61,7 @@ _mpd_rmpc() {
 
 _volume_ncpamixer() {
 	command -v ncpamixer >/dev/null 2>&1 && {
-		"$float_terminal" -e ncpamixer
+		_ftopen ncpamixer
 		return
 	}
 	system-notify normal "Tool Not Found" "please install ncpamixer"
@@ -66,7 +69,7 @@ _volume_ncpamixer() {
 
 _mail_aerc() {
 	if command -v aerc >/dev/null 2>&1; then
-		"$terminal" -e aerc
+		_topen aerc
 		[ -z "$(pgrep -f "bash $TOOLS_DIR/mail.sh")" ] && bash "$TOOLS_DIR/mail.sh" &
 		return
 	fi
@@ -83,7 +86,7 @@ _rss_notify() {
 
 _rss_launch() {
 	command -v newsboat >/dev/null 2>&1 && {
-		"$terminal" -e newsboat
+		_topen newsboat
 		return
 	}
 	system-notify normal "Tool Not Found" "please install newsboat"
@@ -133,7 +136,7 @@ buttonType=${1:-0}
 action=${actions[$cmdIndex,$buttonType]}
 if [[ -n ${action:-} ]]; then
 	if declare -f "$action" >/dev/null 2>&1; then
-		"$action"
+		"$action" >>~/.statuscmd.log
 	else
 		eval "$action"
 	fi

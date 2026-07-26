@@ -64,8 +64,8 @@ application_launch() {
 	launch restart udiskie "udiskie -sn"
 	# polkit (require lxsession or lxsession-gtk3) 鉴权
 	launch check lxpolkit "lxpolkit"
-	# 音频控制
-	launch check easyeffects "easyeffects --service-mode --hide-window"
+	# 音频控制 (暂时先关闭，已有独立功放，不需要ee)
+	# launch check easyeffects "easyeffects --service-mode --hide-window"
 }
 
 keyboard_setting() {
