@@ -21,9 +21,14 @@ term() {
 	esac
 }
 
-apps() {
-	/bin/bash "$WORK_DIR"/rofi/scripts/launcher_t3
-}
+apps() { /bin/bash "$WORK_DIR"/rofi/scripts/launcher_t3; }
+mpd() { /bin/bash "$WORK_DIR"/rofi/scripts/mpd.sh; }
+modules() { /bin/bash "$WORK_DIR"/rofi/scripts/module.sh; }
+screenshot() { /bin/bash "$WORK_DIR"/rofi/scripts/screenshot.sh; }
+screencast() { /bin/bash "$WORK_DIR"/rofi/scripts/screencast.sh; }
+quicklinks() { /bin/bash "$WORK_DIR"/rofi/scripts/quicklinks.sh; }
+emoji() { /bin/bash "$WORK_DIR"/rofi/scripts/emoji.sh; }
+wallpaper() { /bin/bash "$WORK_DIR"/rofi/scripts/wallpaper.sh; }
 
 powermenu() {
 	local type=4
@@ -32,37 +37,9 @@ powermenu() {
 	/bin/bash "$WORK_DIR"/rofi/scripts/powermenu_t${type}
 }
 
-mpd() {
-	/bin/bash "$WORK_DIR"/rofi/scripts/mpd.sh
-}
-
-modules() {
-	/bin/bash "$WORK_DIR"/rofi/scripts/module.sh
-}
-
-screenshot() {
-	/bin/bash "$WORK_DIR"/rofi/scripts/screenshot.sh
-}
-
-screencast() {
-	/bin/bash "$WORK_DIR"/rofi/scripts/screencast.sh
-}
-
-quicklinks() {
-	/bin/bash "$WORK_DIR"/rofi/scripts/quicklinks.sh
-}
-
-emoji() {
-	/bin/bash "$WORK_DIR"/rofi/scripts/emoji.sh
-}
-
 toggle_conky() {
 	[ ! -z "$(pgrep -x conky)" ] && pkill conky && return
 	conky -U -d
-}
-
-wallpaper() {
-	/bin/bash "$WORK_DIR"/rofi/scripts/wallpaper.sh
 }
 
 case "$1" in
@@ -77,4 +54,5 @@ case "$1" in
 "emoji") emoji ;;
 "conky") toggle_conky ;;
 "wallpaper") wallpaper ;;
+"fm") xdg-open $HOME ;;
 esac
