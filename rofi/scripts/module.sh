@@ -31,6 +31,7 @@ picom|󰋩|Picom|Windows Composer|toggle
 conky|󰏘|Conky|System Monitor|toggle
 network|󰈀|Network||active:NetworkManager
 bluetooth|󰂯|Bluetooth||active-svc
+audio-output|󰓃|Audio Output||
 notification||Notification||cmd:$ROFI_DIR/scripts/notification.sh unread
 sddm|󰍂|SDDM Setting||
 media-scraping|󰎁|Media Scraping||
@@ -73,5 +74,58 @@ handle_calendar_lunar() { /bin/bash $WORK_DIR/tools/calendar.sh lunar; }
 handle_media_scraping() { /bin/bash $ROFI_DIR/scripts/media-scraping.sh; }
 handle_sddm() { /bin/bash $ROFI_DIR/scripts/sddm.sh; }
 handle_scrcpy() { /bin/bash $ROFI_DIR/scripts/scrcpy.sh; }
+
+handle_audio_output() {
+	local default_sink default_desc line name desc vol
+	default_sink=$(pactl info 2>/dev/null | awk -F': ' '/^Default Sink:/ {print $2}')
+
+	local -a sink_names sink_lines
+
+	_flush() {
+		[[ -z "$name" || -z "$desc" ]] && return
+		[[ "$desc" == *"Controller "* ]] && desc="${desc##*Controller }"
+		[[ ${#desc} -gt 35 ]] && desc="…${desc: -32}"
+		local icon=" "
+		[[ "$name" == "$default_sink" ]] && {
+			icon=""
+			default_desc="$desc"
+		}
+		sink_names+=("$name")
+		sink_lines+=("$icon $desc (${vol:-?})")
+	}
+
+	while IFS= read -r line; do
+		if [[ "$line" == "Sink "* ]]; then
+			_flush
+			name=""
+			desc=""
+			vol=""
+		elif [[ "$line" =~ ^[[:space:]]*Volume:[[:space:]] ]]; then
+			vol=$(echo "$line" | grep -oP '[0-9]+%' | head -1)
+		elif [[ "$line" =~ ^[[:space:]]*Name:[[:space:]]+(.+) ]]; then
+			name="${BASH_REMATCH[1]}"
+		elif [[ "$line" =~ ^[[:space:]]*Description:[[:space:]]+(.+) ]]; then
+			desc="${BASH_REMATCH[1]}"
+		fi
+	done < <(pactl list sinks 2>/dev/null)
+	_flush
+
+	((${#sink_lines[@]} == 0)) && return
+
+	local chosen
+	chosen=$(printf '%s\n' "${sink_lines[@]}" | module_sub_rofi "󰓃 Audio Output" "current: ${default_desc:-$default_sink}")
+	[[ -z "$chosen" ]] && return
+
+	local idx target_sink
+	for idx in "${!sink_lines[@]}"; do
+		[[ "${sink_lines[$idx]}" == "$chosen" ]] && {
+			target_sink="${sink_names[$idx]}"
+			break
+		}
+	done
+
+	[[ -z "$target_sink" ]] && return
+	pactl set-default-sink "$target_sink"
+}
 
 module_loop
