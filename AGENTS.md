@@ -12,6 +12,7 @@ dwm-status.sh ──sources──► dwm-status-tools.sh ──sources──► 
                                                            utils/notify.sh
 dwm-statuscmd.sh ──sources──► utils/notify.sh
 colorscheme.sh ──sources──► utils/notify.sh
+                ──requires─► xdotool, jq (Firefox Dark Reader 切换)
 
 tools/lock.sh ──sources──► utils/notify.sh
               ◄──sourced by── rofi/powermenu/type-{1..6}/powermenu.sh

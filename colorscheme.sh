@@ -230,6 +230,33 @@ set_gtk_theme() {
 	done
 }
 
+set_firefox_theme() {
+	local mode="$1"
+	[ -z "$mode" ] && return
+	command -v xdotool >/dev/null || return
+	command -v jq >/dev/null || return
+
+	local profile_dir
+	profile_dir=$(ls -d "$HOME/.mozilla/firefox/"*.default-release 2>/dev/null | head -1)
+	[ -z "$profile_dir" ] && return
+
+	local ext_json="$profile_dir/extensions.json"
+	[ -f "$ext_json" ] || return
+	jq -e '.addons | any(.id == "addon@darkreader.org")' "$ext_json" >/dev/null 2>&1 || return
+
+	local state_file="/tmp/dwm-darkreader-state"
+	local cur_state
+	read -r cur_state < "$state_file" 2>/dev/null || true
+
+	[ "$cur_state" = "$mode" ] && return
+
+	local win_id
+	win_id=$(xdotool search --name "Mozilla Firefox" 2>/dev/null | head -1)
+	[ -z "$win_id" ] && return
+	xdotool windowactivate "$win_id" key --clearmodifiers Alt+Shift+D
+	echo "$mode" > "$state_file"
+}
+
 case "$1" in
 check)
 	pkgs=(
@@ -269,6 +296,7 @@ before)
 	set_qt_theme "$mode"
 	set_gtk_theme "$mode"
 	set_fcitx5_theme "$mode"
+	set_firefox_theme "$mode"
 
 	[ -f "$HOME/.Xresources" ] && xrdb -merge "$HOME/.Xresources"
 
