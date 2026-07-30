@@ -37,9 +37,18 @@ DPMS:        $dpms"
 }
 
 _cpu_monitor() {
-	command -v htop >/dev/null 2>&1 && { _topen htop; return; }
-	command -v btop >/dev/null 2>&1 && { _topen btop; return; }
-	command -v top >/dev/null 2>&1 && { _topen top; return; }
+	command -v htop >/dev/null 2>&1 && {
+		_topen htop
+		return
+	}
+	command -v btop >/dev/null 2>&1 && {
+		_topen btop
+		return
+	}
+	command -v top >/dev/null 2>&1 && {
+		_topen top
+		return
+	}
 	system-notify normal "Tool Not Found" "please install one of btop,htop,top"
 }
 
