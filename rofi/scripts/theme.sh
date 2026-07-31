@@ -31,6 +31,7 @@ toggle| |Toggle|switch light/dark|str:$([ "$(get_cur)" = "light" ] && echo "L
 auto|󰃡 |Auto (sunrise/sunset)|toggle auto switching|str:$([ "$(get_auto_stat)" = "true" ] && echo "" || echo "")
 rise_offset| |Rise offset|±min after sunrise|str:$(get_rise)m
 set_offset| |Set offset|±min after sunset|str:$(get_set)m
+conf|󱔏 |Edit config|open theme.json|
 MODULES
 
 handle_toggle() {
@@ -69,5 +70,6 @@ _handle_offset() {
 }
 handle_rise_offset() { _handle_offset "rise_offset" "Rise offset (min)" get_rise; }
 handle_set_offset() { _handle_offset "set_offset" "Set offset (min)" get_set; }
+handle_conf() { ${TERMINAL:-kitty} -e ${EDITOR:-nvim} "$THEME_CONF" 2>/dev/null || system-notify normal "Error" "failed to open editor"; }
 
 module_loop
