@@ -230,6 +230,14 @@ set_gtk_theme() {
 	done
 }
 
+_get_darkreader_shortcut() {
+	local settings_json="$1"
+	[ -z "$settings_json" ] || [ ! -f "$settings_json" ] && echo "Alt+Shift+D" && return
+	jq -r '[.commands | to_entries[] | .value.precedenceList[]?
+		| select(.id == "addon@darkreader.org")] | .[0].value.shortcut // "Alt+Shift+D"' \
+		"$settings_json" 2>/dev/null
+}
+
 set_firefox_theme() {
 	local mode="$1"
 	[ -z "$mode" ] && return
@@ -250,10 +258,11 @@ set_firefox_theme() {
 
 	[ "$cur_state" = "$mode" ] && return
 
-	local win_id
+	local win_id shortcut
 	win_id=$(xdotool search --name "Mozilla Firefox" 2>/dev/null | head -1)
 	[ -z "$win_id" ] && return
-	xdotool windowactivate "$win_id" key --clearmodifiers Alt+Shift+D
+	shortcut=$(_get_darkreader_shortcut "$profile_dir/extension-settings.json")
+	xdotool key --window "$win_id" --clearmodifiers "$shortcut"
 	echo "$mode" > "$state_file"
 }
 
