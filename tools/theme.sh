@@ -1,15 +1,15 @@
 #!/bin/bash
 
-WORK_DIR=$(dirname "$0")
-COLORSCHEME_CONF="$HOME/.config/dwm/colorscheme.json"
+WORK_DIR=$(dirname "$(dirname "$0")")
+THEME_CONF="$HOME/.config/dwm/theme.json"
 
-source "$(dirname "$0")/utils/notify.sh"
+source "$WORK_DIR/utils/notify.sh"
 
 # ---------- helpers ----------
 
 get_theme_config() {
 	local mode="$1" key="$2"
-	jq -r ".[\"$mode\"][\"$key\"] // empty" "$COLORSCHEME_CONF"
+	jq -r ".[\"$mode\"][\"$key\"] // empty" "$THEME_CONF"
 }
 
 _ensure_config_line() {
@@ -42,7 +42,6 @@ get_bg_fg_colors() {
     }
   '
 }
-
 
 # ---------- setters ----------
 
@@ -254,7 +253,7 @@ set_firefox_theme() {
 
 	local state_file="/tmp/dwm-darkreader-state"
 	local cur_state
-	read -r cur_state < "$state_file" 2>/dev/null || true
+	read -r cur_state <"$state_file" 2>/dev/null || true
 
 	[ "$cur_state" = "$mode" ] && return
 
@@ -263,7 +262,96 @@ set_firefox_theme() {
 	[ -z "$win_id" ] && return
 	shortcut=$(_get_darkreader_shortcut "$profile_dir/extension-settings.json")
 	xdotool key --window "$win_id" --clearmodifiers "$shortcut"
-	echo "$mode" > "$state_file"
+	echo "$mode" >"$state_file"
+}
+
+# ---------- theme apply ----------
+
+_do_theme_change() {
+	local mode="$1"
+	[ -z "$mode" ] && return
+
+	set_dwm_theme "$mode"
+	set_rofi_theme "$mode"
+	set_kitty_theme "$mode" &
+	set_qt_theme "$mode"
+	set_gtk_theme "$mode"
+	set_fcitx5_theme "$mode"
+	set_firefox_theme "$mode"
+
+	[ -f "$HOME/.Xresources" ] && xrdb -merge "$HOME/.Xresources"
+
+	set_dunst_theme "$mode"
+}
+
+# ---------- auto theme ----------
+
+get_auto_config() {
+	local key="$1"
+	jq -r ".[\"$key\"] // empty" "$THEME_CONF" 2>/dev/null
+}
+
+get_sun_times() {
+	IFS=, read LAT LON < <(curl -m 2 -fsS https://ipinfo.io/loc) || return 1
+
+	local json tz sr1 ss1 sr2
+	json=$(curl -m 5 -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&daily=sunrise,sunset&forecast_days=2&timezone=auto") || return 1
+	tz=$(echo "$json" | jq -r '.timezone // "UTC"')
+	sr1=$(echo "$json" | jq -r '.daily.sunrise[0]')
+	ss1=$(echo "$json" | jq -r '.daily.sunset[0]')
+	sr2=$(echo "$json" | jq -r '.daily.sunrise[1]')
+
+	echo "$(TZ="$tz" date -d "$sr1" +%s) $(TZ="$tz" date -d "$ss1" +%s) $(TZ="$tz" date -d "$sr2" +%s)"
+}
+
+auto_daemon() {
+	local auto
+	auto=$(get_auto_config "auto")
+	[ "$auto" = "true" ] || exit 0
+
+	while true; do
+		auto=$(get_auto_config "auto")
+		[ "$auto" = "true" ] || exit 0
+
+		local times sunrise sunset next_sunrise
+		if times=$(get_sun_times 2>/dev/null); then
+			read sunrise sunset next_sunrise <<<"$times"
+		fi
+		[ -n "$sunrise" ] && [ -n "$sunset" ] && [ -n "$next_sunrise" ] || { sleep 1800; continue; }
+
+		local rise_off set_off
+		rise_off=$(get_auto_config "rise_offset")
+		rise_off=$((${rise_off:-0} * 60))
+		set_off=$(get_auto_config "set_offset")
+		set_off=$((${set_off:-0} * 60))
+
+		local now desired next_switch
+		now=$(date +%s)
+
+		if [ "$now" -lt "$((sunrise + rise_off))" ]; then
+			desired="dark"
+			next_switch="$((sunrise + rise_off))"
+		elif [ "$now" -lt "$((sunset + set_off))" ]; then
+			desired="light"
+			next_switch="$((sunset + set_off))"
+		else
+			desired="dark"
+			next_switch="$((next_sunrise + rise_off))"
+		fi
+
+		local cur
+		cur=$(get_current_theme)
+		if [ "$cur" != "$desired" ]; then
+			_do_theme_change "$desired"
+			system-notify low "Auto Theme" "switched to $desired theme"
+			pkill -SIGHUP dwm
+			sleep 0.5
+		fi
+
+		if [ "$next_switch" -gt "$now" ]; then
+			sleep $((next_switch - now))
+		fi
+	done
 }
 
 case "$1" in
@@ -289,29 +377,35 @@ check)
 		system-notify normal "Themes Check" "All theme packages are already installed"
 	fi
 	;;
-before)
-	cur=$(get_current_theme)
-	[ -z "$cur" ] && exit
-
-	case "$cur" in
-		dark) mode="light" ;;
-		light) mode="dark" ;;
-		*) exit ;;
-	esac
-
-	set_dwm_theme "$mode"
-	set_rofi_theme "$mode"
-	set_kitty_theme "$mode" &
-	set_qt_theme "$mode"
-	set_gtk_theme "$mode"
-	set_fcitx5_theme "$mode"
-	set_firefox_theme "$mode"
-
-	[ -f "$HOME/.Xresources" ] && xrdb -merge "$HOME/.Xresources"
-
-	set_dunst_theme "$mode"
-	;;
-after)
+apply)
+	mode="$2"
+	[ -z "$mode" ] && exit 1
+	_do_theme_change "$mode"
 	pkill -SIGHUP dwm
+	[ "$(get_auto_config "auto")" = "true" ] && "$0" auto off
+	;;
+auto)
+	pf="/tmp/dwm-status/autostart-launch-theme-auto.pid"
+	case "$2" in
+	on)
+		jq '.auto = true' "$THEME_CONF" >"${THEME_CONF}.tmp" &&
+			mv "${THEME_CONF}.tmp" "$THEME_CONF"
+		local pid
+		[ -f "$pf" ] && pid=$(cat "$pf")
+		[ -n "${pid:-}" ] && kill -0 "$pid" 2>/dev/null && exit 0
+		"$0" auto >/dev/null 2>&1 &
+		mkdir -p "$(dirname "$pf")"
+		echo $! >"$pf"
+		system-notify low "Auto Theme" "auto switch enabled"
+		;;
+	off)
+		jq '.auto = false' "$THEME_CONF" >"${THEME_CONF}.tmp" &&
+			mv "${THEME_CONF}.tmp" "$THEME_CONF"
+		[ -f "$pf" ] && kill "$(cat "$pf")" 2>/dev/null
+		rm -f "$pf"
+		system-notify low "Auto Theme" "auto switch disabled"
+		;;
+	*) auto_daemon ;;
+	esac
 	;;
 esac

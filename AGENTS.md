@@ -11,8 +11,8 @@ dwm-status.sh ──sources──► dwm-status-tools.sh ──sources──► 
                                                            utils/weather.sh
                                                            utils/notify.sh
 dwm-statuscmd.sh ──sources──► utils/notify.sh
-colorscheme.sh ──sources──► utils/notify.sh
-                ──requires─► xdotool, jq (Firefox Dark Reader 切换)
+tools/theme.sh ──sources──► utils/notify.sh
+                ──requires─► xdotool, jq, curl (Firefox Dark Reader 切换 / auto 日出日落)
 
 tools/lock.sh ──sources──► utils/notify.sh
               ◄──sourced by── rofi/powermenu/type-{1..6}/powermenu.sh
@@ -36,6 +36,7 @@ rofi/scripts/media-scraping.sh──sources──► rofi/scripts/lib-module.sh,
 rofi/scripts/mpd.sh         ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/sing-box.sh    ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh
 rofi/scripts/scrcpy.sh    ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
+rofi/scripts/theme.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 
 # 死代码 (未被任何脚本 source)
 utils/print.sh   — number2icon() 无人调用
@@ -46,7 +47,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 
 ### utils/notify.sh → system-notify()
 被以下脚本调用:
-`brightness.sh` `calendar.sh` `keyboard.sh` `lock.sh` `volume.sh` `dwm-status-tools.sh` `dwm-statuscmd.sh` `sing-box.sh` `wallpaper.sh` `colorscheme.sh`
+`brightness.sh` `calendar.sh` `keyboard.sh` `lock.sh` `volume.sh` `dwm-status-tools.sh` `dwm-statuscmd.sh` `sing-box.sh` `wallpaper.sh` `tools/theme.sh`
 
 ### utils/monitor.sh
 | 函数 | 调用者 |
@@ -84,12 +85,13 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 |------|--------|
 | `toggleApplication()` | module.sh (handle_picom, handle_conky) |
 | `handle_audio_output()` | module.sh (pactl sink 切换子菜单 → notify-send) |
+| `handle_theme()` | module.sh (Theme 子菜单 → rofi/scripts/theme.sh) |
 
 ### rofi/scripts/lib-module.sh
 | 函数 | 调用者 |
 |------|--------|
-| `module_parse()` | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh (读取注册表) |
-| `module_loop()` | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, scrcpy.sh, wallpaper.sh (主循环, 唯一入口) |
+| `module_parse()` | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, theme.sh (读取注册表) |
+| `module_loop()` | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, scrcpy.sh, wallpaper.sh, theme.sh (主循环, 唯一入口) |
 | `module_sub_rofi()` | module.sh (handle_network, handle_bluetooth, handle_audio_output 的子菜单), sddm.sh (handle_set_theme, handle_set_config 的子菜单), scrcpy.sh (handle_select_device 的子菜单), wallpaper.sh (monitor_selection 的子菜单), sing-box.sh (主菜单) |
 
 ### rofi/scripts/media-scraping.sh
@@ -97,6 +99,20 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 |------|--------|
 | `_toggle()` | media-scraping.sh (启停 docker compose 服务) |
 | `_is_running()` | media-scraping.sh (Open 前检查容器状态, Toggle 图标状态检查) |
+
+### theme.sh (tools/)
+| 函数 | 调用者 |
+|------|--------|
+| `_do_theme_change()` | tools/theme.sh (apply / auto_daemon) |
+| `get_auto_config()` | tools/theme.sh (auto_daemon, auto on/off, apply) |
+| `get_sun_times()` | tools/theme.sh (auto_daemon: ipinfo + open-meteo 日出日落) |
+| `auto_daemon()` | tools/theme.sh (auto 守护进程循环) |
+
+### rofi/scripts/theme.sh
+| 函数 | 调用者 |
+|------|--------|
+| `handle_toggle()` | theme.sh (→ `tools/theme.sh apply light\|dark` 翻转) |
+| `handle_auto()` | theme.sh (→ `tools/theme.sh auto on/off`) |
 
 ## 调用链 (Call Chain)
 
@@ -131,6 +147,7 @@ DWM 启动
     → bash dwm-status.sh &                  # 状态栏
     → bash screen.sh &                      # DPMS 守护 (调用 pactl 检测视频音频)
     → bash brightness.sh &
+    → bash tools/theme.sh auto &           # 自动主题切换 (auto=false 时立即退出)
 ```
 
 ### 状态栏链路
@@ -154,12 +171,25 @@ dwm-launcher.sh (快捷键)
   → rofi/scripts/powermenu_t2 (竖屏) / powermenu_t4 (横屏)  (电源菜单)
   → rofi/scripts/mpd.sh      (音乐控制)
   → rofi/scripts/module.sh   (模块管理)
+    → rofi/scripts/theme.sh (主题控制子菜单，由 module.sh handle_theme 调用)
   → rofi/scripts/media-scraping.sh  (Media 启停子菜单，由 module.sh 调用)
   → rofi/scripts/screenshot.sh
   → rofi/scripts/screencast.sh
   → rofi/scripts/quicklinks.sh
   → rofi/scripts/emoji.sh
   → rofi/scripts/notification.sh
+```
+
+### 自动主题切换链路
+```
+tools/theme.sh auto (守护进程)
+  → get_sun_times() (ipinfo.io/loc + open-meteo daily=sunrise,sunset)
+  → get_current_theme() (xrdb -query dwm.col_theme)
+  → 日出/日落触发:
+      → _do_theme_change("light"|"dark")
+      → system-notify low
+      → pkill -SIGHUP dwm → dwm restart → loadxrdb 重载配色
+  手动 apply 会关闭 auto（自动调用 auto off）
 ```
 
 ### 壁纸链路
@@ -174,7 +204,7 @@ wallpaper.sh → source utils/monitor.sh, utils/notify.sh
 - `rofi/` 下各 type 目录的 `*.rasi` 文件
 - `rofi/fonts/` 字体文件
 - `rofi/colors/` `rofi/images/`
-- `~/.config/dwm/colorscheme.json` — `colorscheme.sh` 的外部化主题配置 (light/dark)，其中 `"qt"` 字段存储 Kvantum 主题名 (如 `Orchis-solid`/`Orchis-solidDark`)
+- `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置 (light/dark/auto/rise_offset/set_offset)，其中 `"auto"` 默认 false 控制日出日落自动切换，`"rise_offset"` 默认 0 为日出后延迟分钟数，`"set_offset"` 默认 0 为日落后延迟分钟数，`"qt"` 字段存储 Kvantum 主题名 (如 `Orchis`/`OrchisDark`)
 
 ## 已知问题
 - `tools/calendar.sh:3` source 路径已修复为 `$(dirname "$0")/../utils/notify.sh`

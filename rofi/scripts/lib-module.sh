@@ -6,6 +6,7 @@
 # 使用方法见末尾注释
 
 MODULE_WIDTH="${MODULE_WIDTH:-500}"
+ITEM_SPACE_WIDTH="${ITEM_SPACE_WIDTH:-38}"
 
 _module_menu_build() {
 	local layout=$(grep 'USE_ICON' ${MODULE_THEME} | cut -d'=' -f2)
@@ -18,7 +19,7 @@ _module_menu_build() {
 		local status=$(_module_status "$key" "${MODULE_STATUS[$key]}")
 
 		if [[ "$layout" == 'NO' ]]; then
-			MAIN_OPTS+=("$(printf "%-38s %s" "${icon} ${label}" "$status")")
+			MAIN_OPTS+=("$(printf "%-${ITEM_SPACE_WIDTH}s %s" "${icon} ${label}" "$status")")
 		else
 			MAIN_OPTS+=("$icon $status")
 		fi

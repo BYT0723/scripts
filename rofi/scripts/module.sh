@@ -39,6 +39,7 @@ sing-box||SingBox||active
 calendar||Calendar||
 calendar-lunar||Calendar (Lunar)||
 scrcpy|󰄟|Scrcpy (Android Mirror)|Screen Mirror||
+theme|󰔟|Theme|light/dark/auto||
 MODULES
 
 # ====== Handlers ======
@@ -74,6 +75,7 @@ handle_calendar_lunar() { /bin/bash $WORK_DIR/tools/calendar.sh lunar; }
 handle_media_scraping() { /bin/bash $ROFI_DIR/scripts/media-scraping.sh; }
 handle_sddm() { /bin/bash $ROFI_DIR/scripts/sddm.sh; }
 handle_scrcpy() { /bin/bash $ROFI_DIR/scripts/scrcpy.sh; }
+handle_theme() { /bin/bash $ROFI_DIR/scripts/theme.sh; }
 
 handle_audio_output() {
 	local default_sink default_desc line name desc vol
