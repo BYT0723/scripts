@@ -54,35 +54,35 @@
 
 ### 核心
 
-| 脚本                  | 功能                                 | 依赖                                           |
-| --------------------- | ------------------------------------ | ---------------------------------------------- |
-| `autostart.sh`        | DWM 启动入口                         | picom / xautolock / i3lock / setxkbmap / dunst |
-| `dwm-launcher.sh`     | 快捷键分发 → rofi 菜单               | rofi / kitty                                   |
-| `dwm-status.sh`       | 状态栏刷新器                         | (sources dwm-status-tools.sh)                  |
-| `dwm-status-tools.sh` | 状态栏数据源 + 守护进程              | acpi / alsa-utils / jq / networkmanager / mpc  |
-| `dwm-statuscmd.sh`    | 状态栏点击事件处理                   | libnotify / kitty                              |
-| `dwm-layoutmenu.sh`   | DWM 布局选择器                       | rofi                                           |
-| `keyboard.sh`         | 键盘布局切换                         | setxkbmap / xset                               |
-| `monitor-conf.sh`     | 多显示器布局                         | xrandr                                         |
+| 脚本                  | 功能                    | 依赖                                           |
+| --------------------- | ----------------------- | ---------------------------------------------- |
+| `autostart.sh`        | DWM 启动入口            | picom / xautolock / i3lock / setxkbmap / dunst |
+| `dwm-launcher.sh`     | 快捷键分发 → rofi 菜单  | rofi / kitty                                   |
+| `dwm-status.sh`       | 状态栏刷新器            | (sources dwm-status-tools.sh)                  |
+| `dwm-status-tools.sh` | 状态栏数据源 + 守护进程 | acpi / alsa-utils / jq / networkmanager / mpc  |
+| `dwm-statuscmd.sh`    | 状态栏点击事件处理      | libnotify / kitty                              |
+| `dwm-layoutmenu.sh`   | DWM 布局选择器          | rofi                                           |
+| `keyboard.sh`         | 键盘布局切换            | setxkbmap / xset                               |
+| `monitor-conf.sh`     | 多显示器布局            | xrandr                                         |
 
 ### tools/
 
-| 脚本                | 功能                             | 依赖                                                |
-| ------------------- | -------------------------------- | --------------------------------------------------- |
-| `lock.sh`           | i3lock-color 锁屏 + suspend 分发 | i3lock / xset / xdotool / xprintidle / amixer / mpc |
-| `screen.sh`         | DPMS 自动启停守护                | xautolock / xset / pactl / jq                       |
-| `wallpaper.sh`      | 壁纸引擎 (图片/视频/网页)        | feh / mpv / xwinwrap / surf / tabbed                |
-| `brightness.sh`     | 屏幕背光控制                     | brightnessctl                                       |
-| `volume.sh`         | 音量控制                         | amixer                                              |
-| `keyboard.sh`       | 键盘布局 / 速率                  | setxkbmap / xset                                    |
-| `touchpad.sh`       | 触控板开关                       | synclient (xf86-input-synaptics)                    |
-| `calendar.sh`       | 公历/农历日历                    | cal / ccal                                          |
-| `clock.sh`          | cron 闹钟通知                    | libnotify                                           |
-| `random_file.sh`    | mpv 随机播放目录内视频           | mpv                                                 |
-| `sddm.sh`           | SDDM 主题管理                    | sddm                                                |
-| `update-ruleset.sh` | sing-box geo 规则集更新          | curl / wget                                         |
-| `youtube/yt.sh`     | yt-dlp 音频下载                  | yt-dlp / ffmpeg                                     |
-| `theme.sh`          | 亮色/暗色主题切换 + 日出日落自动切换 | xrdb / dunstctl / libnotify / curl / jq           |
+| 脚本                | 功能                                 | 依赖                                                |
+| ------------------- | ------------------------------------ | --------------------------------------------------- |
+| `lock.sh`           | i3lock-color 锁屏 + suspend 分发     | i3lock / xset / xdotool / xprintidle / amixer / mpc |
+| `screen.sh`         | DPMS 自动启停守护                    | xautolock / xset / pactl / jq                       |
+| `wallpaper.sh`      | 壁纸引擎 (图片/视频/网页)            | feh / mpv / xwinwrap / surf / tabbed                |
+| `brightness.sh`     | 屏幕背光控制                         | brightnessctl                                       |
+| `volume.sh`         | 音量控制                             | amixer                                              |
+| `keyboard.sh`       | 键盘布局 / 速率                      | setxkbmap / xset                                    |
+| `touchpad.sh`       | 触控板开关                           | synclient (xf86-input-synaptics)                    |
+| `calendar.sh`       | 公历/农历日历                        | cal / ccal                                          |
+| `clock.sh`          | cron 闹钟通知                        | libnotify                                           |
+| `random_file.sh`    | mpv 随机播放目录内视频               | mpv                                                 |
+| `sddm.sh`           | SDDM 主题管理                        | sddm                                                |
+| `update-ruleset.sh` | sing-box geo 规则集更新              | curl / wget                                         |
+| `youtube/yt.sh`     | yt-dlp 音频下载                      | yt-dlp / ffmpeg                                     |
+| `theme.sh`          | 亮色/暗色主题切换 + 日出日落自动切换 | xrdb / dunstctl / libnotify / curl / jq             |
 
 ### utils/ (被其他脚本 source)
 
@@ -102,7 +102,7 @@
 | `screencast.sh`   | 屏幕录制                               | ffmpeg / slop / ffprobe       |
 | `quicklinks.sh`   | URL 书签启动器                         | firefox / chromium            |
 | `emoji.sh`        | emoji 选择器                           | rofi-emoji                    |
-| `theme.sh`        | 主题控制菜单 (light/dark/auto 开关)    | tools/theme.sh の CLI 子命令        |
+| `theme.sh`        | 主题控制菜单 (light/dark/auto 开关)    | tools/theme.sh                |
 | `wallpaper.sh`    | 壁纸配置 UI                            | rofi                          |
 | `notification.sh` | dunst 通知历史                         | dunst / jq                    |
 | `setting.sh`      | 设置管理器 (状态栏/sddm)               | kitty / rofi                  |
