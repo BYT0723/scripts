@@ -203,7 +203,16 @@ case "$op" in
 	shift
 	action="$1"
 	case "$action" in
-		next) file=$(random_wallpaper "$monitor"); fflag="" ;;
+		next)
+			if [[ "$monitor" == "ALL" ]]; then
+				while read -r m; do
+					file=$(random_wallpaper "$m")
+					[ -n "$file" ] && apply_wallpaper "$m" "$file"
+				done < <(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}')
+				exit 0
+			fi
+			file=$(random_wallpaper "$monitor"); fflag=""
+			;;
 		select) file=$(select_wallpaper "$monitor"); fflag="-f" ;;
 		*) exit 1 ;;
 	esac
