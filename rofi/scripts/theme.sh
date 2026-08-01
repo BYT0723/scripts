@@ -8,7 +8,7 @@ MODULE_MAX_LINES=8
 MODULE_NAME="☀ Theme"
 MODULE_MESG="Manage system theme"
 MODULE_SEARCH_BAR=false
-ITEM_SPACE_WIDTH=36
+ITEM_SPACE_WIDTH=34
 
 source "$(dirname "$0")"/util.sh
 source "$(dirname "$0")"/lib-module.sh
@@ -27,7 +27,7 @@ get_rise() { jq -r '.rise_offset // 0' "$THEME_CONF" 2>/dev/null; }
 get_set() { jq -r '.set_offset // 0' "$THEME_CONF" 2>/dev/null; }
 
 module_parse <<MODULES
-toggle| |Toggle|switch light/dark|str:$([ "$(get_cur)" = "light" ] && echo "Light" || echo "Dark")
+toggle| |Toggle|switch light/dark|str:$(get_cur)
 auto|󰃡 |Auto (sunrise/sunset)|toggle auto switching|str:$([ "$(get_auto_stat)" = "true" ] && echo "" || echo "")
 rise_offset| |Rise offset|±min after sunrise|str:$(get_rise)m
 set_offset| |Set offset|±min after sunset|str:$(get_set)m

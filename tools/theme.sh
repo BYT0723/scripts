@@ -317,7 +317,10 @@ auto_daemon() {
 		if times=$(get_sun_times 2>/dev/null); then
 			read sunrise sunset next_sunrise <<<"$times"
 		fi
-		[ -n "$sunrise" ] && [ -n "$sunset" ] && [ -n "$next_sunrise" ] || { sleep 1800; continue; }
+		[ -n "$sunrise" ] && [ -n "$sunset" ] && [ -n "$next_sunrise" ] || {
+			sleep 1800
+			continue
+		}
 
 		local rise_off set_off
 		rise_off=$(get_auto_config "rise_offset")
@@ -342,8 +345,12 @@ auto_daemon() {
 		local cur
 		cur=$(get_current_theme)
 		if [ "$cur" != "$desired" ]; then
+			if pgrep -x i3lock >/dev/null 2>&1; then
+				sleep 60
+				continue
+			fi
 			_do_theme_change "$desired"
-			system-notify low "Auto Theme" "switched to $desired theme"
+			tool-notify low "Auto Theme" "switched to $desired theme"
 			pkill -SIGHUP dwm
 			sleep 0.5
 		fi
@@ -396,14 +403,14 @@ auto)
 		"$0" auto >/dev/null 2>&1 &
 		mkdir -p "$(dirname "$pf")"
 		echo $! >"$pf"
-		system-notify low "Auto Theme" "auto switch enabled"
+		tool-notify low "Auto Theme" "auto switch enabled"
 		;;
 	off)
 		jq '.auto = false' "$THEME_CONF" >"${THEME_CONF}.tmp" &&
 			mv "${THEME_CONF}.tmp" "$THEME_CONF"
 		[ -f "$pf" ] && kill "$(cat "$pf")" 2>/dev/null
 		rm -f "$pf"
-		system-notify low "Auto Theme" "auto switch disabled"
+		tool-notify low "Auto Theme" "auto switch disabled"
 		;;
 	*) auto_daemon ;;
 	esac
