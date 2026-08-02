@@ -134,6 +134,8 @@ declare -A actions=(
 	[14,$right]='xdg-open "http://127.0.0.1:9090/ui"'
 	[15,$left]='"$ROFI_SCRIPT_DIR/notification.sh" pop-latest'
 	[15,$right]='"$ROFI_SCRIPT_DIR/notification.sh"'
+	[16,$left]='"$ROFI_SCRIPT_DIR/screencast.sh"'
+	[16,$right]='"$TOOLS_DIR/screencast.sh" stop'
 )
 
 # --- Main dispatch ---

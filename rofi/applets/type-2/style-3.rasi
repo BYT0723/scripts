@@ -112,7 +112,7 @@ listview {
 /*****----- Elements -----*****/
 element {
     enabled:                     true;
-    padding:                     20px 10px;
+    padding:                     20px 0px 20px 8px;
     border:                      0px solid;
     border-radius:               100%;
     border-color:                @selected;

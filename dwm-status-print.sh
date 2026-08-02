@@ -220,3 +220,9 @@ print_notification() {
 	unread=$(dunstctl count history)
 	((unread > 0)) && printf "^c$yellow^${icons["notification"]} $unread"
 }
+
+print_screencast() {
+	local pid
+	read -r pid </tmp/screencaster_pid 2>/dev/null || return
+	kill -0 "$pid" 2>/dev/null && printf "^c$red^󰑊"
+}

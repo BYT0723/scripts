@@ -52,7 +52,7 @@ panes() {
 	# one icon tools pane
 	[ "$mpd_single_pane" -eq 0 ] && mpd_part="\x0a$mpd_str"
 
-	panes+="$(new_pane $black "\x0e$(print_singbox)" "$mpd_part" "\x03$(print_volume)" "\x02$(print_battery)")"
+	panes+="$(new_pane $black "\x10$(print_screencast)" "\x0e$(print_singbox)" "$mpd_part" "\x03$(print_volume)" "\x02$(print_battery)")"
 	# datetime pane
 	panes+="$(new_pane $black "\x01^c$cyan^$(print_date)")"
 

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
 ROFI_DIR="$(dirname "$(dirname "$0")")"
-MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
+MODULE_THEME="$ROFI_DIR/applets/type-2/style-2.rasi"
 MODULE_NAME="Screenshot"
 MODULE_MESG="screen capture"
+MODULE_SEARCH_BAR=false
 VIEWER="nsxiv"
 
 source "$(dirname "$0")"/util.sh
@@ -11,10 +12,10 @@ source "$(dirname "$0")"/lib-module.sh
 source "$(dirname "$ROFI_DIR")/utils/monitor.sh"
 
 module_parse <<MODULES
-desktop||Capture Desktop||
-area||Capture Area||
-window||Capture Window||
-timer||Capture in 5s||
+desktop||Desktop||
+area||Area||
+window||Window||
+timer||5s||
 MODULES
 
 shot_and_preview() {
