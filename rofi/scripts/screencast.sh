@@ -4,9 +4,10 @@ ROFI_DIR="$(dirname "$(dirname "$0")")"
 WORK_DIR="$(dirname "$ROFI_DIR")"
 
 MODULE_THEME="$ROFI_DIR/applets/type-2/style-2.rasi"
-MODULE_NAME="Screencast"
-MODULE_MESG="screen record"
+MODULE_NAME="󰑊 Screen Recording"
+MODULE_MESG="screen recording"
 MODULE_SEARCH_BAR=false
+MODULE_MESSAGE_DISABLE=true
 
 source "$(dirname "$0")"/util.sh
 source "$(dirname "$0")"/lib-module.sh
