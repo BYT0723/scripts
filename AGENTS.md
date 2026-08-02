@@ -36,7 +36,7 @@ rofi/scripts/media-scraping.sh──sources──► rofi/scripts/lib-module.sh,
 rofi/scripts/mpd.sh         ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/sing-box.sh    ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh
 rofi/scripts/scrcpy.sh    ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
-rofi/scripts/theme.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
+rofi/scripts/theme.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, tools/theme.sh
 
 # 死代码 (未被任何脚本 source)
 utils/print.sh   — number2icon() 无人调用
@@ -105,7 +105,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 |------|--------|
 | `_do_theme_change()` | tools/theme.sh (apply / auto_daemon) |
 | `get_auto_config()` | tools/theme.sh (auto_daemon, auto on/off, apply) |
-| `get_sun_times()` | tools/theme.sh (auto_daemon: ipinfo + open-meteo 日出日落) |
+| `get_sun_times()` | tools/theme.sh (auto_daemon), rofi/scripts/theme.sh (get_sun_message → MODULE_MESG 日出日落显示; 内置 /tmp/dwm-sun-times 缓存) |
 | `auto_daemon()` | tools/theme.sh (auto 守护进程循环) |
 
 ### rofi/scripts/theme.sh
@@ -113,6 +113,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 |------|--------|
 | `handle_toggle()` | theme.sh (→ `tools/theme.sh apply light\|dark` 翻转) |
 | `handle_auto()` | theme.sh (→ `tools/theme.sh auto on/off`) |
+| `get_sun_message()` | theme.sh (调 `get_sun_times` → 格式化 MODULE_MESG; 网络失败则 fallback 为无时间后缀) |
 
 ## 调用链 (Call Chain)
 

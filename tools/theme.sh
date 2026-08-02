@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-WORK_DIR=$(dirname "$(dirname "$0")")
+WORK_DIR=$(dirname "$(dirname "${BASH_SOURCE[0]}")")
 THEME_CONF="$HOME/.config/dwm/theme.json"
 
 source "$WORK_DIR/utils/notify.sh"
@@ -292,6 +292,17 @@ get_auto_config() {
 }
 
 get_sun_times() {
+	local cache=/tmp/dwm-sun-times today
+	today=$(date +%F)
+	local cdate sr_ep ss_ep sr2_ep
+	if [ -f "$cache" ]; then
+		IFS='|' read -r cdate sr_ep ss_ep sr2_ep <"$cache"
+		if [ "$cdate" = "$today" ] && [ -n "$sr_ep" ] && [ -n "$ss_ep" ] && [ -n "$sr2_ep" ]; then
+			echo "$sr_ep $ss_ep $sr2_ep"
+			return 0
+		fi
+	fi
+
 	IFS=, read LAT LON < <(curl -m 2 -fsS https://ipinfo.io/loc) || return 1
 
 	local json tz sr1 ss1 sr2
@@ -301,7 +312,12 @@ get_sun_times() {
 	ss1=$(echo "$json" | jq -r '.daily.sunset[0]')
 	sr2=$(echo "$json" | jq -r '.daily.sunrise[1]')
 
-	echo "$(TZ="$tz" date -d "$sr1" +%s) $(TZ="$tz" date -d "$ss1" +%s) $(TZ="$tz" date -d "$sr2" +%s)"
+	sr_ep=$(TZ="$tz" date -d "$sr1" +%s)
+	ss_ep=$(TZ="$tz" date -d "$ss1" +%s)
+	sr2_ep=$(TZ="$tz" date -d "$sr2" +%s)
+
+	printf '%s|%s|%s|%s\n' "$today" "$sr_ep" "$ss_ep" "$sr2_ep" >"${cache}.tmp" && mv "${cache}.tmp" "$cache"
+	echo "$sr_ep $ss_ep $sr2_ep"
 }
 
 auto_daemon() {

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-WORK_DIR=$(dirname "$0")
+WORK_DIR=$(dirname "${BASH_SOURCE[0]}")
 source "$WORK_DIR/utils/weather.sh"
 source "$WORK_DIR/utils/notify.sh"
 
@@ -82,7 +82,7 @@ mpd_single_pane=0
 
 # Datetime
 
-source "$(dirname "$0")/dwm-status-print.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/dwm-status-print.sh"
 update_cpu_daemon() {
 	local interval=${1:-2}
 

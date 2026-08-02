@@ -12,6 +12,7 @@ ITEM_SPACE_WIDTH=34
 
 source "$(dirname "$0")"/util.sh
 source "$(dirname "$0")"/lib-module.sh
+source "$WORK_DIR/tools/theme.sh"
 
 THEME_CONF="$HOME/.config/dwm/theme.json"
 
@@ -26,6 +27,13 @@ get_cur() {
 get_rise() { jq -r '.rise_offset // 0' "$THEME_CONF" 2>/dev/null; }
 get_set() { jq -r '.set_offset // 0' "$THEME_CONF" 2>/dev/null; }
 
+get_sun_message() {
+	local times sunrise sunset
+	times=$(get_sun_times 2>/dev/null) || return 1
+	read sunrise sunset _ <<<"$times"
+	printf "  %s |   %s" "$(date -d "@$sunrise" +%H:%M)" "$(date -d "@$sunset" +%H:%M)"
+}
+
 module_parse <<MODULES
 toggle| |Toggle|switch light/dark|str:$(get_cur)
 auto|󰃡 |Auto (sunrise/sunset)|toggle auto switching|str:$([ "$(get_auto_stat)" = "true" ] && echo "" || echo "")
@@ -33,6 +41,9 @@ rise_offset| |Rise offset|±min after sunrise|str:$(get_rise)m
 set_offset| |Set offset|±min after sunset|str:$(get_set)m
 conf|󱔏 |Edit config|open theme.json|
 MODULES
+
+sun_mesg=$(get_sun_message 2>/dev/null) || true
+MODULE_MESG="system theme${sun_mesg:+ | $sun_mesg}"
 
 handle_toggle() {
 	local cur mode
