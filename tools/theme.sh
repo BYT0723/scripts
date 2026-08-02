@@ -282,6 +282,12 @@ _do_theme_change() {
 	[ -f "$HOME/.Xresources" ] && xrdb -merge "$HOME/.Xresources"
 
 	set_dunst_theme "$mode"
+
+	# Wait for all theme changes to settle (especially fcitx5 restart,
+	# xrdb merge, and GTK/Qt theme reload) before the SIGHUP that
+	# follows. Otherwise dwm restart races with tray client re-init,
+	# causing blank icons and frozen Electron/GTK clients (e.g. xunlei).
+	sleep 0.3
 }
 
 # ---------- auto theme ----------
@@ -405,6 +411,15 @@ apply)
 	[ -z "$mode" ] && exit 1
 	_do_theme_change "$mode"
 	pkill -SIGHUP dwm
+	# diagnostic: capture state after dwm restart
+	sleep 1
+	{
+		echo "=== post-restart $(date) ==="
+		xwininfo -root -tree 2>/dev/null | grep -E "Systray|迅雷|xunlei|thunder" | head -10
+		for p in $(pgrep xunlei 2>/dev/null); do
+			echo "xunlei pid=$p stat=$(cat /proc/$p/stat 2>/dev/null | cut -d' ' -f3) wchan=$(cat /proc/$p/wchan 2>/dev/null)"
+		done
+	} >>/tmp/dwm-theme-diag.log 2>&1
 	[ "$(get_auto_config "auto")" = "true" ] && "$0" auto off
 	;;
 auto)
