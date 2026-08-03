@@ -146,7 +146,7 @@ DWM 启动
     → bash keyboard.sh &
     → bash wallpaper.sh &
     → bash dwm-status.sh &                  # 状态栏
-    → bash screen.sh &                      # DPMS 守护 (调用 pactl 检测视频音频)
+    → bash screen.sh &                      # DPMS 守护 (PipeWire 用 pw-dump 检测 node state, PA fallback 用 pactl)
     → bash brightness.sh &
     → bash tools/theme.sh auto &           # 自动主题切换 (auto=false 时立即退出)
 ```

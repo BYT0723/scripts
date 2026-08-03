@@ -70,7 +70,7 @@
 | 脚本                | 功能                                 | 依赖                                                |
 | ------------------- | ------------------------------------ | --------------------------------------------------- |
 | `lock.sh`           | i3lock-color 锁屏 + suspend 分发     | i3lock / xset / xdotool / xprintidle / amixer / mpc |
-| `screen.sh`         | DPMS 自动启停守护                    | xautolock / xset / pactl / jq                       |
+| `screen.sh`         | DPMS 自动启停守护                    | xautolock / xset / pw-dump / pactl / jq             |
 | `wallpaper.sh`      | 壁纸引擎 (图片/视频/网页)            | feh / mpv / xwinwrap / surf / tabbed                |
 | `brightness.sh`     | 屏幕背光控制                         | brightnessctl                                       |
 | `volume.sh`         | 音量控制                             | amixer                                              |
