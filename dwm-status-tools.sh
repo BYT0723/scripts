@@ -67,8 +67,8 @@ cache_dir="/tmp/dwm-status"
 mkdir -p "$cache_dir"
 
 cpu_usage_path="$cache_dir/cpu_usage"
-weather_path="$cache_dir/weather"
-weather_forecast_path="$cache_dir/weather-forecast"
+weather_path="$HOME/.local/state/dwm/cache/weather"
+weather_forecast_path="$HOME/.local/state/dwm/cache/weather-forecast"
 traffic_rx_path="$cache_dir/network-traffic-rx"
 traffic_tx_path="$cache_dir/network-traffic-tx"
 mail_unread_path="$cache_dir/mail-unread"
@@ -234,7 +234,7 @@ interval_update_daemon() {
 
 update_weather() {
 	local weather=$(ipinfo-openMeteo)
-	[ -n "$weather" ] && echo "$weather" >"$weather_path" || true
+	[ -n "$weather" ] && { mkdir -p "$(dirname "$weather_path")" && echo "$weather" >"$weather_path"; } || true
 }
 
 update_weather_forecast() {

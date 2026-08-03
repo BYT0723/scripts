@@ -16,16 +16,10 @@ source "$WORK_DIR/tools/theme.sh"
 
 THEME_CONF="$HOME/.config/dwm/theme.json"
 
-get_auto_stat() {
-	jq -r '.auto // false' "$THEME_CONF" 2>/dev/null
-}
-
-get_cur() {
-	xrdb -query 2>/dev/null | awk -F': *\t*' '$1=="dwm.col_theme" {print $2}'
-}
-
-get_rise() { jq -r '.rise_offset // 0' "$THEME_CONF" 2>/dev/null; }
-get_set() { jq -r '.set_offset // 0' "$THEME_CONF" 2>/dev/null; }
+get_auto_stat() { jq -r '.auto.enabled // false' "$THEME_CONF" 2>/dev/null; }
+get_cur() { cat "$HOME/.local/state/dwm/current-theme" 2>/dev/null; }
+get_rise() { jq -r '.auto.sun_rise_offset // 0' "$THEME_CONF" 2>/dev/null; }
+get_set() { jq -r '.auto.sun_set_offset // 0' "$THEME_CONF" 2>/dev/null; }
 
 get_sun_message() {
 	local times sunrise sunset
@@ -79,8 +73,41 @@ _handle_offset() {
 		/bin/bash "$WORK_DIR/tools/theme.sh" auto >/dev/null 2>&1 &
 	fi
 }
-handle_rise_offset() { _handle_offset "rise_offset" "Rise offset (min)" get_rise; }
-handle_set_offset() { _handle_offset "set_offset" "Set offset (min)" get_set; }
-handle_conf() { ${TERMINAL:-kitty} -e ${EDITOR:-nvim} "$THEME_CONF" 2>/dev/null || system-notify normal "Error" "failed to open editor"; }
+handle_rise_offset() { _handle_offset "auto.sun_rise_offset" "Rise offset (min)" get_rise; }
+handle_set_offset() { _handle_offset "auto.sun_set_offset" "Set offset (min)" get_set; }
+handle_conf() {
+	local checksum_before auto_before
+	checksum_before=$(md5sum "$THEME_CONF" 2>/dev/null)
+	auto_before=$(get_auto_stat)
+
+	${TERMINAL:-kitty} -e ${EDITOR:-nvim} "$THEME_CONF" 2>/dev/null || {
+		system-notify normal "Error" "failed to open editor"
+		return
+	}
+
+	[ "$(md5sum "$THEME_CONF" 2>/dev/null)" = "$checksum_before" ] && return
+
+	local auto_after
+	auto_after=$(get_auto_stat)
+
+	if [ "$auto_before" != "$auto_after" ]; then
+		if [ "$auto_after" = "true" ]; then
+			/bin/bash "$WORK_DIR/tools/theme.sh" auto on
+		else
+			/bin/bash "$WORK_DIR/tools/theme.sh" auto off
+		fi
+	elif [ "$auto_after" = "true" ]; then
+		local pf="/tmp/dwm-status/autostart-launch-theme-auto.pid"
+		[ -f "$pf" ] && kill "$(cat "$pf")" 2>/dev/null
+		rm -f "$pf"
+		/bin/bash "$WORK_DIR/tools/theme.sh" auto >/dev/null 2>&1 &
+	fi
+
+	local cur
+	cur=$(get_cur)
+	[ -n "$cur" ] || return
+	_do_theme_change "$cur"
+	pkill -SIGHUP dwm
+}
 
 module_loop

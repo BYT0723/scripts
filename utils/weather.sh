@@ -134,7 +134,7 @@ def vpad($w): . + (if vwidth >= $w then "" else " " * ($w - vwidth) end);'
 # 获取未来12小时天气预报，写入缓存文件，极端天气/降雨时发送通知
 weather-forecast() {
 	local forecast_hours=${1:-12}
-	local cache_file=${2:-"/tmp/dwm-status/weather-forecast"}
+	local cache_file=${2:-"$HOME/.local/state/dwm/cache/weather-forecast"}
 
 	mkdir -p $(dirname "$cache_file")
 

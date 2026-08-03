@@ -105,7 +105,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 |------|--------|
 | `_do_theme_change()` | tools/theme.sh (apply / auto_daemon) |
 | `get_auto_config()` | tools/theme.sh (auto_daemon, auto on/off, apply) |
-| `get_sun_times()` | tools/theme.sh (auto_daemon), rofi/scripts/theme.sh (get_sun_message → MODULE_MESG 日出日落显示; 内置 /tmp/dwm-sun-times 缓存) |
+| `get_sun_times()` | tools/theme.sh (auto_daemon), rofi/scripts/theme.sh (get_sun_message → MODULE_MESG 日出日落显示; 内置 `~/.local/state/dwm/cache/sun-times` 缓存) |
 | `auto_daemon()` | tools/theme.sh (auto 守护进程循环) |
 
 ### rofi/scripts/theme.sh
@@ -205,7 +205,7 @@ wallpaper.sh → source utils/monitor.sh, utils/notify.sh
 - `rofi/` 下各 type 目录的 `*.rasi` 文件
 - `rofi/fonts/` 字体文件
 - `rofi/colors/` `rofi/images/`
-- `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置 (light/dark/auto/rise_offset/set_offset)，其中 `"auto"` 默认 false 控制日出日落自动切换，`"rise_offset"` 默认 0 为日出后延迟分钟数，`"set_offset"` 默认 0 为日落后延迟分钟数，`"qt"` 字段存储 Kvantum 主题名 (如 `Orchis`/`OrchisDark`)
+- `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置，`"auto"` 含 `enabled`(默认 false)、`sun_rise_offset`(日出延迟分钟数)、`sun_set_offset`(日落延迟分钟数)，`"cursor"` 含 `theme`/`size`，`"dpi"` 为 Xft.dpi 值，`light`/`dark` 的 `colorscheme` 引用 `~/.config/dwm/colorschemes/` 下的颜色方案文件
 
 ## 已知问题
 - `tools/calendar.sh:3` source 路径已修复为 `$(dirname "$0")/../utils/notify.sh`

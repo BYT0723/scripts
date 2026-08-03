@@ -1,7 +1,7 @@
 print_date() {
 	timeIcons=('' '' '' '' '' '' '' '' '' '' '' '')
 	local hour=$(date '+%l')
-	if [ -f /tmp/dwm-status/date-collapse ]; then
+	if [ -f "$HOME/.local/state/dwm/status/date-collapse" ]; then
 		date '+'${timeIcons[$((hour % 12))]}' %R'
 	else
 		date '+ %m/%d(%a) '${timeIcons[$((hour % 12))]}' %R'

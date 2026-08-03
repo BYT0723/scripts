@@ -108,7 +108,7 @@ _rss_launch() {
 left=1 middle=2 right=3 scroll_up=4 scroll_down=5
 
 declare -A actions=(
-	[1,$left]='[[ -f /tmp/dwm-status/date-collapse ]] && rm -f /tmp/dwm-status/date-collapse || touch /tmp/dwm-status/date-collapse'
+	[1,$left]='D="$HOME/.local/state/dwm/status"; [[ -f "$D/date-collapse" ]] && rm -f "$D/date-collapse" || { mkdir -p "$D" && touch "$D/date-collapse"; }'
 	[1,$right]='"$WORK_DIR/tools/calendar.sh" lunar'
 	[2,$left]='notify-send -c status -i battery -h string:x-dunst-stack-tag:batteryInformation "Battery" "$(acpi -i)"'
 	[2,$right]=_battery_dpms
@@ -120,7 +120,7 @@ declare -A actions=(
 	[3,$scroll_down]='"$TOOLS_DIR/volume.sh" down'
 	[6,$left]='notify-send -c status -h string:x-dunst-stack-tag:diskInformation "💾 Storage" "$(LANG=en_US.UTF-8 df -h -x tmpfs -x devtmpfs)"'
 	[8,$right]=_cpu_monitor
-	[9,$left]='notify-send -c status -i weather -h string:x-dunst-stack-tag:weatherForecast "Weather Forecast" "当前天气:$(cat /tmp/dwm-status/weather)\n\n$(cat /tmp/dwm-status/weather-forecast)"'
+	[9,$left]='W="$HOME/.local/state/dwm/cache"; notify-send -c status -i weather -h string:x-dunst-stack-tag:weatherForecast "Weather Forecast" "当前天气:$(cat "$W/weather")\n\n$(cat "$W/weather-forecast")"'
 	[9,$middle]='xdg-open https://wttr.in/?T'
 	[10,$left]='"$ROFI_SCRIPT_DIR/mpd.sh"'
 	[10,$middle]='mpd --kill'

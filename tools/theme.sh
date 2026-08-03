@@ -23,9 +23,7 @@ _ensure_config_line() {
 
 # ---------- queries ----------
 
-get_current_theme() {
-	xrdb -query | awk -F': *\t*' '$1=="dwm.col_theme" {print $2}'
-}
+get_current_theme() { cat "$HOME/.local/state/dwm/current-theme" 2>/dev/null; }
 
 get_bg_fg_colors() {
 	xrdb -query | awk -F': *' '
@@ -34,11 +32,7 @@ get_bg_fg_colors() {
       map[$1] = $2
     }
     END {
-      if (map["dwm.col_theme"] == "dark") {
-        print map["dwm.col_black"], map["dwm.col_white"]
-      } else {
-        print map["dwm.col_light_black"], map["dwm.col_light_white"]
-      }
+      print map["dwm.col_black"], map["dwm.col_white"]
     }
   '
 }
@@ -50,8 +44,25 @@ set_dwm_theme() {
 	[ -z "$mode" ] && return
 
 	local file="$HOME/.Xresources"
-	local key="dwm.col_theme"
-	_ensure_config_line "$file" "^$key:.*" "$key: $mode"
+	local cs_dir="$HOME/.config/dwm/colorschemes"
+	local scheme
+
+	scheme=$(jq -r ".[\"$mode\"].colorscheme // empty" "$THEME_CONF")
+
+	sed -i '/^dwm\.col_/d' "$file"
+	[ -n "$scheme" ] && [ -f "$cs_dir/$scheme.json" ] &&
+		jq -r 'to_entries[] | "dwm.col_\(.key): \(.value)"' "$cs_dir/$scheme.json" >>"$file"
+
+	mkdir -p "$HOME/.local/state/dwm"
+	echo "$mode" >"$HOME/.local/state/dwm/current-theme"
+
+	local cursor_theme cursor_size dpi
+	cursor_theme=$(jq -r '.cursor.theme // empty' "$THEME_CONF")
+	cursor_size=$(jq -r '.cursor.size // empty' "$THEME_CONF")
+	dpi=$(jq -r '.dpi // empty' "$THEME_CONF")
+	[ -n "$cursor_theme" ] && _ensure_config_line "$file" "^Xcursor.theme:.*" "Xcursor.theme: $cursor_theme"
+	[ -n "$cursor_size" ] && _ensure_config_line "$file" "^Xcursor.size:.*" "Xcursor.size: $cursor_size"
+	[ -n "$dpi" ] && _ensure_config_line "$file" "^Xft.dpi:.*" "Xft.dpi: $dpi"
 }
 
 set_rofi_theme() {
@@ -294,11 +305,11 @@ _do_theme_change() {
 
 get_auto_config() {
 	local key="$1"
-	jq -r ".[\"$key\"] // empty" "$THEME_CONF" 2>/dev/null
+	jq -r ".$key // empty" "$THEME_CONF" 2>/dev/null
 }
 
 get_sun_times() {
-	local cache=/tmp/dwm-sun-times today
+	local cache="$HOME/.local/state/dwm/cache/sun-times" today
 	today=$(date +%F)
 	local cdate sr_ep ss_ep sr2_ep
 	if [ -f "$cache" ]; then
@@ -309,30 +320,40 @@ get_sun_times() {
 		fi
 	fi
 
-	IFS=, read LAT LON < <(curl -m 2 -fsS https://ipinfo.io/loc) || return 1
+	local lock="$HOME/.local/state/dwm/cache/sun-times.fetching"
+	if [ -f "$lock" ] && find "$lock" -mmin -1 2>/dev/null | grep -q .; then
+		return 1
+	fi
+	rm -f "$lock"
 
-	local json tz sr1 ss1 sr2
-	json=$(curl -m 5 -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&daily=sunrise,sunset&forecast_days=2&timezone=auto") || return 1
-	tz=$(echo "$json" | jq -r '.timezone // "UTC"')
-	sr1=$(echo "$json" | jq -r '.daily.sunrise[0]')
-	ss1=$(echo "$json" | jq -r '.daily.sunset[0]')
-	sr2=$(echo "$json" | jq -r '.daily.sunrise[1]')
-
-	sr_ep=$(TZ="$tz" date -d "$sr1" +%s)
-	ss_ep=$(TZ="$tz" date -d "$ss1" +%s)
-	sr2_ep=$(TZ="$tz" date -d "$sr2" +%s)
-
-	printf '%s|%s|%s|%s\n' "$today" "$sr_ep" "$ss_ep" "$sr2_ep" >"${cache}.tmp" && mv "${cache}.tmp" "$cache"
-	echo "$sr_ep $ss_ep $sr2_ep"
+	mkdir -p "$(dirname "$lock")"
+	touch "$lock"
+	(
+		IFS=, read LAT LON < <(curl -m 2 -fsS https://ipinfo.io/loc) || exit
+		local json tz sr1 ss1 sr2
+		json=$(curl -m 5 -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&daily=sunrise,sunset&forecast_days=2&timezone=auto") || exit
+		tz=$(echo "$json" | jq -r '.timezone // "UTC"')
+		sr1=$(echo "$json" | jq -r '.daily.sunrise[0]')
+		ss1=$(echo "$json" | jq -r '.daily.sunset[0]')
+		sr2=$(echo "$json" | jq -r '.daily.sunrise[1]')
+		sr_ep=$(TZ="$tz" date -d "$sr1" +%s)
+		ss_ep=$(TZ="$tz" date -d "$ss1" +%s)
+		sr2_ep=$(TZ="$tz" date -d "$sr2" +%s)
+		mkdir -p "$(dirname "$cache")"
+		printf '%s|%s|%s|%s\n' "$today" "$sr_ep" "$ss_ep" "$sr2_ep" >"${cache}.tmp" && mv "${cache}.tmp" "$cache"
+		rm -f "$lock"
+	) &
+	disown
+	return 1
 }
 
 auto_daemon() {
 	local auto
-	auto=$(get_auto_config "auto")
+	auto=$(get_auto_config "auto.enabled")
 	[ "$auto" = "true" ] || exit 0
 
 	while true; do
-		auto=$(get_auto_config "auto")
+		auto=$(get_auto_config "auto.enabled")
 		[ "$auto" = "true" ] || exit 0
 
 		local times sunrise sunset next_sunrise
@@ -345,9 +366,9 @@ auto_daemon() {
 		}
 
 		local rise_off set_off
-		rise_off=$(get_auto_config "rise_offset")
+		rise_off=$(get_auto_config "auto.sun_rise_offset")
 		rise_off=$((${rise_off:-0} * 60))
-		set_off=$(get_auto_config "set_offset")
+		set_off=$(get_auto_config "auto.sun_set_offset")
 		set_off=$((${set_off:-0} * 60))
 
 		local now desired next_switch
@@ -367,10 +388,9 @@ auto_daemon() {
 		local cur
 		cur=$(get_current_theme)
 		if [ "$cur" != "$desired" ]; then
-			if pgrep -x i3lock >/dev/null 2>&1; then
-				sleep 60
-				continue
-			fi
+			while pgrep -x i3lock >/dev/null 2>&1; do
+				sleep 5
+			done
 			_do_theme_change "$desired"
 			tool-notify low "Auto Theme" "switched to $desired theme"
 			pkill -SIGHUP dwm
@@ -411,22 +431,13 @@ apply)
 	[ -z "$mode" ] && exit 1
 	_do_theme_change "$mode"
 	pkill -SIGHUP dwm
-	# diagnostic: capture state after dwm restart
-	sleep 1
-	{
-		echo "=== post-restart $(date) ==="
-		xwininfo -root -tree 2>/dev/null | grep -E "Systray|迅雷|xunlei|thunder" | head -10
-		for p in $(pgrep xunlei 2>/dev/null); do
-			echo "xunlei pid=$p stat=$(cat /proc/$p/stat 2>/dev/null | cut -d' ' -f3) wchan=$(cat /proc/$p/wchan 2>/dev/null)"
-		done
-	} >>/tmp/dwm-theme-diag.log 2>&1
-	[ "$(get_auto_config "auto")" = "true" ] && "$0" auto off
+	[ "$(get_auto_config "auto.enabled")" = "true" ] && "$0" auto off
 	;;
 auto)
 	pf="/tmp/dwm-status/autostart-launch-theme-auto.pid"
 	case "$2" in
 	on)
-		jq '.auto = true' "$THEME_CONF" >"${THEME_CONF}.tmp" &&
+		jq '.auto.enabled = true' "$THEME_CONF" >"${THEME_CONF}.tmp" &&
 			mv "${THEME_CONF}.tmp" "$THEME_CONF"
 		local pid
 		[ -f "$pf" ] && pid=$(cat "$pf")
@@ -437,7 +448,7 @@ auto)
 		tool-notify low "Auto Theme" "auto switch enabled"
 		;;
 	off)
-		jq '.auto = false' "$THEME_CONF" >"${THEME_CONF}.tmp" &&
+		jq '.auto.enabled = false' "$THEME_CONF" >"${THEME_CONF}.tmp" &&
 			mv "${THEME_CONF}.tmp" "$THEME_CONF"
 		[ -f "$pf" ] && kill "$(cat "$pf")" 2>/dev/null
 		rm -f "$pf"
