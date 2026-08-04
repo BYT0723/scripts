@@ -5,6 +5,7 @@ ROFI_DIR="$(dirname "$(dirname "$0")")"
 MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
 MODULE_MESSAGE_DISABLE="true"
 MODULE_WIDTH=800
+MODULE_FONT="Noto Sans CJK SC 10"
 
 source "$(dirname "$0")"/util.sh
 source "$(dirname "$0")"/lib-module.sh
@@ -23,6 +24,7 @@ build_menu() {
 		'
 	)
 	uptime_sec=$(awk '{print int($1)}' /proc/uptime)
+	echo $read_all_entry
 	for i in "${DATA[@]}"; do
 		IFS="|" read -r id app summary body ts_micro <<<"$i"
 
@@ -49,7 +51,6 @@ build_menu() {
 			echo "$id $app · $summary  ($rel_time)"
 		fi
 	done
-	echo $read_all_entry
 }
 
 run() {
