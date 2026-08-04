@@ -63,6 +63,7 @@ extract_opus() {
 			-c:a copy \
 			"$output"; then
 
+			rm "$file"
 			echo "✔ Done -> $output"
 		else
 			echo "✘ Failed: $file"

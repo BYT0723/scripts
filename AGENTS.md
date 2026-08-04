@@ -24,6 +24,9 @@ tools/keyboard.sh ──sources──► utils/notify.sh
 tools/volume.sh ──sources──► utils/notify.sh
 
 tools/youtube/yt.sh ──sources──► tools/youtube/opus-webm.sh
+          ──called by──► rofi/scripts/yt-download.sh
+
+rofi/scripts/yt-download.sh ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh
 
 rofi/scripts/quicklinks.sh  ──sources──► rofi/scripts/util.sh
 rofi/scripts/module.sh      ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
@@ -47,7 +50,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 
 ### utils/notify.sh → system-notify()
 被以下脚本调用:
-`brightness.sh` `calendar.sh` `keyboard.sh` `lock.sh` `volume.sh` `dwm-status-tools.sh` `dwm-statuscmd.sh` `sing-box.sh` `wallpaper.sh` `tools/theme.sh`
+`brightness.sh` `calendar.sh` `keyboard.sh` `lock.sh` `volume.sh` `dwm-status-tools.sh` `dwm-statuscmd.sh` `sing-box.sh` `wallpaper.sh` `tools/theme.sh` `yt-download.sh`
 
 ### utils/monitor.sh
 | 函数 | 调用者 |
@@ -86,13 +89,15 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `toggleApplication()` | module.sh (handle_picom, handle_conky) |
 | `handle_audio_output()` | module.sh (pactl sink 切换子菜单 → notify-send) |
 | `handle_theme()` | module.sh (Theme 子菜单 → rofi/scripts/theme.sh) |
+| `handle_yt_dl()` | module.sh (Youtube Downloader → rofi/scripts/yt-download.sh) |
 
 ### rofi/scripts/lib-module.sh
 | 函数 | 调用者 |
 |------|--------|
-| `module_parse()` | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, theme.sh (读取注册表) |
-| `module_loop()` | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, scrcpy.sh, wallpaper.sh, theme.sh (主循环, 唯一入口) |
-| `module_sub_rofi()` | module.sh (handle_network, handle_bluetooth, handle_audio_output 的子菜单), sddm.sh (handle_set_theme, handle_set_config 的子菜单), scrcpy.sh (handle_select_device 的子菜单), wallpaper.sh (monitor_selection 的子菜单), sing-box.sh (主菜单) |
+| `module_parse()` | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, theme.sh, yt-download.sh (读取注册表) |
+| `module_loop()` | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, scrcpy.sh, wallpaper.sh, theme.sh, yt-download.sh (主循环, 唯一入口) |
+| `module_sub_rofi()` | module.sh (handle_network, handle_bluetooth, handle_audio_output 的子菜单), sddm.sh (handle_set_theme, handle_set_config 的子菜单), scrcpy.sh (handle_select_device 的子菜单), wallpaper.sh (monitor_selection 的子菜单), sing-box.sh (主菜单), yt-download.sh (格式/清晰度子菜单) |
+| `module_input()` | yt-download.sh (URL 输入框) |
 
 ### rofi/scripts/media-scraping.sh
 | 函数 | 调用者 |
@@ -114,6 +119,25 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `handle_toggle()` | theme.sh (→ `tools/theme.sh apply light\|dark` 翻转) |
 | `handle_auto()` | theme.sh (→ `tools/theme.sh auto on/off`) |
 | `get_sun_message()` | theme.sh (调 `get_sun_times` → 格式化 MODULE_MESG; 网络失败则 fallback 为无时间后缀) |
+
+### tools/youtube/yt.sh
+| 函数 | 调用者 |
+|------|--------|
+| `yt_download()` | yt.sh (CLI: audio/video/raw) |
+| `extract_opus()` | yt.sh (audio 模式下载后批量转 opus) / opus-webm.sh (定义) |
+
+### rofi/scripts/yt-download.sh
+| 函数 | 调用者 |
+|------|--------|
+| `handle_audio()` | yt-download.sh (模块主菜单: 下载音频) |
+| `handle_video()` | yt-download.sh (模块主菜单: 下载视频) |
+| `handle_clipboard()` | yt-download.sh (模块主菜单: 剪贴板链接直接下载) |
+| `handle_format()` | yt-download.sh (模块主菜单: -F 自定义格式) |
+| `handle_open()` | yt-download.sh (模块主菜单: 打开下载目录) |
+| `_pick_resolution()` | yt-download.sh (handle_video/handle_clipboard → 取分辨率+子菜单+下载) |
+| `_download()` | yt-download.sh 各 handler (后台 yt-dlp + system-notify) |
+| `_format_download()` | yt-download.sh `_pick_resolution` → -F 列表解析 |
+| `_fetch_heights()` | yt-download.sh `_pick_resolution` → 动态获取分辨率 |
 
 ## 调用链 (Call Chain)
 
@@ -173,6 +197,7 @@ dwm-launcher.sh (快捷键)
   → rofi/scripts/mpd.sh      (音乐控制)
   → rofi/scripts/module.sh   (模块管理)
     → rofi/scripts/theme.sh (主题控制子菜单，由 module.sh handle_theme 调用)
+    → rofi/scripts/yt-download.sh (YouTube 下载器，由 module.sh handle_yt_dl 调用)
   → rofi/scripts/media-scraping.sh  (Media 启停子菜单，由 module.sh 调用)
   → rofi/scripts/screenshot.sh
   → rofi/scripts/screencast.sh
