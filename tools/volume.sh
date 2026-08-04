@@ -1,7 +1,5 @@
 #!/bin/bash
 
-msgTag="volume"
-
 source "$(dirname "$0")/../utils/notify.sh"
 
 [ -z "$(command -v amixer)" ] && system-notify critical "Tool Not Found" "please install amixer" && exit
@@ -21,13 +19,8 @@ case "$1" in
 	;;
 esac
 
-volume=$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)%\].*/\1/')
-status=$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)\].*/\1/')
+read -r volume status < <(amixer get Master | awk 'END{split($0,a,"[][]"); gsub(/%/,"",a[2]); print a[2], a[4]}')
 
-if [ "$status" == "off" ]; then
-	icon="audio-volume-muted-symbolic"
-fi
+[ "$status" == "off" ] && icon="audio-volume-muted-symbolic" || true
 
-# notify-send -c tools -i $icon -h string:x-dunst-stack-tag:$msgTag "${volume}"
-# # support progress bar
-notify-send -c tools -i $icon -h string:x-dunst-stack-tag:$msgTag -h int:value:"${volume}" "${volume}"
+notify-send -c tools -i $icon -h string:x-dunst-stack-tag:volume -h int:value:"${volume}" "${volume}"

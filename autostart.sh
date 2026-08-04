@@ -76,6 +76,21 @@ keyboard_setting() {
 	bash $TOOLS_DIR/keyboard.sh set rate 35
 }
 
+check_autorandr_xsetup() {
+	local lock=/tmp/dwm-autostart-xsetup-autorandr-checked
+	local xsetup=/usr/share/sddm/scripts/Xsetup
+
+	[ -f "$lock" ] && return 0
+	trap 'rm -f "$lock"' EXIT
+
+	grep -qF "autorandr --change" "$xsetup" 2>/dev/null && return
+
+	xsetup=/usr/share/sddm/scripts/Xsetup
+	action=$(notify-send -u critical -A 'edit,编辑文件' "SDDM Xsetup" "请在 $xsetup 中添加：autorandr --change")
+	[[ -n "$action" ]] && pkexec "/bin/sh" "-c" "echo \"autorandr --change\" >>$xsetup"
+}
+
 keyboard_setting
 desktop_setting
 application_launch
+check_autorandr_xsetup &
