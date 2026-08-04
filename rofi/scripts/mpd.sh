@@ -27,7 +27,7 @@ else
 	MODULE_NAME=" ${song:0:30}"
 	MODULE_MESG="$(mpc status "%currenttime%/%totaltime%  墳 %volume%")"
 
-	play_icon=$([[ "$status" == "playing" ]] && echo "" || echo "")
+	play_icon=$([[ "$status" == "playing" ]] && echo "󰏤" || echo "󰐊")
 	play_label=$([[ "$status" == "playing" ]] && echo "Pause" || echo "Play")
 
 	# Repeat/Random 高亮索引 (基于注册表行序)
@@ -41,12 +41,12 @@ else
 
 	module_parse <<MODULES
 play-pause|${play_icon}|${play_label}||
-stop||Stop||
-prev||Previous||
-next||Next||
-vol-down||Down||
-vol-up||Up||
-repeat||Repeat||
+stop|󰓛|Stop||
+prev|󰒮|Previous||
+next|󰒭|Next||
+vol-down|󰝞|Down||
+vol-up|󰝝|Up||
+repeat|󰑖|Repeat||
 random||Random||
 MODULES
 
