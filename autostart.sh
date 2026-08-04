@@ -7,7 +7,7 @@ TOOLS_DIR="$WORK_DIR/tools"
 CONKY_AUTOSTART=1
 
 # 显示器布局初始化
-# [ -n "$(command -v autorandr)" ] && autorandr --change
+[ -n "$(command -v autorandr)" ] && autorandr --change
 
 # 启动应用
 # $1 policy           string [check/restart]
