@@ -1,14 +1,5 @@
 #!/bin/bash
 
-# # Set Xorg
-# if [ ! -z "$(pgrep Xorg)" ]; then
-# 	# Set Xorg Keyboard Configuration
-# 	if [ ! -z "$(command -v setxkbmap)" ]; then
-# 		# For other keymaps, see: `/usr/share/X11/xkb/rules/base.lst`
-# 		setxkbmap us -option "caps:swapescape,altwin:swap_lalt_lwin" # setxkbmap need `xorg-xkb-utils` package
-# 	fi
-# fi
-
 source "$(dirname "$0")/../utils/notify.sh"
 
 [ -z "$(command -v setxkbmap)" ] && system-notify critical "Tool Not Found" "setxkbmap not be found, please install xorg-setxkbmap" && exit
@@ -41,7 +32,6 @@ set() {
 		xset r rate $delay $RATE
 		;;
 	"rate")
-		[ -z "$(command -v xset)" ] && echo "xset not found" && exit 1
 		rate=${2:-$RATE}
 		xset r rate $DELAY $rate
 		;;
@@ -54,16 +44,11 @@ set() {
 		setxkbmap $cur_layout -option ""
 		setxkbmap $cur_layout -option "$@"
 		;;
-	"option-add")
-		shift
-		setxkbmap $cur_layout -option "$@"
-		;;
 	*)
 		echo "subcommand:"
 		echo "    delay"
 		echo "    rate"
 		echo "    layout"
-		echo "    option-add"
 		echo "    option-set"
 		;;
 	esac

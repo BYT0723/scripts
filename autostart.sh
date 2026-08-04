@@ -7,7 +7,7 @@ TOOLS_DIR="$WORK_DIR/tools"
 CONKY_AUTOSTART=1
 
 # 显示器布局初始化
-[ -n "$(command -v autorandr)" ] && autorandr --change
+# [ -n "$(command -v autorandr)" ] && autorandr --change
 
 # 启动应用
 # $1 policy           string [check/restart]
@@ -71,8 +71,7 @@ application_launch() {
 }
 
 keyboard_setting() {
-	bash $TOOLS_DIR/keyboard.sh set option-add "caps:escape"
-	bash $TOOLS_DIR/keyboard.sh set option-add "altwin:swap_lalt_lwin"
+	bash $TOOLS_DIR/keyboard.sh set option-set "caps:escape,altwin:swap_lalt_lwin"
 	bash $TOOLS_DIR/keyboard.sh set delay 250
 	bash $TOOLS_DIR/keyboard.sh set rate 35
 }
