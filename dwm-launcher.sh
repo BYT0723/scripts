@@ -7,11 +7,16 @@ term() {
 	case "$1" in
 	"float")
 		shift
-		# WINIT_X11_SCALE_FACTOR=1 alacritty --config-file $HOME/.config/alacritty/alacritty-float.toml &
+		local w=160c h=48c
+		source "$WORK_DIR"/utils/monitor.sh
+		is_portrait && {
+			w=100c
+			h=56c
+		}
 		kitty --class float-term \
 			-o font_size=8 \
-			-o initial_window_width=160c \
-			-o initial_window_height=48c \
+			-o initial_window_width=$w \
+			-o initial_window_height=$h \
 			tmux new -s "float-term-$RANDOM" -n main \; set destroy-unattached on &
 		;;
 	*)
