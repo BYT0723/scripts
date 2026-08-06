@@ -16,7 +16,7 @@ tools/theme.sh ──sources──► utils/notify.sh
 
 tools/lock.sh ──sources──► utils/notify.sh
               ◄──sourced by── rofi/powermenu/type-{1..6}/powermenu.sh
-tools/wallpaper.sh ──sources──► utils/monitor.sh, utils/notify.sh, tools/wallpaper-lib.sh, tools/wallpaper-render.sh
+tools/wallpaper.sh ──sources──► utils/notify.sh, tools/wallpaper-lib.sh, tools/wallpaper-render.sh
 tools/screencast.sh ──sources──► utils/monitor.sh
 tools/brightness.sh ──sources──► utils/notify.sh
 tools/calendar.sh ──sources──► utils/notify.sh
@@ -44,6 +44,7 @@ rofi/scripts/theme.sh──sources──► rofi/scripts/lib-module.sh, rofi/scr
 # 死代码 (未被任何脚本 source)
 utils/print.sh   — number2icon() 无人调用
 utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
+tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 ```
 
 ## 函数定义与调用关系
@@ -94,10 +95,11 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 ### rofi/scripts/lib-module.sh
 | 函数 | 调用者 |
 |------|--------|
-| `module_parse()` | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, theme.sh, yt-download.sh (读取注册表) |
+| `module_parse()` | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, theme.sh, yt-download.sh, wallpaper.sh (读取注册表) |
 | `module_loop()` | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, scrcpy.sh, wallpaper.sh, theme.sh, yt-download.sh (主循环, 唯一入口) |
-| `module_sub_rofi()` | module.sh (handle_network, handle_bluetooth, handle_audio_output 的子菜单), sddm.sh (handle_set_theme, handle_set_config 的子菜单), scrcpy.sh (handle_select_device 的子菜单), wallpaper.sh (monitor_selection 的子菜单), sing-box.sh (主菜单), yt-download.sh (格式/清晰度子菜单) |
-| `module_input()` | yt-download.sh (URL 输入框) |
+| `module_sub_rofi()` | module.sh (handle_network, handle_bluetooth, handle_audio_output 的子菜单), sddm.sh (handle_set_theme, handle_set_config 的子菜单), scrcpy.sh (handle_select_device 的子菜单), wallpaper.sh (monitor_selection / handle_group 的子菜单), sing-box.sh (主菜单), yt-download.sh (格式/清晰度子菜单) |
+| `module_input()` | yt-download.sh (URL 输入框), wallpaper.sh (handle_group 组名输入) |
+| `module_multi_rofi()` | wallpaper.sh (handle_group 组成员多选) |
 
 ### rofi/scripts/media-scraping.sh
 | 函数 | 调用者 |
@@ -134,6 +136,58 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `handle_clipboard()` | yt-download.sh (模块主菜单: 剪贴板链接直接下载) |
 | `handle_format()` | yt-download.sh (模块主菜单: -F 自定义格式) |
 | `handle_open()` | yt-download.sh (模块主菜单: 打开下载目录) |
+
+### rofi/scripts/wallpaper.sh
+| 函数 | 调用者 |
+|------|--------|
+| `monitor_selection()` | wallpaper.sh (主入口: 选择 monitor/组) |
+| `handle_next()` | wallpaper.sh (模块主菜单: 下一张) |
+| `handle_select()` | wallpaper.sh (模块主菜单: 选择文件) |
+| `handle_random_switch()` | wallpaper.sh (模块主菜单: 随机开关 toggle) |
+| `handle_random_type()` | wallpaper.sh (模块主菜单: 类型切换 toggle) |
+| `handle_random_duration()` | wallpaper.sh (模块主菜单: 设置轮换间隔) |
+| `handle_random_depth()` | wallpaper.sh (模块主菜单: 设置搜索深度) |
+| `handle_random_images_path()` | wallpaper.sh (模块主菜单: 选择图片目录) |
+| `handle_random_videos_path()` | wallpaper.sh (模块主菜单: 选择视频目录) |
+| `handle_group()` | wallpaper.sh (模块主菜单: 组管理 — 新建/编辑/启停/删除) |
+
+### tools/wallpaper-lib.sh
+| 函数 | 调用者 |
+|------|--------|
+| `getConfig()` | wallpaper.sh, wallpaper-lib.sh (内部) |
+| `detect_file_type()` | wallpaper.sh, wallpaper-render.sh |
+| `get_video_dim()` | wallpaper.sh (get_wallpaper_rotation) |
+| `orientation_mismatch()` | wallpaper.sh (get_wallpaper_rotation) |
+| `get_monitor_dim()` | wallpaper.sh (get_wallpaper_rotation) |
+| `preview_rotation()` | wallpaper.sh (get_wallpaper_rotation) |
+| `find_wallpapers()` | wallpaper.sh (random_wallpaper) |
+| `check_command()` | wallpaper-render.sh (launch_video_xwinwrap, launch_page_xwinwrap) |
+| `safe_kill_pidfile()` | wallpaper-lib.sh (clean_latest, clean_target 内部) |
+| `handle_error()` / `error()` | wallpaper-lib.sh 内部, rofi/scripts/wallpaper.sh (handle_group) |
+| `clean_latest()` | 死代码 (已被 clean_target 替代) |
+| `clean_target()` | wallpaper-render.sh (set_wallpaper_to_screen/monitor/group), rofi/scripts/wallpaper.sh (handle_group 禁用/删除/编辑成员) |
+| `get_screen_size()` | wallpaper-render.sh, wallpaper-lib.sh (get_monitor_list_text) |
+| `get_monitor_list_text()` | rofi/scripts/wallpaper.sh (monitor_selection) |
+| `_json_path_for()` | wallpaper-lib.sh (pick_config_dir, set_numeric_config 内部) |
+| `pick_config_dir()` | rofi/scripts/wallpaper.sh (handle_random_images_path, handle_random_videos_path) |
+| `set_numeric_config()` | rofi/scripts/wallpaper.sh (handle_random_duration, handle_random_depth) |
+| `has_group()` | wallpaper.sh (apply_wallpaper), wallpaper-lib.sh (get_monitor_dim), rofi/scripts/wallpaper.sh (handle_group) |
+| `group_names()` | wallpaper.sh (apply_wallpaper, set_latest), wallpaper-lib.sh (is_group_member, clean_target, get_monitor_list_text), rofi/scripts/wallpaper.sh (handle_group) |
+| `get_group_members()` | wallpaper.sh (apply_wallpaper), wallpaper-lib.sh (is_group_member, get_group_dim, clean_target), wallpaper-render.sh (set_wallpaper_to_group 内部调 get_group_dim), rofi/scripts/wallpaper.sh (handle_group) |
+| `get_group_enabled()` | wallpaper.sh (set_latest), wallpaper-lib.sh (is_group_member, clean_target), rofi/scripts/wallpaper.sh (handle_group) |
+| `is_group_member()` | wallpaper.sh (apply_wallpaper, launch_wallpaper daemon) |
+| `group_for_monitor()` | wallpaper.sh (apply_wallpaper), wallpaper-lib.sh (is_group_member, clean_target), rofi/scripts/wallpaper.sh (handle_group) |
+| `get_group_dim()` | wallpaper-lib.sh (get_monitor_dim, clean_target 内部 get_group_dim 输出 bbox), wallpaper-render.sh (set_wallpaper_to_group) |
+
+### tools/wallpaper-render.sh
+| 函数 | 调用者 |
+|------|--------|
+| `launch_video_xwinwrap()` | wallpaper-render.sh (launch_dynamic_wallpaper 内部) |
+| `launch_page_xwinwrap()` | wallpaper-render.sh (launch_dynamic_wallpaper 内部) |
+| `launch_dynamic_wallpaper()` | wallpaper-render.sh (set_wallpaper_to_screen/monitor/group 内部) |
+| `set_wallpaper_to_screen()` | wallpaper.sh (apply_wallpaper, set_latest) |
+| `set_wallpaper_to_monitor()` | wallpaper.sh (apply_wallpaper, set_latest) |
+| `set_wallpaper_to_group()` | wallpaper.sh (apply_wallpaper, set_latest) |
 | `_pick_resolution()` | yt-download.sh (handle_video/handle_clipboard → 取分辨率+子菜单+下载) |
 | `_download()` | yt-download.sh 各 handler (后台 yt-dlp + system-notify) |
 | `_format_download()` | yt-download.sh `_pick_resolution` → -F 列表解析 |
@@ -221,15 +275,22 @@ tools/theme.sh auto (守护进程)
 ### 壁纸链路
 ```
 wallpaper.sh → source utils/monitor.sh, utils/notify.sh
-  ├─ feh (图片壁纸)
-  ├─ mpv (视频壁纸) → xwinwrap
-  └─ surf (网页壁纸) → tabbed → xwinwrap
+  ├─ 图（image） → feh (单屏/全屏) / feh --no-fehbg (多屏合并)
+  ├─ 视频（video）→ mpv → xwinwrap (单屏/全屏/组)
+  ├─ 网页（page）→ surf → tabbed → xwinwrap (单屏/全屏/组)
+  └─ monitor 组 → xwinwrap 按 bbox 跨成员屏铺视频/网页
+       ├─ 组名即目标 -m <组> (config: groups.<组>)
+       ├─ rofi 多选创建/编辑/启停
+       ├─ 成员互斥（一屏至多归一组）
+       ├─ daemon 轮询对组成员 skip（手动 only）
+       └─ set_latest 恢复 _grp_<组> 状态
 ```
 
 ## 配置文件
 - `rofi/` 下各 type 目录的 `*.rasi` 文件
 - `rofi/fonts/` 字体文件
 - `rofi/colors/` `rofi/images/`
+- `~/.config/dwm/wallpaper.json` — 壁纸配置, 含 `defaults`、`monitors`(按屏/组名键)、`groups`(成员名单 + enabled 启停)
 - `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置，`"auto"` 含 `enabled`(默认 false)、`sun_rise_offset`(日出延迟分钟数)、`sun_set_offset`(日落延迟分钟数)，`"cursor"` 含 `theme`/`size`，`"dpi"` 为 Xft.dpi 值，`light`/`dark` 的 `colorscheme` 引用 `~/.config/dwm/colorschemes/` 下的颜色方案文件
 
 ## 已知问题

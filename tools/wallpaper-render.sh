@@ -34,6 +34,7 @@ launch_video_xwinwrap() {
 		--framedrop=vo \
 		--no-sub \
 		--stop-screensaver=no \
+		--image-display-duration=inf \
 		$rotate \
 		--input-conf="$keymapConf" 2>&1 >~/.wallpaper.log &
 }
@@ -56,7 +57,7 @@ launch_dynamic_wallpaper() {
 	local filepath="$4"
 
 	case "$type" in
-	"video") launch_video_xwinwrap "$position" "$rotate" "$filepath" || return 1 ;;
+	"video"|"image") launch_video_xwinwrap "$position" "$rotate" "$filepath" || return 1 ;;
 	"page") launch_page_xwinwrap "$position" "$filepath" || return 1 ;;
 	*) return 1 ;;
 	esac
@@ -75,7 +76,7 @@ set_wallpaper_to_screen() {
 		local screen_size
 		screen_size=$(get_screen_size) || return
 
-		clean_latest
+		clean_target "screen"
 		launch_dynamic_wallpaper "$Type" "$screen_size+0+0" "${WALLPAPER_ROTATION:-}" "$filepath" || return
 
 		echo "$NEW_WALLPAPER_PID" >"$wallpaper_full_pid"
@@ -83,7 +84,7 @@ set_wallpaper_to_screen() {
 		;;
 	"image")
 		feh --no-xinerama --bg-scale "$filepath" || return
-		clean_latest
+		clean_target "screen"
 		# write command to configuration
 		echo "$filepath" >"$wallpaper_full_latest"
 		;;
@@ -105,30 +106,37 @@ set_wallpaper_to_monitor() {
 	# run different commands according to the type
 	case "$Type" in
 	"video" | "page")
-		clean_latest "$monitor_index"
+		clean_target "mon" "$monitor_index"
 		launch_dynamic_wallpaper "$Type" "${width}x${height}+${x}+${y}" "${WALLPAPER_ROTATION:-}" "$filepath" || return
 
 		echo "$NEW_WALLPAPER_PID" >"${wallpaper_pid}_${monitor_index}"
 		echo "$filepath|${WALLPAPER_ROTATION:-}" >"${wallpaper_latest}_${monitor_index}"
 		;;
 	"image")
-		# command detection
-		check_command feh "feh" || return
-
+		clean_target "mon" "$monitor_index"
+		launch_dynamic_wallpaper "image" "${width}x${height}+${x}+${y}" "${WALLPAPER_ROTATION:-}" "$filepath" || return
+		echo "$NEW_WALLPAPER_PID" >"${wallpaper_pid}_${monitor_index}"
 		echo "$filepath" >"${wallpaper_latest}_${monitor_index}"
-
-		# 开启 nullglob，保证通配符为空时不会报错
-		shopt -s nullglob
-
-		local wallpapers=()
-		for f in "${wallpaper_latest}"_[0-9]*; do
-			IFS='|' read -r w _ <"$f" || continue
-			[[ $(detect_file_type "$w") == image ]] &&
-				wallpapers+=("$w") || wallpapers+=("$filepath")
-		done
-
-		feh --bg-scale --no-fehbg "${wallpapers[@]}" >~/.wallpaper.log
-		clean_latest "$monitor_index"
 		;;
 	esac
+}
+
+set_wallpaper_to_group() {
+	local group="$1"
+	shift
+	local filepath="$@"
+
+	local Type=$(detect_file_type "$filepath")
+
+	local dims
+	dims=$(get_group_dim "$group" 2>/dev/null) || return 1
+	local w h x y
+	read w h x y <<< "$dims"
+
+	clean_target "grp" "$group"
+	launch_dynamic_wallpaper "$Type" "${w}x${h}+${x}+${y}" "${WALLPAPER_ROTATION:-}" "$filepath" || return 1
+
+	local gs="${group// /_}"
+	echo "$NEW_WALLPAPER_PID" >"${wallpaper_pid}_grp_${gs}"
+	echo "$filepath|${WALLPAPER_ROTATION:-}" >"${wallpaper_latest}_grp_${gs}"
 }

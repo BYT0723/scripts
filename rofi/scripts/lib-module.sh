@@ -122,6 +122,23 @@ module_input() {
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }
 
+module_multi_rofi() {
+	local prompt="${1:-}" mesg="${2:-}"
+	mesg="${mesg//&/&amp;}"
+	local font_str=()
+	[[ -n "${MODULE_FONT:-}" ]] && font_str=(-theme-str "* {font: \"${MODULE_FONT}\";}")
+	rofi -theme-str "listview {columns: 1;}" \
+		-theme-str 'textbox-prompt-colon {str: "'"$prompt"'";}' \
+		-theme-str 'window {width: '$MODULE_WIDTH'px;}' \
+		-theme-str 'inputbar {children: [ "textbox-prompt-colon", "entry"];}' \
+		-theme-str 'entry {padding:8px;background-color:inherit;text-color:inherit;}' \
+		"${font_str[@]}" \
+		-dmenu -i -multi-select \
+		-mesg "$mesg" \
+		-theme ${MODULE_THEME} \
+		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
+}
+
 # 从 stdin 读取注册表 (pipe 分隔)
 # 格式: key|icon|label|mesg|status_expr
 module_parse() {

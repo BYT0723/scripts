@@ -1,43 +1,51 @@
-# Implementation Plan: rofi YouTube Downloader
+# Implementation Plan: 壁纸 Monitor 持久组
 
 ## Overview
-基于现有 `tools/youtube/yt.sh` + `rofi/scripts/lib-module.sh` 框架，做一个通过 rofi 菜单下载 YouTube 视频/音频的工具。
+为壁纸系统引入 monitor 持久组：经 rofi 多选勾屏、持久化为 wallpaper.json 的显式成员名单，组名即目标（`-m <组> next`）。一个屏至多属于一个组（互斥）；组有 enabled 开关，禁用后 kill 组壁纸并让成员屏回归单屏 daemon 轮换；组仅支持 video/page，daemon 不轮换组（纯手动），set_latest 重启恢复。
 
-## Architecture
+## Architecture Decisions
+- groups 数据结构：`"groups": { "<名>": { "enabled": bool, "members": [names] } }`，复用 `monitors[<组名>]` 作组自身配置（getConfig 零改动）。
+- 成员互斥 + 组优先：rofi 创建/编辑时校验；launch_wallpaper 轮询跳过成员；手动单屏目标指向启用组成员拒。
+- 组=跨屏 bbox 渲染：get_group_dim 求成员并集几何，video/page 用 xwinwrap 铺 WxH+X+Y；image 在组目标下直接报错。
+- 启停持久化：enabled 写 json；禁用动作=enabled=false + kill 组进程 + 清 _grp_<名> 状态，成员随之恢复单屏轮换。
 
+## 依赖图
 ```
-module.sh (注册表新条目)
-  └─ rofi/scripts/yt-download.sh  (新脚本: source lib-module.sh + util.sh + notify.sh)
-        ├─ 调用 tools/youtube/yt.sh  (重构: audio / video / raw 子命令)
-        │     └─ source opus-webm.sh (extract_opus, 不变)
-        └─ 缓存 ~/.local/state/dwm/cache/yt-history (历史记录)
+wallpaper-lib.sh → wallpaper-render.sh → wallpaper.sh
+                                        → rofi/scripts/wallpaper.sh
+                → rofi/scripts/lib-module.sh → rofi/scripts/wallpaper.sh
+                → wallpaper.json(迁移) + AGENTS.md
 ```
-
-## Key Decisions
-- yt.sh 去掉 `--exec` 内嵌拼接，改为下载后统一 `extract_opus "$YT_DL_DIR"`（幂等）
-- `$BROWSER` 加引号 + fallback `${BROWSER:-firefox}`
-- `YT_DL_DIR` 环境变量可覆盖，默认 `~/Downloads/yt`
-- 格式选择用 `yt-dlp -F` 输出 awk 解析
-- 历史格式 `URL\tmode\t时间`，展示截断 40 字符
-- 下载全部后台 `&`，system-notify 通知开始/完成/失败
 
 ## Task List
 
-### Phase 1: Refactor yt.sh
-- [ ] Task 1: 重构 tools/youtube/yt.sh（audio/video/raw 子命令）
+### Phase 1: Foundation (lib)
+- [ ] Task 1: wallpaper-lib.sh 组配置函数 (group_names, get_group_members, get_group_enabled, has_group, is_group_member)
+- [ ] Task 2: get_group_dim, get_monitor_dim 扩展, get_monitor_list_text 追加组, clean_target 重构
 
-### Phase 2: Core rofi Tool
-- [ ] Task 2: 新建 rofi/scripts/yt-download.sh 核心流程
+### Checkpoint 1
+- [ ] bash -n 全绿, 组函数单测通过
 
-### Phase 3: Advanced Features
-- [ ] Task 3: 剪贴板/-F 格式选择/历史记录/打开目录
+### Phase 2: Render + Dispatch
+- [ ] Task 3: wallpaper-render.sh set_wallpaper_to_group
+- [ ] Task 4: wallpaper.sh 分发/daemon 成员排除/set_latest 恢复
 
-### Phase 4: Integration
-- [ ] Task 4: module.sh 注册 + AGENTS.md 更新
+### Checkpoint 2
+- [ ] 组壁纸手动 next/select 生效; daemon 不碰成员; 互斥拒绝生效
+
+### Phase 3: Rofi UI
+- [ ] Task 5: lib-module.sh module_multi_rofi
+- [ ] Task 6: rofi/scripts/wallpaper.sh 组管理菜单 (新建/编辑/启停/删除/next)
+
+### Checkpoint 3
+- [ ] rofi 全流程可用
+
+### Phase 4: 迁移 + 文档
+- [ ] Task 7: 配置迁移 + AGENTS.md 更新
 
 ## Risks
-| Risk | Mitigation |
-|------|------------|
-| -F 输出格式随 yt-dlp 版本变化 | awk 只依赖 ID EXT RESOLUTION 列位置 |
-| 部分视频需 cookies | ${BROWSER:-firefox} fallback |
-| xclip 不存在 | command -v 检查，缺失隐藏剪贴板项 |
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| bbox 非零原点算错 | M | get_group_dim 用 x/y 求并集，单测覆盖 |
+| clean_latest 破坏现有调用 | H | clean_target 平替全部调用点 |
+| 状态文件冲突 | M | _grp_<名> 前缀隔离 |

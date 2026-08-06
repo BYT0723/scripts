@@ -2,7 +2,6 @@
 
 WORK_DIR=$(dirname "$(dirname "$0")")
 
-source "$WORK_DIR/utils/monitor.sh"
 source "$WORK_DIR/utils/notify.sh"
 
 #
@@ -112,11 +111,21 @@ apply_wallpaper() {
 
 	WALLPAPER_ROTATION=$(get_wallpaper_rotation "$file" "$name" "$monitors_list" "$force_preview")
 
+	if has_group "$name"; then
+		set_wallpaper_to_group "$name" "$file" && return
+	fi
+
+	if [[ "$name" != "Screen" && "$name" != "ALL" ]]; then
+		local grp=$(group_for_monitor "$name")
+		[ -n "$grp" ] && error "Monitor '$name' belongs to group '$grp'. Disable the group first or use '-m $grp'." && return 1
+	fi
+
 	if [[ "$name" == "Screen" ]]; then
 		set_wallpaper_to_screen "$file" && return
 	fi
 
 	echo "$monitors_list" | awk 'NR>1 {sub(":","",$1); print $1,$NF}' | while read -r monitor_index monitor_name; do
+		is_group_member "$monitor_name" && continue
 		if [[ "$name" == "ALL" || "$name" == "$monitor_name" ]]; then
 			set_wallpaper_to_monitor "$monitor_index" "$file"
 		fi
@@ -132,13 +141,23 @@ set_latest() {
 
 	local files=()
 	files=("${wallpaper_latest}"_[0-9]*)
-	# 遍历每个匹配文件
 	for f in "${files[@]}"; do
 		local monitor_index=$(echo "$f" | awk -F '_' '{print $NF}')
 		IFS='|' read -r fp rot < "$f"
 		WALLPAPER_ROTATION="$rot"
 		set_wallpaper_to_monitor "$monitor_index" "$fp" &
 	done
+
+	shopt -s nullglob
+	local grp_files=()
+	for f in "${wallpaper_latest}_grp_"*; do
+		local grp_name="${f#${wallpaper_latest}_grp_}"
+		[ "$(get_group_enabled "$grp_name")" != "true" ] && continue
+		IFS='|' read -r fp rot < "$f"
+		WALLPAPER_ROTATION="$rot"
+		set_wallpaper_to_group "$grp_name" "$fp" &
+	done
+	shopt -u nullglob
 }
 
 # wallpaper launch_wallpaper
@@ -174,6 +193,7 @@ launch_wallpaper() {
 		fi
 
 		while read -r monitor_name; do
+			is_group_member "$monitor_name" && continue
 			[ "$(getConfig -m "$monitor_name" random)" -eq 1 ] || continue
 
 			# First time seeing this monitor: start timer, skip
@@ -206,6 +226,7 @@ case "$op" in
 		next)
 			if [[ "$monitor" == "ALL" ]]; then
 				while read -r m; do
+					is_group_member "$m" && continue
 					file=$(random_wallpaper "$m")
 					[ -n "$file" ] && apply_wallpaper "$m" "$file"
 				done < <(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}')

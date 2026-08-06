@@ -1,3 +1,6 @@
+_WALLPAPER_LIB_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+source "$_WALLPAPER_LIB_DIR/../utils/monitor.sh"
+
 wallpaper_launch_delay=1
 
 # wallpaper configuration file
@@ -56,6 +59,48 @@ getConfig() {
 	echo "${config[$key]}"
 }
 
+# ---- Group functions ----
+
+has_group() {
+	[ -n "$1" ] && jq -e ".groups[\"$1\"]" "$conf" >/dev/null 2>/dev/null
+}
+
+group_names() {
+	jq -r '.groups // {} | keys[]' "$conf" 2>/dev/null
+}
+
+get_group_members() {
+	local group="$1"
+	jq -r ".groups[\"$group\"].members[]" "$conf" 2>/dev/null
+}
+
+get_group_enabled() {
+	local group="$1"
+	local val=$(jq -r ".groups[\"$group\"].enabled // true" "$conf" 2>/dev/null)
+	echo "${val:-true}"
+}
+
+group_for_monitor() {
+	local monitor="$1"
+	local all="${2:-}"
+	[ -z "$monitor" ] && return 1
+	while IFS= read -r grp; do
+		[ -z "$grp" ] && continue
+		if [ -z "$all" ]; then
+			[ "$(get_group_enabled "$grp")" != "true" ] && continue
+		fi
+		[[ " $(get_group_members "$grp") " == *" $monitor "* ]] && {
+			echo "$grp"
+			return 0
+		}
+	done < <(group_names)
+	return 1
+}
+
+is_group_member() {
+	group_for_monitor "$1" >/dev/null
+}
+
 # Utility functions
 expand_path() {
 	local path="$1"
@@ -92,11 +137,42 @@ orientation_mismatch() {
 	[ "$ml" != "$vl" ]
 }
 
+get_group_dim() {
+	local group="$1"
+	local min_x="" min_y="" max_x="" max_y="" first=true
+	local idx w h x y info
+	while IFS= read -r member; do
+		[ -z "$member" ] && continue
+		info=$(get_monitor_info "$member" 2>/dev/null)
+		[ -z "$info" ] && continue
+		read idx w h x y <<<"$info"
+		if $first; then
+			min_x="$x"
+			min_y="$y"
+			max_x="$((x + w))"
+			max_y="$((y + h))"
+			first=false
+		else
+			[ "$x" -lt "$min_x" ] && min_x="$x"
+			[ "$y" -lt "$min_y" ] && min_y="$y"
+			[ "$((x + w))" -gt "$max_x" ] && max_x="$((x + w))"
+			[ "$((y + h))" -gt "$max_y" ] && max_y="$((y + h))"
+		fi
+	done < <(get_group_members "$group")
+	[ -z "$min_x" ] && {
+		error "No active members in group '$group'"
+		return 1
+	}
+	echo "$((max_x - min_x)) $((max_y - min_y)) $min_x $min_y"
+}
+
 # Returns "width height" for the selected monitor (or screen)
 get_monitor_dim() {
 	local select="$1" list="$2"
 	if [[ "$select" == "Screen" ]]; then
 		get_screen_size | sed 's/\([0-9]*\)x\([0-9]*\).*/\1 \2/'
+	elif has_group "$select"; then
+		get_group_dim "$select" | awk '{print $1, $2}'
 	else
 		local mon="$select"
 		[[ "$mon" == "ALL" ]] && mon=$(echo "$list" | awk 'NR>1 {print $NF; exit}')
@@ -237,6 +313,55 @@ echo_help() {
 	echo "      -m <mon> <next|select> apply to specific monitor"
 }
 
+clean_target() {
+	local type="$1"
+	local target="$2"
+	shopt -s nullglob
+
+	safe_kill_pidfile "$wallpaper_full_pid"
+	[ -f "$wallpaper_full_latest" ] && rm -f "$wallpaper_full_latest"
+
+	case "$type" in
+	screen)
+		local f
+		for f in "${wallpaper_pid}"_*; do
+			[ ! -f "$f" ] && continue
+			safe_kill_pidfile "$f"
+			local lf="${f/$wallpaper_pid/$wallpaper_latest}"
+			[ -f "$lf" ] && rm -f "$lf"
+		done
+		;;
+	mon)
+		local idx="$target"
+		safe_kill_pidfile "${wallpaper_pid}_${idx}"
+		[ -f "${wallpaper_latest}_${idx}" ] && rm -f "${wallpaper_latest}_${idx}"
+		local mon_name
+		mon_name=$(xrandr --listactivemonitors 2>/dev/null | awk -v i="$idx" 'NR>1 && $1+0==i {print $NF; exit}')
+		if [ -n "$mon_name" ]; then
+			local grp=$(group_for_monitor "$mon_name")
+			if [ -n "$grp" ]; then
+				local gs="${grp// /_}"
+				safe_kill_pidfile "${wallpaper_pid}_grp_${gs}"
+				[ -f "${wallpaper_latest}_grp_${gs}" ] && rm -f "${wallpaper_latest}_grp_${gs}"
+			fi
+		fi
+		;;
+	grp)
+		local gs="${target// /_}"
+		safe_kill_pidfile "${wallpaper_pid}_grp_${gs}"
+		[ -f "${wallpaper_latest}_grp_${gs}" ] && rm -f "${wallpaper_latest}_grp_${gs}"
+		while IFS= read -r mon_name; do
+			[ -z "$mon_name" ] && continue
+			local idx
+			idx=$(get_monitor_info "$mon_name" 2>/dev/null | awk '{print $1}')
+			[ -z "$idx" ] && continue
+			safe_kill_pidfile "${wallpaper_pid}_${idx}"
+			[ -f "${wallpaper_latest}_${idx}" ] && rm -f "${wallpaper_latest}_${idx}"
+		done < <(get_group_members "$target")
+		;;
+	esac
+}
+
 clean_latest() {
 	local monitor_index=$1
 
@@ -291,6 +416,15 @@ get_monitor_list_text() {
 		split(a[1],b,"x")
 		printf "%-28s %sx%s\n", $NF, b[1], b[2]
 	}'
+
+	while IFS= read -r grp; do
+		[ -z "$grp" ] && continue
+		[ "$(get_group_enabled "$grp")" != "true" ] && continue
+		local dims=$(get_group_dim "$grp" 2>/dev/null) || continue
+		local gw gh
+		read gw gh _ _ <<<"$dims"
+		printf "%-28s %sx%s\n" "$grp" "$gw" "$gh"
+	done < <(group_names)
 }
 
 # Get JSON path for jq config writes
