@@ -31,7 +31,7 @@ yt_download() {
 	video)
 		local height="${fmt:-1080}"
 		ytdlp_opts+=(
-			-f "bestvideo[height<=${height}]+bestaudio/best[height<=${height}]/best"
+			-f "bestvideo[height<=${height}]+bestaudio"
 		)
 		;;
 	raw)

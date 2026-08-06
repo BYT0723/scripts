@@ -13,8 +13,6 @@ source "$WORK_DIR/utils/notify.sh"
 
 DL_DIR="${YT_DL_DIR:-$HOME/Downloads/yt}"
 YT_SH="$WORK_DIR/tools/youtube/yt.sh"
-declare -A _HEIGHT_MAP
-
 mkdir -p "$DL_DIR"
 
 CLIP_URL=""
@@ -78,50 +76,21 @@ _format_download() {
 	_download "$url" raw "${chosen%%|*}"
 }
 
-_fetch_heights() {
-	_HEIGHT_MAP=()
-	local data sorted=()
-	data=$(yt-dlp -F "$1" --no-warnings 2>/dev/null | awk '
-		/^[0-9]+/ && !/storyboard|mhtml/ {
-			if ($3 ~ /^[0-9]+x[0-9]+$/) {
-				split($3, d, "x")
-				min = d[1] < d[2] ? d[1] : d[2]
-				max = d[1] > d[2] ? d[1] : d[2]
-				if (min >= 360) print min"p\t"max
-			}
-		}' | sort -t$'\t' -k1 -nur)
-
-	while IFS=$'\t' read -r label h; do
-		[[ -z "$label" ]] && continue
-		_HEIGHT_MAP["$label"]="$h"
-		sorted+=("$label")
-	done <<<"$data"
-
-	((${#sorted[@]} == 0)) && return 1
-	printf '%s\n' "${sorted[@]}"
-}
-
 # ------- handlers -------
 
 _pick_resolution() {
 	local url="$1" show_custom="${2:-}"
-	system-notify low "YouTube" "Fetching resolutions..."
-	local heights
-	heights=$(_fetch_heights "$url")
-	[[ -z "$heights" ]] && {
-		system-notify critical "YouTube" "Could not fetch resolutions"
-		return 1
-	}
-	local choice
+	local choice heights
+	heights=$'2160p\n1440p\n1080p\n720p\n360p'
 	if [[ -n "$show_custom" ]]; then
-		choice=$(printf '%s\n-F custom\n' "$heights" | module_sub_rofi "󰎇 Video Quality" "Available resolutions")
+		choice=$(printf '%s\n-F custom\n' "$heights" | module_sub_rofi "󰎇 Video Quality" "4K / 2K / 1080p / 720p / 360p")
 	else
-		choice=$(printf '%s\n' "$heights" | module_sub_rofi "󰎇 Video Quality" "Available resolutions")
+		choice=$(printf '%s\n' "$heights" | module_sub_rofi "󰎇 Video Quality" "4K / 2K / 1080p / 720p / 360p")
 	fi
 	[[ -z "$choice" ]] && return 1
 	case "$choice" in
 	-F*) _format_download "$url" ;;
-	*) _download "$url" video "${_HEIGHT_MAP[$choice]}" ;;
+	*) _download "$url" video "${choice%p}" ;;
 	esac
 }
 
