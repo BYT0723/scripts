@@ -143,6 +143,9 @@ set_latest() {
 	files=("${wallpaper_latest}"_[0-9]*)
 	for f in "${files[@]}"; do
 		local monitor_index=$(echo "$f" | awk -F '_' '{print $NF}')
+		local mon_name
+		mon_name=$(xrandr --listactivemonitors 2>/dev/null | awk -v i="$monitor_index" 'NR>1 && $1+0==i {print $NF; exit}')
+		is_group_member "$mon_name" && continue
 		IFS='|' read -r fp rot < "$f"
 		WALLPAPER_ROTATION="$rot"
 		set_wallpaper_to_monitor "$monitor_index" "$fp" &
