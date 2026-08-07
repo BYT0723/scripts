@@ -14,30 +14,29 @@ launch_video_xwinwrap() {
 
 	[ -n "$rotate" ] && rotate="--video-rotate=$rotate"
 
-	local fps=$(getConfig render.video.fps)
-	local fps_flag=""
-	[ -n "$fps" ] && fps_flag="--vf=fps=$fps"
+	local fileType=$(detect_file_type "$filepath")
+	local video_flags=""
+	if [ "$fileType" = "video" ]; then
+		local fps=$(getConfig render.video.fps)
+		[ -n "$fps" ] && video_flags="$video_flags --vf=fps=$fps"
+		video_flags="$video_flags --video-sync=audio --vid=1 --hwdec=auto-safe --framedrop=vo --audio-client-name=wallpaper"
+	fi
 
 	xwinwrap -ov -g "$position" -- mpv -wid WID "$filepath" \
-		$fps_flag \
+		$video_flags \
 		--no-config \
 		--load-scripts=no \
 		--no-keepaspect \
 		--mute \
-		--audio-client-name=wallpaper \
 		--no-osc \
 		--loop \
-		--vid=1 \
 		--no-ytdl \
 		--no-terminal \
 		--really-quiet \
-		--video-sync=audio \
 		--cursor-autohide=no \
 		--player-operation-mode=cplayer \
 		--no-input-default-bindings \
-		--hwdec=auto-safe \
 		--vo=gpu-next \
-		--framedrop=vo \
 		--no-sub \
 		--stop-screensaver=no \
 		--image-display-duration=inf \
@@ -146,8 +145,8 @@ set_wallpaper_to_monitor() {
 	# run different commands according to the type
 	case "$Type" in
 	"video" | "page")
-		clean_target "mon" "$monitor_index"
 		launch_dynamic_wallpaper "$Type" "${width}x${height}+${x}+${y}" "${WALLPAPER_ROTATION:-}" "$filepath" || return
+		clean_target "mon" "$monitor_index"
 
 		echo "$NEW_WALLPAPER_PID" >"${wallpaper_pid}_${monitor_index}"
 		echo "$filepath|${WALLPAPER_ROTATION:-}" >"${wallpaper_latest}_${monitor_index}"
@@ -172,12 +171,10 @@ set_wallpaper_to_group() {
 	local w h x y
 	read w h x y <<<"$dims"
 
-	clean_target "grp" "$group"
 	launch_dynamic_wallpaper "$Type" "${w}x${h}+${x}+${y}" "${WALLPAPER_ROTATION:-}" "$filepath" || return 1
+	clean_target "grp" "$group"
 
 	local gs="${group// /_}"
 	echo "$NEW_WALLPAPER_PID" >"${wallpaper_pid}_grp_${gs}"
 	echo "$filepath|${WALLPAPER_ROTATION:-}" >"${wallpaper_latest}_grp_${gs}"
-
-	[ "$Type" = "image" ] && _feh_refresh
 }
