@@ -10,6 +10,11 @@ mkdir -p "$cache_wallpaper_dir"
 
 # Create default config if missing
 [ ! -f "$conf" ] && jq -n '{
+	render: {
+		video: {
+			fps: 30
+		}
+	},
 	defaults: {
 		random: 0,
 		random_type: "image",
@@ -47,11 +52,14 @@ getConfig() {
 	if [ -f "$conf" ]; then
 		# "ALL" uses defaults directly
 		if [ "$monitor" != "ALL" ] && [ -n "$monitor" ]; then
-			local val=$(jq -r ".monitors[\"$monitor\"].\"$key\" // empty" "$conf" 2>/dev/null)
+			local val=$(jq -r ".monitors[\"$monitor\"].$key // empty" "$conf" 2>/dev/null)
 			[ -n "$val" ] && echo "$val" && return
 		fi
 		# Try defaults
-		local val=$(jq -r ".defaults.\"$key\" // empty" "$conf" 2>/dev/null)
+		local val=$(jq -r ".defaults.$key // empty" "$conf" 2>/dev/null)
+		[ -n "$val" ] && echo "$val" && return
+		# Try top-level
+		local val=$(jq -r ".$key // empty" "$conf" 2>/dev/null)
 		[ -n "$val" ] && echo "$val" && return
 	fi
 
@@ -90,7 +98,7 @@ group_for_monitor() {
 			[ "$(get_group_enabled "$grp")" != "true" ] && continue
 		fi
 		local members=" $(echo $(get_group_members "$grp")) "
-	[[ "$members" == *" $monitor "* ]] && {
+		[[ "$members" == *" $monitor "* ]] && {
 			echo "$grp"
 			return 0
 		}

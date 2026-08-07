@@ -14,8 +14,12 @@ launch_video_xwinwrap() {
 
 	[ -n "$rotate" ] && rotate="--video-rotate=$rotate"
 
+	local fps=$(getConfig render.video.fps)
+	local fps_flag=""
+	[ -n "$fps" ] && fps_flag="--vf=fps=$fps"
+
 	xwinwrap -ov -g "$position" -- mpv -wid WID "$filepath" \
-		--vf=fps=30 \
+		$fps_flag \
 		--no-config \
 		--load-scripts=no \
 		--no-keepaspect \

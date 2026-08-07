@@ -103,7 +103,7 @@ print_mem() {
 		END {
 			used = total - avail
 			usage = 100 * used / total
-			printf "%d %.1fG", usage, used/1024/1024
+			printf "%d %.2fG", usage, used/1024/1024
 		}' /proc/meminfo
 	)
 	fg="$white"
