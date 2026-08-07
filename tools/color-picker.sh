@@ -13,4 +13,4 @@ b=$((16#${color:5:2}))
 lum=$(((299 * r + 587 * g + 114 * b) / 1000))
 if [ $lum -gt 128 ]; then fg="black"; else fg="white"; fi
 
-tool-notify low "Color Picker" "<span bgcolor='$color' fgcolor='$fg'>$color</span> copied to clipboard"
+notify-send -c history-ignore -u low "󰌁 Color Picker" "\n<span bgcolor='$color' fgcolor='$fg'> $color </span> copied to clipboard"
