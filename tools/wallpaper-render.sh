@@ -66,6 +66,40 @@ launch_dynamic_wallpaper() {
 	kill -0 "$NEW_WALLPAPER_PID" 2>/dev/null || return 1
 }
 
+# 读取 latest 文件，若内容为 image 则输出路径，否则输出空
+_feh_resolve() {
+	local lf="$1"
+	[ -f "$lf" ] || return 1
+	local fp=$(head -1 "$lf" | cut -d'|' -f1)
+	[ -n "$fp" ] && [ "$(detect_file_type "$fp")" = "image" ] && echo "$fp"
+}
+
+# 按 monitor 顺序收集图片路径，组 monitor 取组壁纸代，无图片用黑底占位，统一调 feh --bg-scale
+_feh_refresh() {
+	[ -f "$wallpaper_full_latest" ] && return
+	local images=()
+	while IFS= read -r mon; do
+		local fp=""
+		local grp=$(group_for_monitor "$mon")
+		if [ -n "$grp" ] && [ "$(get_group_enabled "$grp")" = "true" ]; then
+			local gs="${grp// /_}"
+			fp=$(_feh_resolve "${wallpaper_latest}_grp_${gs}")
+		fi
+		[ -z "$fp" ] && fp=$(_feh_resolve "${wallpaper_latest}_$(get_monitor_info "$mon" 2>/dev/null | awk '{print $1}')")
+		images+=("${fp:-$_FEH_BLACK}")
+	done < <(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}')
+	[ ${#images[@]} -gt 0 ] && feh --bg-scale "${images[@]}"
+}
+
+# 确保黑色占位图存在
+_FEH_BLACK="${cache_wallpaper_dir}/.feh_black.png"
+if [ ! -f "$_FEH_BLACK" ]; then
+	base64 -d <<'EOF' > "$_FEH_BLACK"
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAA
+AABJRU5ErkJggg==
+EOF
+fi
+
 set_wallpaper_to_screen() {
 	local filepath="$@"
 	local Type=$(detect_file_type "$filepath")
@@ -114,9 +148,8 @@ set_wallpaper_to_monitor() {
 		;;
 	"image")
 		clean_target "mon" "$monitor_index"
-		launch_dynamic_wallpaper "image" "${width}x${height}+${x}+${y}" "${WALLPAPER_ROTATION:-}" "$filepath" || return
-		echo "$NEW_WALLPAPER_PID" >"${wallpaper_pid}_${monitor_index}"
 		echo "$filepath" >"${wallpaper_latest}_${monitor_index}"
+		_feh_refresh
 		;;
 	esac
 }
@@ -139,4 +172,6 @@ set_wallpaper_to_group() {
 	local gs="${group// /_}"
 	echo "$NEW_WALLPAPER_PID" >"${wallpaper_pid}_grp_${gs}"
 	echo "$filepath|${WALLPAPER_ROTATION:-}" >"${wallpaper_latest}_grp_${gs}"
+
+	[ "$Type" = "image" ] && _feh_refresh
 }
