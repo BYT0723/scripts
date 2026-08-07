@@ -15,6 +15,7 @@ launch_video_xwinwrap() {
 	[ -n "$rotate" ] && rotate="--video-rotate=$rotate"
 
 	xwinwrap -ov -g "$position" -- mpv -wid WID "$filepath" \
+		--vf=fps=30 \
 		--no-config \
 		--load-scripts=no \
 		--no-keepaspect \
@@ -26,6 +27,7 @@ launch_video_xwinwrap() {
 		--no-ytdl \
 		--no-terminal \
 		--really-quiet \
+		--video-sync=audio \
 		--cursor-autohide=no \
 		--player-operation-mode=cplayer \
 		--no-input-default-bindings \
@@ -57,7 +59,7 @@ launch_dynamic_wallpaper() {
 	local filepath="$4"
 
 	case "$type" in
-	"video"|"image") launch_video_xwinwrap "$position" "$rotate" "$filepath" || return 1 ;;
+	"video" | "image") launch_video_xwinwrap "$position" "$rotate" "$filepath" || return 1 ;;
 	"page") launch_page_xwinwrap "$position" "$filepath" || return 1 ;;
 	*) return 1 ;;
 	esac
@@ -94,7 +96,7 @@ _feh_refresh() {
 # 确保黑色占位图存在
 _FEH_BLACK="${cache_wallpaper_dir}/.feh_black.png"
 if [ ! -f "$_FEH_BLACK" ]; then
-	base64 -d <<'EOF' > "$_FEH_BLACK"
+	base64 -d <<'EOF' >"$_FEH_BLACK"
 iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAA
 AABJRU5ErkJggg==
 EOF
@@ -164,7 +166,7 @@ set_wallpaper_to_group() {
 	local dims
 	dims=$(get_group_dim "$group" 2>/dev/null) || return 1
 	local w h x y
-	read w h x y <<< "$dims"
+	read w h x y <<<"$dims"
 
 	clean_target "grp" "$group"
 	launch_dynamic_wallpaper "$Type" "${w}x${h}+${x}+${y}" "${WALLPAPER_ROTATION:-}" "$filepath" || return 1
