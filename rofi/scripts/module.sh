@@ -41,6 +41,7 @@ calendar||Calendar||
 calendar-lunar||Calendar (Lunar)||
 scrcpy|󰄟|Scrcpy (Android Mirror)|Screen Mirror||
 theme|󰔟|Theme|light/dark/auto||
+xcolor|󰌁|Color Picker|Pick & Copy||
 MODULES
 
 # ====== Handlers ======
@@ -78,6 +79,7 @@ handle_sddm() { /bin/bash $ROFI_DIR/scripts/sddm.sh; }
 handle_scrcpy() { /bin/bash $ROFI_DIR/scripts/scrcpy.sh; }
 handle_yt_dl() { /bin/bash $ROFI_DIR/scripts/yt-download.sh; }
 handle_theme() { /bin/bash $ROFI_DIR/scripts/theme.sh; }
+handle_xcolor() { /bin/bash $WORK_DIR/tools/color-picker.sh; }
 
 handle_audio_output() {
 	local default_sink default_desc line name desc vol
