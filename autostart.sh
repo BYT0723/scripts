@@ -41,9 +41,6 @@ launch() {
 desktop_setting() {
 	# 状态栏信息
 	/bin/bash $WORK_DIR/dwm-status.sh reboot &
-	# conky (system monitor) (conky must be before wallpaper)
-	# 如果壁纸在conky之前就会导致壁纸沉入xwinwrap之下，导致无法看到conky窗口(针对video/page壁纸)
-	((CONKY_AUTOSTART > 0)) && conky -U -d &
 	# 壁纸(不使用launch_monitor是因为wallpaper每次启动都要使用新的instance, 移除旧的实例)
 	# wallpaper.sh内部实现了
 	/bin/bash "$TOOLS_DIR"/wallpaper.sh -r &
@@ -66,6 +63,8 @@ application_launch() {
 	launch restart udiskie "udiskie -sn"
 	# polkit (require lxsession or lxsession-gtk3) 鉴权
 	launch check lxpolkit "lxpolkit"
+	# conky (system monitor)
+	((CONKY_AUTOSTART > 0)) && /bin/bash $WORK_DIR/dwm-launcher.sh conky start
 	# 音频控制 (暂时先关闭，已有独立功放，不需要ee)
 	# launch check easyeffects "easyeffects --service-mode --hide-window"
 }

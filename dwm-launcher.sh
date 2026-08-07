@@ -42,9 +42,23 @@ powermenu() {
 	/bin/bash "$WORK_DIR"/rofi/scripts/powermenu_t${type}
 }
 
-toggle_conky() {
-	[ ! -z "$(pgrep -x conky)" ] && pkill conky && return
-	conky -U -d
+conky_launcher() {
+	echo $1
+	local action=${1:-toggle}
+	local pid=$(pgrep -x conky)
+
+	_launch() {
+		conky -U -d &
+		sleep 0.5
+		xdotool search --class conky windowraise %@
+	}
+
+	case "$action" in
+	start) [ -z "$pid" ] && _launch ;;
+	stop) [ -n "$pid" ] && pkill conky ;;
+	toggle) [ -n "$pid" ] && pkill conky || _launch ;;
+	*) return ;;
+	esac
 }
 
 subcmd=$1
@@ -60,7 +74,7 @@ case "$subcmd" in
 "screencast") screencast $@ ;;
 "quicklinks") quicklinks $@ ;;
 "emoji") emoji $@ ;;
-"conky") toggle_conky $@ ;;
+"conky") conky_launcher $@ ;;
 "wallpaper") wallpaper $@ ;;
 "fm") xdg-open $HOME $@ ;;
 esac

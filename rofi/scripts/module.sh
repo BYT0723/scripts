@@ -16,7 +16,6 @@ CONFIG_HOME="$HOME/.config/dwm"
 declare -A confPath applicationCmd
 confPath["picom"]="$CONFIG_HOME/picom.conf"
 applicationCmd["picom"]="picom --config ${confPath["picom"]} -b"
-applicationCmd["conky"]="conky -U -d &"
 
 toggleApplication() {
 	if [[ -n $(pgrep $1) ]]; then
@@ -46,7 +45,7 @@ MODULES
 
 # ====== Handlers ======
 handle_picom() { toggleApplication picom; }
-handle_conky() { toggleApplication conky; }
+handle_conky() { /bin/bash $WORK_DIR/dwm-launcher.sh conky toggle; }
 
 handle_network() {
 	local eth wifi mesg=""
