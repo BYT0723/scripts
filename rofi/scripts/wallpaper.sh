@@ -4,6 +4,7 @@ ROFI_DIR="$(dirname "$(dirname "$0")")"
 WORK_DIR="$(dirname "$ROFI_DIR")"
 MODULE_NAME=" Wallpaper"
 MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
+MODULE_MAX_LINES=8
 
 source "$(dirname "$0")"/util.sh
 source "$(dirname "$0")"/lib-module.sh
@@ -12,28 +13,29 @@ source "$WORK_DIR/tools/wallpaper-lib.sh"
 # ---- Monitor Selection ----
 monitor_selection() {
 	local list_text=$(get_monitor_list_text)
+	local groups="󰋃 Groups"
 
 	if [ "$(echo "$list_text" | wc -l)" = 1 ]; then
 		echo "$list_text"
 		return
 	fi
 
-	local chosen=$(printf '%s\nGroups\n' "$list_text" | module_sub_rofi "  Monitor" "Select a monitor for wallpaper")
+	local chosen=$(printf '%s\n%s\n' "$list_text" "$groups" | module_sub_rofi "  Monitor" "Select a monitor for wallpaper")
 	[ -z "$chosen" ] && return
 
-	[[ "$chosen" == "Groups" ]] && echo "__GROUPS__" && return
+	[[ "$chosen" == "$groups" ]] && echo "__GROUPS__" && return
 	echo "$chosen" | awk '{print $1}'
 }
 
 handle_group() {
 	local opts=()
-	opts+=("󰐕 New Group")
 	while IFS= read -r grp; do
 		[ -z "$grp" ] && continue
-		local en_icon="󰔡"
-		[ "$(get_group_enabled "$grp")" = "true" ] && en_icon="󰔢"
+		local en_icon="󰔢"
+		[ "$(get_group_enabled "$grp")" = "true" ] && en_icon="󰔡"
 		opts+=("$en_icon $grp")
 	done < <(group_names)
+	opts+=("󰐕 New Group")
 
 	local chosen=$(printf '%s\n' "${opts[@]}" | module_sub_rofi "󰮄 Group" "Select or create a group")
 	[ -z "$chosen" ] && return
@@ -67,7 +69,6 @@ handle_group() {
 	else
 		local group_name="${chosen#* }"
 		local sub_opts=()
-		sub_opts+=("󰑐 Next")
 		local en
 		en=$(get_group_enabled "$group_name")
 		[ "$en" = "true" ] && sub_opts+=("󰔡 Disable") || sub_opts+=("󰔢 Enable")
@@ -79,9 +80,6 @@ handle_group() {
 		[ -z "$action" ] && return
 
 		case "$action" in
-		"󰑐 Next")
-			"$WORK_DIR"/tools/wallpaper.sh -m "$group_name" next
-			;;
 		*Disable)
 			jq --arg n "$group_name" '.groups[$n].enabled = false' "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
 			clean_target "grp" "$group_name"

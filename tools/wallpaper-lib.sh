@@ -76,8 +76,8 @@ get_group_members() {
 
 get_group_enabled() {
 	local group="$1"
-	local val=$(jq -r ".groups[\"$group\"].enabled // true" "$conf" 2>/dev/null)
-	echo "${val:-true}"
+	local val=$(jq -r ".groups[\"$group\"].enabled" "$conf" 2>/dev/null)
+	[ "$val" = "null" ] || [ -z "$val" ] && echo "true" || echo "$val"
 }
 
 group_for_monitor() {
@@ -89,7 +89,8 @@ group_for_monitor() {
 		if [ -z "$all" ]; then
 			[ "$(get_group_enabled "$grp")" != "true" ] && continue
 		fi
-		[[ " $(get_group_members "$grp") " == *" $monitor "* ]] && {
+		local members=" $(echo $(get_group_members "$grp")) "
+	[[ "$members" == *" $monitor "* ]] && {
 			echo "$grp"
 			return 0
 		}
@@ -338,7 +339,7 @@ clean_target() {
 		local mon_name
 		mon_name=$(xrandr --listactivemonitors 2>/dev/null | awk -v i="$idx" 'NR>1 && $1+0==i {print $NF; exit}')
 		if [ -n "$mon_name" ]; then
-			local grp=$(group_for_monitor "$mon_name")
+			local grp=$(group_for_monitor "$mon_name" all)
 			if [ -n "$grp" ]; then
 				local gs="${grp// /_}"
 				safe_kill_pidfile "${wallpaper_pid}_grp_${gs}"
