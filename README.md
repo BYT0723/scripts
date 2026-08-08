@@ -32,7 +32,7 @@
 | `picom`             | 窗口合成器          | autostart.sh                                                |
 | `maim` `xclip`      | 截图                | screenshot.sh                                               |
 | `slop`              | 区域选择            | screencast.sh                                               |
-| `ffmpeg`            | 屏幕录制 / 音频转码 | screencast.sh / opus-webm.sh                                |
+| `ffmpeg`            | 屏幕录制 / 音频转码 | screencast.sh / tools/yt-dlp.sh                             |
 | `feh`               | 图片查看 / 壁纸设置 | wallpaper.sh / screenshot.sh                                |
 | `mpv`               | 视频壁纸 / 随机播放 | wallpaper.sh / random_file.sh                               |
 | `xrandr`            | 多显示器布局        | monitor-conf.sh / wallpaper.sh / screencast.sh              |
@@ -81,7 +81,7 @@
 | `random_file.sh`    | mpv 随机播放目录内视频               | mpv                                                 |
 | `sddm.sh`           | SDDM 主题管理                        | sddm                                                |
 | `update-ruleset.sh` | sing-box geo 规则集更新              | curl / wget                                         |
-| `youtube/yt.sh`     | yt-dlp 音频下载                      | yt-dlp / ffmpeg                                     |
+| `tools/yt-dlp.sh`   | yt-dlp 音视频下载 + opus 转码        | yt-dlp / ffmpeg                                     |
 | `theme.sh`          | 亮色/暗色主题切换 + 日出日落自动切换 | xrdb / dunstctl / libnotify / curl / jq             |
 
 ### utils/ (被其他脚本 source)

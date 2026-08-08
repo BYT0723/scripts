@@ -6,8 +6,6 @@ WORK_DIR="$(dirname "$ROFI_DIR")"
 MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
 MODULE_MAX_LINES=8
 MODULE_NAME="☀ Theme"
-MODULE_MESG="Manage system theme"
-MODULE_SEARCH_BAR=false
 ITEM_SPACE_WIDTH=34
 
 source "$(dirname "$0")"/util.sh

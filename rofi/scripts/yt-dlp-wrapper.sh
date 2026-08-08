@@ -4,16 +4,16 @@ ROFI_DIR="$(dirname "$(dirname "$0")")"
 WORK_DIR="$(dirname "$ROFI_DIR")"
 
 MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
-MODULE_NAME="󰎆 YouTube Downloader"
-MODULE_MESG="Download audio/video from YouTube"
+MODULE_NAME="󰎆 YT-DLP Wrapper"
+MODULE_MESG="Download audio/video from WebSite"
 
 source "$(dirname "$0")"/util.sh
 source "$(dirname "$0")"/lib-module.sh
 source "$WORK_DIR/utils/notify.sh"
 
-DL_DIR="${YT_DL_DIR:-$HOME/Downloads/yt}"
-YT_SH="$WORK_DIR/tools/youtube/yt.sh"
-mkdir -p "$DL_DIR"
+source "$WORK_DIR/tools/yt-dlp.sh"
+YT_DL_DIR="${YT_DL_DIR:-$HOME/Downloads/yt-dlp-wrapper}"
+mkdir -p "$YT_DL_DIR"
 
 CLIP_URL=""
 if command -v xclip &>/dev/null; then
@@ -40,9 +40,9 @@ _download() {
 		[[ ${#title} -gt 65 ]] && title="${title:0:62}..."
 
 		case "$mode" in
-		audio) "$YT_SH" audio "$url" >/dev/null 2>&1 || rc=$? ;;
-		video) "$YT_SH" video "$url" "$fmt" >/dev/null 2>&1 || rc=$? ;;
-		raw) "$YT_SH" raw "$url" "$fmt" >/dev/null 2>&1 || rc=$? ;;
+		audio) yt_download "$url" audio >/dev/null 2>&1 || rc=$? ;;
+		video) yt_download "$url" video "$fmt" >/dev/null 2>&1 || rc=$? ;;
+		raw) yt_download "$url" raw "$fmt" >/dev/null 2>&1 || rc=$? ;;
 		esac
 		if [[ $rc -eq 0 ]]; then
 			system-notify normal "YouTube" "Done\n$title"
@@ -82,11 +82,9 @@ _pick_resolution() {
 	local url="$1" show_custom="${2:-}"
 	local choice heights
 	heights=$'2160p\n1440p\n1080p\n720p\n360p'
-	if [[ -n "$show_custom" ]]; then
-		choice=$(printf '%s\n-F custom\n' "$heights" | module_sub_rofi "󰎇 Video Quality" "4K / 2K / 1080p / 720p / 360p")
-	else
-		choice=$(printf '%s\n' "$heights" | module_sub_rofi "󰎇 Video Quality" "4K / 2K / 1080p / 720p / 360p")
-	fi
+	local list="$heights"
+	[[ -n "$show_custom" ]] && list+=$'\n-F custom'
+	choice=$(printf '%s\n' "$list" | module_sub_rofi "󰎇 Video Quality" "4K / 2K / 1080p / 720p / 360p")
 	[[ -z "$choice" ]] && return 1
 	case "$choice" in
 	-F*) _format_download "$url" ;;
@@ -132,7 +130,7 @@ handle_format() {
 	_format_download "$url"
 }
 
-handle_open() { xdg-open "$DL_DIR"; }
+handle_open() { xdg-open "$YT_DL_DIR"; }
 
 # ------- main -------
 
@@ -140,7 +138,7 @@ _menu="audio|󰎆|Audio (Opus)|bestaudio → opus|"$'\n'
 _menu+="video|󰎇|Video|bestvideo+bestaudio|"$'\n'
 [[ -n "$CLIP_URL" ]] && _menu+="clipboard|󰅐|Clipboard||"$'\n'
 _menu+="format|󰋽|Custom Format|yt-dlp -F list|"$'\n'
-_menu+="open|󰝰|Open Directory|$DL_DIR|"$'\n'
+_menu+="open|󰝰|Open Directory|$YT_DL_DIR|"$'\n'
 
 module_parse <<<"$_menu"
 

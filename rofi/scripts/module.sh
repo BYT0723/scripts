@@ -35,7 +35,7 @@ notification||Notification||cmd:$ROFI_DIR/scripts/notification.sh unread
 sddm|󰍂|SDDM Setting||
 media-scraping|󰎁|Media Scraping||
 sing-box||SingBox||active
-yt-dl|󰎆|Youtube Downloader|Download from URL||
+yt-dlp-wrapper|󰎆|YT-DLP Wrapper|Download from URL||
 calendar||Calendar||
 calendar-lunar||Calendar (Lunar)||
 scrcpy|󰄟|Scrcpy (Android Mirror)|Screen Mirror||
@@ -76,7 +76,7 @@ handle_calendar_lunar() { /bin/bash $WORK_DIR/tools/calendar.sh lunar; }
 handle_media_scraping() { /bin/bash $ROFI_DIR/scripts/media-scraping.sh; }
 handle_sddm() { /bin/bash $ROFI_DIR/scripts/sddm.sh; }
 handle_scrcpy() { /bin/bash $ROFI_DIR/scripts/scrcpy.sh; }
-handle_yt_dl() { /bin/bash $ROFI_DIR/scripts/yt-download.sh; }
+handle_yt_dlp_wrapper() { /bin/bash $ROFI_DIR/scripts/yt-dlp-wrapper.sh; }
 handle_theme() { /bin/bash $ROFI_DIR/scripts/theme.sh; }
 handle_xcolor() { /bin/bash $WORK_DIR/tools/color-picker.sh; }
 
