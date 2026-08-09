@@ -91,14 +91,14 @@ if [ -n "$devices" ]; then
 			icon=""
 		fi
 
-		printf -v _line "%s|%s|%s||\n" "$key" "$icon" "$line"
+		printf -v _line "%s|%s|%s|\n" "$key" "$icon" "$line"
 		menu_lines+="$_line"
 	done <<<"$devices"
 fi
 
-printf -v _line "%s|%s|%s||\n" "wireless-connect" "󰈀" "Wireless Connect"
+printf -v _line "%s|%s|%s|\n" "wireless-connect" "󰈀" "Wireless Connect"
 menu_lines+="$_line"
-printf -v _line "%s|%s|%s||\n" "wireless-pair" "󰐺" "Pair New Device"
+printf -v _line "%s|%s|%s|\n" "wireless-pair" "󰐺" "Pair New Device"
 menu_lines+="$_line"
 
 module_parse <<<"$menu_lines"

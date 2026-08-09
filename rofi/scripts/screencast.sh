@@ -18,9 +18,9 @@ if "$TOOL" is-recording; then
 	MODULE_NAME=" 󰑊 $($TOOL recording-time) "
 
 	module_parse <<MODULES
-stop||Stop Screencast||
-toggle-desktop|$($TOOL audio-state)|Mute System Audio||
-toggle-mic|$($TOOL mic-state)|Mute Mic||
+stop||Stop Screencast|
+toggle-desktop|$($TOOL audio-state)|Mute System Audio|
+toggle-mic|$($TOOL mic-state)|Mute Mic|
 MODULES
 
 	handle_stop() { "$TOOL" stop; }
@@ -28,9 +28,9 @@ MODULES
 	handle_toggle_mic() { "$TOOL" toggle-mic; }
 else
 	module_parse <<MODULES
-fullscreen||Desktop||
-area||Area||
-window||Window||
+fullscreen||Desktop|
+area||Area|
+window||Window|
 MODULES
 
 	handle_fullscreen() { "$TOOL" start fullscreen; }

@@ -102,7 +102,7 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 
 | 函数                  | 调用者                                                                                                                                                                                                                                                                                               |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `module_parse()`      | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, theme.sh, yt-dlp-wrapper.sh, wallpaper.sh (读取注册表)                                                                                                                                                                          |
+| `module_parse()`      | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, theme.sh, yt-dlp-wrapper.sh, wallpaper.sh, scrcpy.sh, mpd.sh (读取注册表)                                                                                                                                                                          |
 | `module_loop()`       | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, scrcpy.sh, wallpaper.sh, theme.sh, yt-dlp-wrapper.sh (主循环, 唯一入口)                                                                                                                                                         |
 | `module_sub_rofi()`   | module.sh (handle_network, handle_bluetooth, handle_audio_output 的子菜单), sddm.sh (handle_set_theme, handle_set_config 的子菜单), scrcpy.sh (handle_select_device 的子菜单), wallpaper.sh (monitor_selection / handle_group 的子菜单), sing-box.sh (主菜单), yt-dlp-wrapper.sh (格式/清晰度子菜单) |
 | `module_input()`      | yt-dlp-wrapper.sh (URL 输入框), wallpaper.sh (handle_group 组名输入)                                                                                                                                                                                                                                 |
@@ -325,6 +325,30 @@ wallpaper.sh → source utils/monitor.sh, utils/notify.sh
 - `rofi/colors/` `rofi/images/`
 - `~/.config/dwm/wallpaper.json` — 壁纸配置, 含 `defaults`、`monitors`(按屏/组名键)、`groups`(成员名单 + enabled 启停)
 - `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置，`"auto"` 含 `enabled`(默认 false)、`sun_rise_offset`(日出延迟分钟数)、`sun_set_offset`(日落延迟分钟数)，`"cursor"` 含 `theme`/`size`，`"dpi"` 为 Xft.dpi 值，`light`/`dark` 的 `colorscheme` 引用 `~/.config/dwm/colorschemes/` 下的颜色方案文件
+
+## Rofi 模块注册表规范
+
+`module_parse` 的 stdin 注册表采用 4 列 pipe 分隔格式:
+
+```
+key|icon|label|status
+```
+
+### 约定
+
+- **key**: kebab-case，对应 `handle_<key>` 调度函数名（`-` 转 `_`）
+- **icon**: Nerd Font 图标，始终非空（不含 sddm.sh 旧式空 icon）
+- **label**: Title Case 纯名词短语，**不带括号解释**。括号仅用于并列子实体名如 `Hub (jellyfin)`。命名实体的官方写法优先（如 `sing-box` 而非 `SingBox`）
+- **status**: `toggle` / `active` / `active-svc` / `active:<svc>` / `cmd:<expr>` / `str:<text>` 或空
+
+### 示例
+
+```
+picom|󰋩|Picom|toggle
+network|󰈀|Network|active:NetworkManager
+sing-box||sing-box|active
+calendar-lunar|󰃚|Lunar Calendar|
+```
 
 ## 已知问题
 

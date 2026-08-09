@@ -140,16 +140,15 @@ module_multi_rofi() {
 }
 
 # 从 stdin 读取注册表 (pipe 分隔)
-# 格式: key|icon|label|mesg|status_expr
+# 格式: key|icon|label|status
 module_parse() {
 	MODULE_KEYS=()
-	declare -gA MODULE_ICON MODULE_LABEL MODULE_MESG MODULE_STATUS
-	while IFS='|' read -r key icon label mesg status_expr; do
+	declare -gA MODULE_ICON MODULE_LABEL MODULE_STATUS
+	while IFS='|' read -r key icon label status_expr; do
 		[[ -z "$key" ]] && continue
 		MODULE_KEYS+=("$key")
 		MODULE_ICON[$key]="$icon"
 		MODULE_LABEL[$key]="$label"
-		MODULE_MESG[$key]="$mesg"
 		MODULE_STATUS[$key]="$status_expr"
 	done
 }
@@ -191,8 +190,8 @@ module_loop() {
 # toggleApplication() { ... }
 #
 # module_parse <<'MODULES'
-# picom|󰋩|Picom|Windows Composer|toggle
-# conky|󰏘|Conky|System Monitor|toggle
+# picom|󰋩|Picom|toggle
+# conky|󰏘|Conky|toggle
 # MODULES
 #
 # handle_picom() { toggleApplication picom; }

@@ -15,10 +15,10 @@ source "$(dirname "$0")"/lib-module.sh
 TOOL="$WORK_DIR/tools/screenshot.sh"
 
 module_parse <<MODULES
-area||Area||
-desktop||Desktop||
-window||Window||
-timer||5s||
+area||Area|
+desktop||Desktop|
+window||Window|
+timer||5s|
 MODULES
 
 handle_area() { "$TOOL" area; }

@@ -51,14 +51,14 @@ _is_running() {
 }
 
 module_parse <<MODULES
-open-hub|󰎁|Hub (jellyfin)||
-open-index|󰎁|Index (prowlarr)||
-open-movie|󰎁|Movie (radarr)||
-open-tv|󰎁|TV (sonarr)||
-open-downloader|󰎁|Downloader (qbittorrent)||
-open-subtitle|󰎁|Subtitle (bazarr)||
-toggle-hub|󰙉|Toggle Hub||cmd:_is_running jellyfin metatube && echo " " || echo " "
-toggle-scraper|󰙉|Toggle Scraper||cmd:_is_running sonarr radarr prowlarr bazarr qbittorrent && echo " " || echo " "
+open-hub|󰎁|Hub (jellyfin)|
+open-index|󰎁|Index (prowlarr)|
+open-movie|󰎁|Movie (radarr)|
+open-tv|󰎁|TV (sonarr)|
+open-downloader|󰎁|Downloader (qbittorrent)|
+open-subtitle|󰎁|Subtitle (bazarr)|
+toggle-hub|󰙉|Toggle Hub|cmd:_is_running jellyfin metatube && echo " " || echo " "
+toggle-scraper|󰙉|Toggle Scraper|cmd:_is_running sonarr radarr prowlarr bazarr qbittorrent && echo " " || echo " "
 MODULES
 
 handle_toggle_hub() { _toggle hub "${HUB[@]}"; }

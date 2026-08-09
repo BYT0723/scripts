@@ -18,7 +18,7 @@ if [[ -z "$status" ]]; then
 	MODULE_MESG="MPD is Offline"
 
 	module_parse <<MODULES
-start|⏻|Start Local MPD||
+start|⏻|Start Local MPD|
 MODULES
 
 	handle_start() { mpd; }
@@ -40,14 +40,14 @@ else
 	MODULE_URGENT="$urgent_idx"
 
 	module_parse <<MODULES
-play-pause|${play_icon}|${play_label}||
-stop|󰓛|Stop||
-prev|󰒮|Previous||
-next|󰒭|Next||
-vol-down|󰝞|Down||
-vol-up|󰝝|Up||
-repeat|󰑖|Repeat||
-random||Random||
+play-pause|${play_icon}|${play_label}|
+stop|󰓛|Stop|
+prev|󰒮|Previous|
+next|󰒭|Next|
+vol-down|󰝞|Down|
+vol-up|󰝝|Up|
+repeat|󰑖|Repeat|
+random||Random|
 MODULES
 
 	_handle_play_icon() {

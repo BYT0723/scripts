@@ -16,11 +16,11 @@ source "$(dirname "$0")"/lib-module.sh
 SDDM_SCRIPT="$WORK_DIR/tools/sddm.sh"
 
 module_parse <<MODULES
-set-theme||Set Theme||
-preview||Preview||
-set-config||Set Config||
-edit-config||Edit Config||
-install-themes||Install Themes||
+set-theme|󰔟|Set Theme|
+preview|󰈑|Preview|
+set-config|󰒓|Set Config|
+edit-config|󰷏|Edit Config|
+install-themes|󰑭|Install Themes|
 MODULES
 
 handle_set_theme() {

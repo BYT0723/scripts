@@ -134,11 +134,11 @@ handle_open() { xdg-open "$YT_DL_DIR"; }
 
 # ------- main -------
 
-_menu="audio|󰎆|Audio (Opus)|bestaudio → opus|"$'\n'
-_menu+="video|󰎇|Video|bestvideo+bestaudio|"$'\n'
-[[ -n "$CLIP_URL" ]] && _menu+="clipboard|󰅐|Clipboard||"$'\n'
-_menu+="format|󰋽|Custom Format|yt-dlp -F list|"$'\n'
-_menu+="open|󰝰|Open Directory|$YT_DL_DIR|"$'\n'
+_menu="audio|󰎆|Audio (Opus)|"$'\n'
+_menu+="video|󰎇|Video|"$'\n'
+[[ -n "$CLIP_URL" ]] && _menu+="clipboard|󰅐|Clipboard|"$'\n'
+_menu+="format|󰋽|Custom Format|"$'\n'
+_menu+="open|󰝰|Open Directory|"$'\n'
 
 module_parse <<<"$_menu"
 

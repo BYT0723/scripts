@@ -26,21 +26,21 @@ toggleApplication() {
 }
 
 module_parse <<MODULES
-picom|󰋩|Picom|Windows Composer|toggle
-conky|󰏘|Conky|System Monitor|toggle
-network|󰈀|Network||active:NetworkManager
-bluetooth|󰂯|Bluetooth||active-svc
-audio-output|󰓃|Audio Output||
-notification||Notification||cmd:$ROFI_DIR/scripts/notification.sh unread
-sddm|󰍂|SDDM Setting||
-media-scraping|󰎁|Media Scraping||
-sing-box||SingBox||active
-yt-dlp-wrapper|󰎆|YT-DLP Wrapper|Download from URL||
-calendar||Calendar||
-calendar-lunar||Calendar (Lunar)||
-scrcpy|󰄟|Scrcpy (Android Mirror)|Screen Mirror||
-theme|󰔟|Theme|light/dark/auto||
-xcolor|󰌁|Color Picker|Pick & Copy||
+picom|󰋩|Picom|toggle
+conky|󰏘|Conky|toggle
+network|󰈀|Network|active:NetworkManager
+bluetooth|󰂯|Bluetooth|active-svc
+audio-output|󰓃|Audio Output|
+notification||Notification|cmd:$ROFI_DIR/scripts/notification.sh unread
+sddm|󰍂|SDDM|
+media-scraping|󰎁|Media Scraping|
+sing-box||sing-box|active
+yt-dlp-wrapper|󰎆|YT-DLP Wrapper|
+calendar||Calendar|
+calendar-lunar|󰃚|Lunar Calendar|
+scrcpy|󰄟|Scrcpy|
+theme|󰔟|Theme|
+xcolor|󰌁|Color Picker|
 MODULES
 
 # ====== Handlers ======

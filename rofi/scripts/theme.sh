@@ -27,11 +27,11 @@ get_sun_message() {
 }
 
 module_parse <<MODULES
-toggle| |Toggle|switch light/dark|str:$(get_cur)
-auto|󰃡 |Auto (sunrise/sunset)|toggle auto switching|str:$([ "$(get_auto_stat)" = "true" ] && echo "" || echo "")
-rise_offset| |Rise offset|±min after sunrise|str:$(get_rise)m
-set_offset| |Set offset|±min after sunset|str:$(get_set)m
-conf|󱔏 |Edit config|open theme.json|
+toggle| |Toggle|str:$(get_cur)
+auto|󰃡 |Auto (sunrise/sunset)|str:$([ "$(get_auto_stat)" = "true" ] && echo "" || echo "")
+rise_offset| |Rise offset|str:$(get_rise)m
+set_offset| |Set offset|str:$(get_set)m
+conf|󱔏 |Edit config|
 MODULES
 
 sun_mesg=$(get_sun_message 2>/dev/null) || true

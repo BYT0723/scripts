@@ -142,14 +142,14 @@ if [[ "$MONITOR" == "__GROUPS__" ]]; then
 fi
 
 module_parse <<MODULES
-next|󰑐|Next||
-select||Select||
-random_switch|󰛌|Random||cmd:icon toggle conf wallpaper random number "$MONITOR"
-random_type|󰨠|Type||cmd:[[ $(getConfig -m "$MONITOR" random_type) == "video" ]] && echo "" || echo ""
-random_duration|󰔟|Duration||cmd:getConfig -m "$MONITOR" duration
-random_depth|󰒻|Depth||cmd:getConfig -m "$MONITOR" random_depth
-random_images_path||Images||
-random_videos_path||Videos||
+next|󰑐|Next|
+select||Select|
+random_switch|󰛌|Random|cmd:icon toggle conf wallpaper random number "$MONITOR"
+random_type|󰨠|Type|cmd:[[ $(getConfig -m "$MONITOR" random_type) == "video" ]] && echo "" || echo ""
+random_duration|󰔟|Duration|cmd:getConfig -m "$MONITOR" duration
+random_depth|󰒻|Depth|cmd:getConfig -m "$MONITOR" random_depth
+random_images_path||Images|
+random_videos_path||Videos|
 MODULES
 handle_next() { "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" next; }
 handle_select() { "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" select; }
