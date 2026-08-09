@@ -291,6 +291,18 @@ tools/theme.sh auto (守护进程)
   手动 apply 会关闭 auto（自动调用 auto off）
 ```
 
+### 壁纸状态缓存 (target → cache file)
+
+`$monitor` 参数可能为以下三类值，对应不同缓存文件（存储内容均为 `filepath|rotation`）：
+
+| 目标类型 | 示例值 | 缓存文件 | 写入者 |
+|----------|--------|----------|--------|
+| 实体显示器名 | `DP-0`, `HDMI-0` | `~/.cache/wallpaper/wallpaper_latest_<xrandr_index>` | `set_wallpaper_to_monitor()` |
+| Group 名 | `landscape`, `portrait` | `~/.cache/wallpaper/wallpaper_latest_grp_<组名>` | `set_wallpaper_to_group()` |
+| 全屏 | `Screen` | `~/.cache/wallpaper/wallpaper_latest_full` | `set_wallpaper_to_screen()` |
+
+> **规则**: 任何读取/比对当前壁纸的逻辑，必须枚举以上三种目标类型，逐类命中对应缓存文件。`ALL` 不是独立目标，CLI handler 将其展开为逐个实体显示器名。
+
 ### 壁纸链路
 
 ```

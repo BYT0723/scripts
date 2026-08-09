@@ -27,6 +27,14 @@ mkdir -p "$cache_wallpaper_dir"
 	monitors: {}
 }' >"$conf"
 
+#
+# 壁纸状态缓存: target → cache file 映射
+#   实体显示器名 → ${wallpaper_latest}_<xrandr_index>
+#   Group 名      → ${wallpaper_latest}_grp_<组名>
+#   Screen (全屏) → ${wallpaper_full_latest}
+#   存储格式: filepath|rotation
+#   规则: 任何读取当前壁纸的逻辑，必须枚举以上三种目标类型。
+#
 wallpaper_latest="$cache_wallpaper_dir/wallpaper_latest"
 wallpaper_full_latest="${wallpaper_latest}_full"
 wallpaper_pid="$cache_wallpaper_dir/wallpaper_pid"

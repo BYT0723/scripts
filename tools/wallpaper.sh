@@ -46,6 +46,29 @@ random_wallpaper() {
 	local file_array=()
 	mapfile -t file_array <<< "$files"
 
+	# Exclude current wallpaper to avoid showing the same one again
+	local cache_file=""
+	local monitor_index=$(xrandr --listactivemonitors 2>/dev/null | awk -v name="$monitor" 'NR>1 && $NF==name {gsub(":","",$1); print $1; exit}')
+	if [ -n "$monitor_index" ]; then
+		cache_file="${wallpaper_latest}_${monitor_index}"
+	elif has_group "$monitor"; then
+		cache_file="${wallpaper_latest}_grp_${monitor}"
+	elif [ "$monitor" = "Screen" ]; then
+		cache_file="$wallpaper_full_latest"
+	fi
+
+	if [ -n "$cache_file" ] && [ -f "$cache_file" ]; then
+		local current_file=$(head -1 "$cache_file" | cut -d'|' -f1)
+		local filtered=()
+		local f
+		for f in "${file_array[@]}"; do
+			[ "$f" != "$current_file" ] && filtered+=("$f")
+		done
+		if [ ${#filtered[@]} -gt 0 ]; then
+			file_array=("${filtered[@]}")
+		fi
+	fi
+
 	# Randomly select one file
 	local count=${#file_array[@]}
 	local random_index=$((RANDOM % count))
