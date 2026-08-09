@@ -148,7 +148,7 @@ set_latest() {
 		is_group_member "$mon_name" && continue
 		IFS='|' read -r fp rot < "$f"
 		WALLPAPER_ROTATION="$rot"
-		set_wallpaper_to_monitor "$monitor_index" "$fp" &
+		set_wallpaper_to_monitor "$monitor_index" "$fp"
 	done
 
 	shopt -s nullglob
@@ -158,7 +158,7 @@ set_latest() {
 		[ "$(get_group_enabled "$grp_name")" != "true" ] && continue
 		IFS='|' read -r fp rot < "$f"
 		WALLPAPER_ROTATION="$rot"
-		set_wallpaper_to_group "$grp_name" "$fp" &
+		set_wallpaper_to_group "$grp_name" "$fp"
 	done
 	shopt -u nullglob
 }

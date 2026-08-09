@@ -41,7 +41,7 @@ launch_video_xwinwrap() {
 		--stop-screensaver=no \
 		--image-display-duration=inf \
 		$rotate \
-		--input-conf="$keymapConf" 2>&1 >~/.wallpaper.log &
+		--input-conf="$keymapConf" >~/.wallpaper.log 2>&1 &
 }
 
 launch_page_xwinwrap() {
@@ -68,6 +68,7 @@ launch_dynamic_wallpaper() {
 	esac
 
 	NEW_WALLPAPER_PID="$!"
+	sleep 0.5
 	kill -0 "$NEW_WALLPAPER_PID" 2>/dev/null || return 1
 }
 
@@ -99,9 +100,8 @@ _feh_refresh() {
 # 确保黑色占位图存在
 _FEH_BLACK="${cache_wallpaper_dir}/.feh_black.png"
 if [ ! -f "$_FEH_BLACK" ]; then
-	base64 -d <<'EOF' >"$_FEH_BLACK"
-iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAA
-AABJRU5ErkJggg==
+	base64 -d >"$_FEH_BLACK" <<'EOF'
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAX+XDSwAAAABJRU5ErkJggg==
 EOF
 fi
 
