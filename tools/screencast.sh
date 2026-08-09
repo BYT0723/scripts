@@ -7,7 +7,7 @@ APP_NAME="Screencast"
 APP_ICON="screenrecorder"
 PID_FILE="/tmp/screencaster_pid"
 PATH_FILE="/tmp/screencaster_path"
-DIR="$(xdg-user-dir)/Screencasts"
+DIR="$(xdg-user-dir)/Videos/Screencasts"
 FRAME_RATE=60
 
 countdown() {
