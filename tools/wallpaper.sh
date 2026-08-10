@@ -52,7 +52,7 @@ random_wallpaper() {
 	if [ -n "$monitor_index" ]; then
 		cache_file="${wallpaper_latest}_${monitor_index}"
 	elif has_group "$monitor"; then
-		cache_file="${wallpaper_latest}_grp_${monitor}"
+		cache_file="${wallpaper_latest}_grp_${monitor// /_}"
 	elif [ "$monitor" = "Screen" ]; then
 		cache_file="$wallpaper_full_latest"
 	fi
@@ -218,23 +218,29 @@ launch_wallpaper() {
 			done
 		fi
 
-		while read -r monitor_name; do
-			is_group_member "$monitor_name" && continue
-			[ "$(getConfig -m "$monitor_name" random)" -eq 1 ] || continue
+		while read -r target; do
+			is_group_member "$target" && continue
+			[ "$(getConfig -m "$target" random)" -eq 1 ] || continue
 
-			# First time seeing this monitor: start timer, skip
-			if [ -z "${last_update[$monitor_name]}" ]; then
-				last_update[$monitor_name]=$now
+			if [ -z "${last_update[$target]}" ]; then
+				last_update[$target]=$now
 				continue
 			fi
 
-			local dur=$(getConfig -m "$monitor_name" duration)
-			local last="${last_update[$monitor_name]}"
+			local dur=$(getConfig -m "$target" duration)
+			local last="${last_update[$target]}"
 			[ $((now - last)) -lt $((dur * 60)) ] && continue
 
-			file=$(random_wallpaper "$monitor_name")
-			[ -n "$file" ] && apply_wallpaper "$monitor_name" "$file" && last_update[$monitor_name]=$now
-		done < <(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}')
+			file=$(random_wallpaper "$target")
+			[ -n "$file" ] && apply_wallpaper "$target" "$file" && last_update[$target]=$now
+		done < <(
+			xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}'
+			while IFS= read -r grp; do
+				[ "$(get_group_enabled "$grp")" != "true" ] && continue
+				get_group_dim "$grp" >/dev/null 2>&1 || continue
+				echo "$grp"
+			done < <(group_names)
+		)
 	done
 }
 
