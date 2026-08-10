@@ -12,7 +12,7 @@ dwm-status.sh ──sources──► dwm-status-tools.sh ──sources──► 
                                                            utils/notify.sh
 dwm-statuscmd.sh ──sources──► utils/notify.sh
 tools/theme.sh ──sources──► utils/notify.sh
-                ──requires─► xdotool, jq, curl (Firefox Dark Reader 切换 / auto 日出日落)
+                ──requires─► xsettingsd, dconf (gsettings), curl (GTK/portal 双通道广播 / auto 日出日落)
 
 tools/lock.sh ──sources──► utils/notify.sh
               ◄──sourced by── rofi/powermenu/type-{1..6}/powermenu.sh
@@ -120,6 +120,7 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | 函数                 | 调用者                                                                                                                                           |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `_do_theme_change()` | tools/theme.sh (apply / auto_daemon)                                                                                                             |
+| `set_gtk_theme()`    | tools/theme.sh (_do_theme_change: 写 gtk2/3/4 持久配置 + 运行时双通道广播 — xsettingsd GTK 主题名 / gsettings color-scheme 同步 portal)                     |
 | `get_auto_config()`  | tools/theme.sh (auto_daemon, auto on/off, apply)                                                                                                 |
 | `get_sun_times()`    | tools/theme.sh (auto_daemon), rofi/scripts/theme.sh (get_sun_message → MODULE_MESG 日出日落显示; 内置 `~/.local/state/dwm/cache/sun-times` 缓存) |
 | `auto_daemon()`      | tools/theme.sh (auto 守护进程循环)                                                                                                               |
@@ -234,6 +235,7 @@ DWM 启动
     → dunst &
     → xautolock -locker "lock.sh lock" &    # 定时锁屏
     → fcitx5 &
+    → xsettingsd &                          # XSETTINGS 广播 (theme.sh set_gtk_theme 依赖)
     → udiskie &
     → lxpolkit &
     → setxkbmap ...
@@ -325,6 +327,7 @@ wallpaper.sh → source utils/monitor.sh, utils/notify.sh
 - `rofi/colors/` `rofi/images/`
 - `~/.config/dwm/wallpaper.json` — 壁纸配置, 含 `defaults`、`monitors`(按屏/组名键)、`groups`(成员名单 + enabled 启停)
 - `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置，`"auto"` 含 `enabled`(默认 false)、`sun_rise_offset`(日出延迟分钟数)、`sun_set_offset`(日落延迟分钟数)，`"cursor"` 含 `theme`/`size`，`"dpi"` 为 Xft.dpi 值，`light`/`dark` 的 `colorscheme` 引用 `~/.config/dwm/colorschemes/` 下的颜色方案文件
+- `~/.xsettingsd` — `set_gtk_theme()` 维护 `Net/ThemeName`(当前 GTK 主题) 行, 保留其他 XSETTINGS 键, `killall -HUP xsettingsd` 触发 XSETTINGS 重载广播
 
 ## Rofi 模块注册表规范
 
@@ -355,6 +358,9 @@ calendar-lunar|󰃚|Lunar Calendar|
 - `tools/calendar.sh:3` source 路径已修复为 `$(dirname "$0")/../utils/notify.sh`
 - `tools/screen.sh:16` LOCKER 路径已改为 `$(dirname "$0")/lock.sh lock`，不再依赖 `$TOOLS_DIR`
 - `tools/lock.sh` 的 `_screen_lock_loop` 在 xprintidle 缺失时有 fallback (sleep 30s 代替空闲检测)
+- `tools/theme.sh` 旧 Firefox 切换方案（`set_firefox_theme` + `_get_darkreader_shortcut`，xdotool 模拟 Dark Reader 快捷键）已删除：Dark Reader 的 `extension-settings.json` 快捷键实际为空串，jq 的 `//` 不兜底空串 → `xdotool key ""` 从未生效；且依赖 Firefox 窗口存在、/tmp 状态文件易漂移。现由 `set_gtk_theme()` 双通道替代
+- **Firefox content 亮暗由 portal 决定而非 GTK**：Firefox 的 `prefers-color-scheme` 走 `nsLookAndFeel::ComputeColorSchemeSetting()` → xdg-desktop-portal 的 `color-scheme`（gsettings `org.gnome.desktop.interface color-scheme`），且 Firefox 将 portal 返回的 `0 (default)` 硬映射为 light（nsLookAndFeel.cpp case 0）。因此 `set_gtk_theme()` 必须同时写 gsettings（prefer-dark/prefer-light），仅广播 GTK 主题名不足以切换 Firefox content scheme
+- `tools/theme.sh apply` 的退出码已修复：auto 关闭时末尾 `[ ... ]` 返回 1 导致 apply 成功但 exit 1，现显式 `exit 0`
 
 ---
 

@@ -217,14 +217,8 @@ set_gtk_theme() {
 	local gtk3_cfg="$HOME/.config/gtk-3.0/settings.ini"
 	local gtk4_cfg="$HOME/.config/gtk-4.0/settings.ini"
 
-	if [ -f "$gtk2_cfg" ]; then
-		_ensure_config_line "$gtk2_cfg" '^gtk-theme-name=.*' 'gtk-theme-name="'"$theme"'"'
-		_ensure_config_line "$gtk2_cfg" '^gtk-icon-theme-name=.*' 'gtk-icon-theme-name="'"$icon_theme"'"'
-	else
-		echo 'gtk-theme-name="'"$theme"'"' >"$gtk2_cfg"
-		echo 'gtk-icon-theme-name="'"$icon_theme"'"' >>"$gtk2_cfg"
-	fi
-
+	_ensure_config_line "$gtk2_cfg" '^gtk-theme-name=.*' 'gtk-theme-name="'"$theme"'"'
+	_ensure_config_line "$gtk2_cfg" '^gtk-icon-theme-name=.*' 'gtk-icon-theme-name="'"$icon_theme"'"'
 	for conf in "$gtk3_cfg" "$gtk4_cfg"; do
 		if [ -f "$conf" ] && grep -q '^\[Settings\]' "$conf" 2>/dev/null; then
 			_ensure_config_line "$conf" '^gtk-theme-name=.*' "gtk-theme-name=$theme"
@@ -238,42 +232,24 @@ set_gtk_theme() {
 			} >>"$conf"
 		fi
 	done
-}
 
-_get_darkreader_shortcut() {
-	local settings_json="$1"
-	[ -z "$settings_json" ] || [ ! -f "$settings_json" ] && echo "Alt+Shift+D" && return
-	jq -r '[.commands | to_entries[] | .value.precedenceList[]?
-		| select(.id == "addon@darkreader.org")] | .[0].value.shortcut // "Alt+Shift+D"' \
-		"$settings_json" 2>/dev/null
-}
+	# 运行时广播双通道 (以上仅为持久配置, 供应用启动时读取):
+	# 1. XSETTINGS: GTK 应用 (含 Firefox UI) 监听 gtk-theme-name 变化即时刷新
+	_ensure_config_line "$HOME/.xsettingsd" '^Net/ThemeName.*' 'Net/ThemeName "'"$theme"'"'
+	if ! pgrep -x xsettingsd >/dev/null 2>&1; then
+		xsettingsd &>/dev/null &
+		disown
+		sleep 0.3
+	fi
+	pkill -HUP -x xsettingsd
 
-set_firefox_theme() {
-	local mode="$1"
-	[ -z "$mode" ] && return
-	command -v xdotool >/dev/null || return
-	command -v jq >/dev/null || return
-
-	local profile_dir
-	profile_dir=$(ls -d "$HOME/.mozilla/firefox/"*.default-release 2>/dev/null | head -1)
-	[ -z "$profile_dir" ] && return
-
-	local ext_json="$profile_dir/extensions.json"
-	[ -f "$ext_json" ] || return
-	jq -e '.addons | any(.id == "addon@darkreader.org")' "$ext_json" >/dev/null 2>&1 || return
-
-	local state_file="/tmp/dwm-darkreader-state"
-	local cur_state
-	read -r cur_state <"$state_file" 2>/dev/null || true
-
-	[ "$cur_state" = "$mode" ] && return
-
-	local win_id shortcut
-	win_id=$(xdotool search --name "Mozilla Firefox" 2>/dev/null | head -1)
-	[ -z "$win_id" ] && return
-	shortcut=$(_get_darkreader_shortcut "$profile_dir/extension-settings.json")
-	xdotool key --window "$win_id" --clearmodifiers "$shortcut"
-	echo "$mode" >"$state_file"
+	# 2. portal: Firefox content 的 prefers-color-scheme 由 xdg-desktop-portal
+	#    的 color-scheme 决定 (Firefox 将 default=0 硬映射为 light), 必须同步 gsettings
+	if command -v gsettings >/dev/null 2>&1; then
+		local cs="prefer-$mode"
+		gsettings set org.gnome.desktop.interface color-scheme "$cs" ||
+			system-notify normal "Theme Sync" "gsettings color-scheme 设置失败, portal 通道未生效"
+	fi
 }
 
 # ---------- theme apply ----------
@@ -288,7 +264,6 @@ _do_theme_change() {
 	set_qt_theme "$mode"
 	set_gtk_theme "$mode"
 	set_fcitx5_theme "$mode"
-	set_firefox_theme "$mode"
 
 	[ -f "$HOME/.Xresources" ] && xrdb -merge "$HOME/.Xresources"
 
@@ -412,6 +387,8 @@ check)
 		"kvantum"
 		"kvantum-qt5"
 		"kvantum-theme-orchis-git"
+		"xsettingsd"
+		"dconf"
 	)
 	missing=()
 	for pkg in "${pkgs[@]}"; do
@@ -432,6 +409,7 @@ apply)
 	_do_theme_change "$mode"
 	pkill -SIGHUP dwm
 	[ "$(get_auto_config "auto.enabled")" = "true" ] && "$0" auto off
+	exit 0
 	;;
 auto)
 	pf="/tmp/dwm-status/autostart-launch-theme-auto.pid"

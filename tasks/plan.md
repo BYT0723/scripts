@@ -1,51 +1,35 @@
-# Implementation Plan: 壁纸 Monitor 持久组
+# Implementation Plan: Firefox 原生亮暗跟随（xsettingsd + portal 双通道）
 
 ## Overview
-为壁纸系统引入 monitor 持久组：经 rofi 多选勾屏、持久化为 wallpaper.json 的显式成员名单，组名即目标（`-m <组> next`）。一个屏至多属于一个组（互斥）；组有 enabled 开关，禁用后 kill 组壁纸并让成员屏回归单屏 daemon 轮换；组仅支持 video/page，daemon 不轮换组（纯手动），set_latest 重启恢复。
+替换 tools/theme.sh 中基于 xdotool + Dark Reader 快捷键的 Firefox 主题切换方案（已证实失效：Dark Reader 快捷键为空串，xdotool 发空键）。改为双通道广播：
+1. **xsettingsd 通道**：写 `~/.xsettingsd` 的 `Net/ThemeName` 并 HUP 重载 → GTK 应用（含 Firefox UI）即时刷新
+2. **portal 通道**：`gsettings set org.gnome.desktop.interface color-scheme` → xdg-desktop-portal 广播 → Firefox content `prefers-color-scheme` 即时刷新
 
 ## Architecture Decisions
-- groups 数据结构：`"groups": { "<名>": { "enabled": bool, "members": [names] } }`，复用 `monitors[<组名>]` 作组自身配置（getConfig 零改动）。
-- 成员互斥 + 组优先：rofi 创建/编辑时校验；launch_wallpaper 轮询跳过成员；手动单屏目标指向启用组成员拒。
-- 组=跨屏 bbox 渲染：get_group_dim 求成员并集几何，video/page 用 xwinwrap 铺 WxH+X+Y；image 在组目标下直接报错。
-- 启停持久化：enabled 写 json；禁用动作=enabled=false + kill 组进程 + 清 _grp_<名> 状态，成员随之恢复单屏轮换。
+- **广播键名用 `Net/ThemeName`**：GDK 映射表 `gdk/x11/gdksettings.c:33`（`{"Net/ThemeName", "gtk-theme-name"}`）确认
+- **portal 是 Firefox content scheme 的唯一决定者**：nsLookAndFeel.cpp `ComputeColorSchemeSetting()` 优先 portal `color-scheme`，且 `case 0 (default)` 硬映射为 light —— 仅广播 GTK 主题名不足以切换 Firefox content
+- **Firefox 侧零配置**：`browser.theme.content-theme` 保持默认 2（System），不写 user.js 锁死
+- **广播函数含自动拉起逻辑**：xsettingsd 未运行时自动启动；gsettings 失败时 system-notify 提示
+- **旧方案整体删除**：`set_firefox_theme` + `_get_darkreader_shortcut` 及其 xdotool/jq/扩展依赖
 
-## 依赖图
-```
-wallpaper-lib.sh → wallpaper-render.sh → wallpaper.sh
-                                        → rofi/scripts/wallpaper.sh
-                → rofi/scripts/lib-module.sh → rofi/scripts/wallpaper.sh
-                → wallpaper.json(迁移) + AGENTS.md
-```
+## 验证结果
+- [x] xsettingsd 安装并纳入 autostart（launch check 幂等）
+- [x] set_gtk_theme 双通道工作（xsettingsd 广播 + gsettings 同步）
+- [x] Firefox 运行中 apply dark → `matchMedia dark=true` 实时生效（无重启）
+- [x] apply light → `dark=false` 实时生效
+- [x] Firefox 重启后启动跟随（gsettings 持久 → portal 启动即报 dark）
+- [x] 连续 apply 幂等（exit=0，单 xsettingsd 实例）
+- [x] apply 退出码修复（auto 关闭时不再 exit 1）
+- [x] AGENTS.md 同步（依赖图/启动链路/配置文件/已知问题/函数表）
+- [x] Code review 修复：~/.xsettingsd 改用 _ensure_config_line（保留其他 XSETTINGS 键，不再整文件覆盖）；cs 三元表达式改 if/else；review 后复验通过
+- [x] 架构收敛：按 review 意见将广播逻辑并入 set_gtk_theme（持久配置 + 运行时双通道广播同一职责），删除 set_gtk_broadcast
 
-## Task List
-
-### Phase 1: Foundation (lib)
-- [ ] Task 1: wallpaper-lib.sh 组配置函数 (group_names, get_group_members, get_group_enabled, has_group, is_group_member)
-- [ ] Task 2: get_group_dim, get_monitor_dim 扩展, get_monitor_list_text 追加组, clean_target 重构
-
-### Checkpoint 1
-- [ ] bash -n 全绿, 组函数单测通过
-
-### Phase 2: Render + Dispatch
-- [ ] Task 3: wallpaper-render.sh set_wallpaper_to_group
-- [ ] Task 4: wallpaper.sh 分发/daemon 成员排除/set_latest 恢复
-
-### Checkpoint 2
-- [ ] 组壁纸手动 next/select 生效; daemon 不碰成员; 互斥拒绝生效
-
-### Phase 3: Rofi UI
-- [ ] Task 5: lib-module.sh module_multi_rofi
-- [ ] Task 6: rofi/scripts/wallpaper.sh 组管理菜单 (新建/编辑/启停/删除/next)
-
-### Checkpoint 3
-- [ ] rofi 全流程可用
-
-### Phase 4: 迁移 + 文档
-- [ ] Task 7: 配置迁移 + AGENTS.md 更新
-
-## Risks
+## Risks and Mitigations
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| bbox 非零原点算错 | M | get_group_dim 用 x/y 求并集，单测覆盖 |
-| clean_latest 破坏现有调用 | H | clean_target 平替全部调用点 |
-| 状态文件冲突 | M | _grp_<名> 前缀隔离 |
+| portal-gtk 未安装时 gsettings 无效果 | 中 | xsettingsd 通道仍工作（Firefox UI 层）；check 命令包含 dconf |
+| Firefox 版本行为变化 | 中 | 以 FF153 实测为准；nsLookAndFeel 代码路径已验证 |
+| libadwaita 应用（GTK4）不跟随 xsettingsd | 低 | 走 portal 通道，由 gsettings 驱动 |
+
+## Open Questions
+- 无（方向与取舍已确认并实施）

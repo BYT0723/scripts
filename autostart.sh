@@ -53,6 +53,8 @@ desktop_setting() {
 application_launch() {
 	# 窗口合成器 picom (window composer)
 	launch check picom "picom --config $HOME/.config/dwm/picom.conf"
+	# XSETTINGS 守护 (GTK 主题/字体广播, Firefox 亮暗跟随依赖)
+	launch check xsettingsd "xsettingsd"
 	# 启动通知
 	launch check dunst "dunst"
 	# network manager 网络管理bar icon
