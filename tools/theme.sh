@@ -127,51 +127,12 @@ set_kitty_theme() {
 }
 
 set_qt_theme() {
-	local mode="$1"
-	[ -z "$mode" ] && return
-	[ -z "$(command -v kvantummanager)" ] && return
+	[ "$QT_QPA_PLATFORMTHEME" = "gtk3" ] && return 0
 
-	if [ "$QT_QPA_PLATFORMTHEME" != "qt6ct" ]; then
-		system-notify normal "Environment Variable Not Set" "please set QT_QPA_PLATFORMTHEME=qt6ct"
-		return
+	if ! grep -q 'QT_QPA_PLATFORMTHEME=gtk3' "$HOME/.xprofile" 2>/dev/null; then
+		echo 'export QT_QPA_PLATFORMTHEME=gtk3' >>"$HOME/.xprofile"
+		system-notify low "Qt Theme" "QT_QPA_PLATFORMTHEME=gtk3 written to ~/.xprofile, relogin needed"
 	fi
-
-	local kvantum_theme icon_theme
-	kvantum_theme=$(get_theme_config "$mode" "qt") || return
-	icon_theme=$(get_theme_config "$mode" "icon") || true
-
-	local cfg_file="$HOME/.config/qt6ct/qt6ct.conf"
-	mkdir -p "$(dirname "$cfg_file")"
-
-	if [ -f "$cfg_file" ]; then
-		if grep -q '^\[Appearance\]' "$cfg_file"; then
-			if grep -q '^style=' "$cfg_file"; then
-				sed -i 's|^style=.*|style=kvantum|' "$cfg_file"
-			else
-				sed -i '/^\[Appearance\]/a style=kvantum' "$cfg_file"
-			fi
-			if [ -n "$icon_theme" ]; then
-				if grep -q '^icon_theme=' "$cfg_file"; then
-					sed -i 's|^icon_theme=.*|icon_theme='"$icon_theme"'|' "$cfg_file"
-				else
-					sed -i '/^\[Appearance\]/a icon_theme='"$icon_theme" "$cfg_file"
-				fi
-			fi
-		else
-			echo "" >>"$cfg_file"
-			echo "[Appearance]" >>"$cfg_file"
-			echo "style=kvantum" >>"$cfg_file"
-			[ -n "$icon_theme" ] && echo "icon_theme=$icon_theme" >>"$cfg_file"
-		fi
-	else
-		{
-			echo "[Appearance]"
-			echo "style=kvantum"
-			[ -n "$icon_theme" ] && echo "icon_theme=$icon_theme"
-		} >"$cfg_file"
-	fi
-
-	kvantummanager --set "$kvantum_theme"
 }
 
 set_dunst_theme() {
@@ -384,9 +345,6 @@ check)
 		"tela-icon-theme-git"
 		"orchis-theme"
 		"fcitx5-themes-candlelight"
-		"kvantum"
-		"kvantum-qt5"
-		"kvantum-theme-orchis-git"
 		"xsettingsd"
 		"dconf"
 	)
