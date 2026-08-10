@@ -13,6 +13,32 @@ status=$(mpc status "%state%")
 repeat_state=$(mpc status "%repeat%")
 random_state=$(mpc status "%random%")
 
+get_current_song() {
+	local title artist file
+
+	title="$(mpc -f '%title%' current)"
+	artist="$(mpc -f '%artist%' current)"
+
+	if [[ -n "$title" && -n "$artist" ]]; then
+		printf '%s - %s' "$title" "$artist"
+		return
+	fi
+
+	if [[ -n "$title" ]]; then
+		printf '%s' "$title"
+		return
+	fi
+
+	if [[ -n "$artist" ]]; then
+		printf '%s' "$artist"
+		return
+	fi
+
+	file="$(mpc -f '%file%' current)"
+	file="${file##*/}"
+	printf '%s' "${file%.*}"
+}
+
 if [[ -z "$status" ]]; then
 	MODULE_NAME=" Offline"
 	MODULE_MESG="MPD is Offline"
@@ -23,7 +49,7 @@ MODULES
 
 	handle_start() { mpd; }
 else
-	song="$(mpc -f "%title% - %artist%" current)"
+	song=$(get_current_song)
 	MODULE_NAME=" ${song:0:30}"
 	MODULE_MESG="$(mpc status "%currenttime%/%totaltime%  墳 %volume%")"
 
@@ -58,20 +84,20 @@ MODULES
 		mpc -q toggle
 		notify-send -c mpd -i "$(_handle_play_icon)" \
 			-h string:x-dunst-stack-tag:music_info \
-			"$(mpc -f "%title% - %artist%" current)"
+			"$(get_current_song)"
 	}
 	handle_stop() { mpc -q stop; }
 	handle_prev() {
 		mpc -q prev
 		notify-send -c mpd -i "$(_handle_play_icon)" \
 			-h string:x-dunst-stack-tag:music_info \
-			"$(mpc -f "%title% - %artist%" current)"
+			"$(get_current_song)"
 	}
 	handle_next() {
 		mpc -q next
 		notify-send -c mpd -i "$(_handle_play_icon)" \
 			-h string:x-dunst-stack-tag:music_info \
-			"$(mpc -f "%title% - %artist%" current)"
+			"$(get_current_song)"
 	}
 	handle_vol_down() {
 		mpc volume -20
