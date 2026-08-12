@@ -71,7 +71,7 @@ launch_daemon() {
 	pids+=($!)
 	interval_update_daemon -i 3600 update_weather_forecast &
 	pids+=($!)
-	interval_update_daemon -i 300 update_mail &
+	interval_update_daemon -i 60 update_mail &
 	pids+=($!)
 	interval_update_daemon -i 300 update_rss &
 	pids+=($!)
