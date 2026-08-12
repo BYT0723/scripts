@@ -5,7 +5,7 @@ TERM=${TERMINAL:-kitty}
 ROFI_DIR="$(dirname "$(dirname "$0")")"
 WORK_DIR="$(dirname "$ROFI_DIR")"
 
-MODULE_THEME="$ROFI_DIR/applets/type-1/style-3.rasi"
+MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
 MODULE_MAX_LINES=6
 MODULE_NAME="󰍂 SDDM"
 MODULE_MESG="sddm theme setting"

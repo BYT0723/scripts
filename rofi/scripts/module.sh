@@ -53,10 +53,18 @@ handle_network() {
 	wifi=$(nmcli -t -f IN-USE,SSID,SIGNAL dev wifi list | grep '^*' | awk -F : '{printf "%s(%s%%)", $2, $3}')
 	[ "$eth" != "" ] && mesg="  $eth"
 	[[ "$wifi" != "" ]] && { [ "$mesg" != "" ] && mesg="$mesg\n  $wifi" || mesg="  $wifi"; }
-	local opts=$(nmcli device wifi list --rescan auto | awk 'NR!=1 {print substr($0,9)}' | awk '{print $8," ",$2}' | awk '!a[$0]++')
+	local opts=$(nmcli -t -f BARS,BAND,BSSID,SSID dev wifi list --rescan auto | awk -F: '{ ssid=$NF; if (ssid=="") { bssid=""; for (i=3;i<NF;i++) bssid=bssid (i>3?":":"") $i; ssid=bssid; gsub(/\\:/, ":", ssid) } printf "%4s [%7s] %s\n", $1, $2, ssid }' | awk '!a[$0]++')
 	local chosen=$(echo "$opts" | module_sub_rofi "Network" "$mesg")
-	[[ "$chosen" == "" || "$chosen" == "$(nmcli connection show -active | grep -E 'wifi' | awk '{print $1}')" ]] && return
-	nmcli device wifi connect $(echo $chosen | awk '{print $2}')
+	[[ "$chosen" == "" ]] && return
+	chosen="${chosen#*] }"
+	[[ "$chosen" == "$(nmcli -t -f IN-USE,SSID dev wifi list | awk -F: '$1=="*"{print $2}')" ]] && return
+	if [[ "$chosen" =~ ^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$ ]]; then
+		local ssid=$(module_input "Hidden Network" "Enter the SSID of the hidden network")
+		[[ -z "$ssid" ]] && return
+		nmcli device wifi connect "$ssid" hidden yes bssid "$chosen"
+	else
+		nmcli device wifi connect "$chosen"
+	fi
 }
 
 handle_bluetooth() {

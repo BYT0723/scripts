@@ -162,7 +162,7 @@ module_loop() {
 
 	_module_menu_build
 	local chosen=$(printf '%s\n' "${MAIN_OPTS[@]}" | _module_rofi)
-	[[ -z "$chosen" ]] && return
+	[[ -z "$chosen" ]] && return 1
 
 	local key=""
 	for i in "${!MAIN_OPTS[@]}"; do
@@ -171,10 +171,11 @@ module_loop() {
 			break
 		}
 	done
-	[[ -z "$key" ]] && return
+	[[ -z "$key" ]] && return 1
 
 	local handler="handle_${key//-/_}"
 	declare -F "$handler" &>/dev/null && "$handler"
+	return 0
 }
 
 # ============ 使用示例 ============

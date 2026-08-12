@@ -141,7 +141,7 @@ if [[ "$MONITOR" == "__GROUPS__" ]]; then
 	exit 0
 fi
 
-module_parse <<MODULES
+module_parse <<'MODULES'
 next|󰑐|Next|
 select||Select|
 random_switch|󰛌|Random|cmd:icon toggle conf wallpaper random number "$MONITOR"
@@ -160,4 +160,4 @@ handle_random_depth() { set_numeric_config "$MONITOR" random_depth "Search Depth
 handle_random_images_path() { pick_config_dir "$MONITOR" random_image_dir; }
 handle_random_videos_path() { pick_config_dir "$MONITOR" random_video_dir; }
 
-module_loop
+while module_loop; do :; done
