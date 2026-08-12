@@ -1,3 +1,14 @@
+# Icons initial
+declare -A icons
+icons["cpu"]=""
+icons["temp"]=""
+icons["memory"]=""
+icons["disk"]=""
+icons["mail"]=""
+icons["mpd"]=""
+icons["notification"]=""
+icons["rss"]=""
+
 print_date() {
 	timeIcons=('' '' '' '' '' '' '' '' '' '' '' '')
 	local hour=$(date '+%l')

@@ -9,7 +9,7 @@ DWM_STATUS_VERTICAL_SPLIT="\x7F"
 # $1: background color
 # ${@:2} tools...
 new_pane() {
-	fg=$1
+	bg=$1
 	shift
 
 	case "$1" in
@@ -23,7 +23,7 @@ new_pane() {
 	esac
 	shift
 
-	printf "%s" "^b$fg^$first_status_code$DWM_STATUS_LEFT_RADIUS$first_text$@$DWM_STATUS_RIGHT_RADIUS"
+	printf "%s" "^b$bg^$first_status_code$DWM_STATUS_LEFT_RADIUS$first_text$@$DWM_STATUS_RIGHT_RADIUS"
 }
 
 panes() {

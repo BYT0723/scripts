@@ -52,17 +52,6 @@ eval "$(
 	}'
 )"
 
-# Icons initial
-declare -A icons
-icons["disk"]=""
-icons["memory"]=""
-icons["cpu"]=""
-icons["temp"]=""
-icons["mpd"]=""
-icons["mail"]=""
-icons["notification"]=""
-icons["rss"]=""
-
 cache_dir="/tmp/dwm-status"
 mkdir -p "$cache_dir"
 
