@@ -82,7 +82,12 @@ _form_yad() {
 		esac
 		args+=("--field=${_F_LABEL[$k]}${suffix}")
 		case "${_F_TYPE[$k]}" in
-		combo | combo-entry) args+=("${_F_CANDIDATE[$k]}") ;;
+		combo | combo-entry)
+			local cand="${_F_CANDIDATE[$k]}"
+			# yad: 候选串中 ^ 前缀项作为默认值 (默认值不在候选时仍可显示)
+			[[ -n "${_F_DEFAULT[$k]}" ]] && cand="^${_F_DEFAULT[$k]}!${cand}"
+			args+=("$cand")
+			;;
 		*) args+=("${_F_DEFAULT[$k]}") ;;
 		esac
 	done

@@ -122,6 +122,24 @@ module_input() {
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }
 
+# rofi 确认对话框: 默认选中 No(取消), 输出 Yes 返回 0, No/ESC 返回 1
+# 用法: module_confirm "提示文本" && 执行危险操作
+module_confirm() {
+	local mesg="${1:-Confirm}"
+	mesg="${mesg//&/&amp;}"
+	local font_str=()
+	[[ -n "${MODULE_CONFIRM_FONT:-}" ]] && font_str=(-theme-str "* {font: \"${MODULE_CONFIRM_FONT}\";}")
+	local ans
+	ans=$(printf 'Yes\nNo\n' | rofi -dmenu -select 'No' \
+		-theme-str 'window {width: '${MODULE_CONFIRM_WIDTH:-400}'px;}' \
+		"${font_str[@]}" \
+		-dmenu \
+		-mesg "$mesg" \
+		-theme ${ROFI_DIR}/applets/shared/confirm.rasi \
+		-hover-select -me-select-entry '' -me-accept-entry MousePrimary)
+	[[ "$ans" == "Yes" ]]
+}
+
 module_multi_rofi() {
 	local prompt="${1:-}" mesg="${2:-}"
 	mesg="${mesg//&/&amp;}"

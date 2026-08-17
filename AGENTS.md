@@ -30,7 +30,7 @@ tools/yt-dlp.sh ◄──sourced by── rofi/scripts/yt-dlp-wrapper.sh
 
 rofi/scripts/yt-dlp-wrapper.sh ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh, tools/yt-dlp.sh
 
-rofi/scripts/quicklinks.sh  ──sources──► utils/form.sh, utils/notify.sh, utils/url.sh, utils/string.sh
+rofi/scripts/quicklinks.sh  ──sources──► utils/form.sh, utils/notify.sh, utils/url.sh, utils/string.sh, rofi/scripts/lib-module.sh (module_confirm)
 rofi/scripts/module.sh      ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/wallpaper.sh   ──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh, tools/wallpaper-lib.sh
 rofi/scripts/notification.sh──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh
@@ -112,10 +112,17 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 
 ### rofi/scripts/quicklinks.sh
 
-| 函数               | 调用者                                |
-| ------------------ | ------------------------------------- |
-| `_new_link()`      | run_cmd (NEW_LINK 分支 → 表单录入)    |
-| `clipboard_url()`  | _new_link (首次打开表单预填 URL)      |
+| 函数              | 调用者                                          |
+| ----------------- | ----------------------------------------------- |
+| `_gen_id()`       | _ensure_ids, _new_link (uuid 优先, 无则 base64 fallback + 提示安装) |
+| `_ensure_ids()`   | 脚本启动 (_load 前全量重生成 id)               |
+| `_load()`         | 脚本启动 (构建 _url_map/_id_map/_menu)          |
+| `icon_symbol()`   | _edit_loop (\\uXXXX/\\UXXXXXXXX 字面转义转实际符号) |
+| `_edit_loop()`    | _new_link, _edit_link (表单录入 + 校验循环)     |
+| `_new_link()`     | run_cmd (NEW_LINK 分支 → 表单新增)              |
+| `_edit_link()`    | 主入口 (Alt+1 编辑选中链接, 按 id 替换)         |
+| `_delete_link()`  | 主入口 (Alt+2 删除选中链接, module_confirm 确认) |
+| `clipboard_url()` | _new_link (首次打开表单预填 URL)                |
 
 ### rofi/scripts/module.sh
 
@@ -136,6 +143,7 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | `module_sub_rofi()`   | module.sh (handle_network, handle_bluetooth, handle_audio_output 的子菜单), sddm.sh (handle_set_theme, handle_set_config 的子菜单), scrcpy.sh (handle_select_device 的子菜单), wallpaper.sh (monitor_selection / handle_group 的子菜单), sing-box.sh (主菜单), yt-dlp-wrapper.sh (格式/清晰度子菜单) |
 | `module_input()`      | yt-dlp-wrapper.sh (URL 输入框), wallpaper.sh (handle_group 组名输入)                                                                                                                                                                                                                                 |
 | `module_multi_rofi()` | wallpaper.sh (handle_group 组成员多选)                                                                                                                                                                                                                                                               |
+| `module_confirm()`   | quicklinks.sh (_delete_link Alt+2 删除确认)                                                                                                                                                                                                                                                          |
 
 ### rofi/scripts/media-scraping.sh
 
