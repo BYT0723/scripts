@@ -59,6 +59,7 @@ area) shot_area ;;
 desktop) shot_desktop ;;
 window) shot_window ;;
 timer) shot_timer ;;
+pure) flameshot gui ;;
 *)
 	echo "Usage: $0 {area|desktop|window|timer}" >&2
 	exit 1
