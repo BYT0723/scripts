@@ -34,11 +34,11 @@ audio-output|󰓃|Audio Output|
 notification||Notification|cmd:$ROFI_DIR/scripts/notification.sh unread
 sddm|󰍂|SDDM|
 media-scraping|󰎁|Media Scraping|
-sing-box||sing-box|active
-yt-dlp-wrapper|󰎆|YT-DLP Wrapper|
+sing-box||sing-box (proxy)|active
+yt-dlp-wrapper|󰎆|YT-DLP Wrapper (downloader)|
 calendar||Calendar|
 calendar-lunar|󰃚|Lunar Calendar|
-scrcpy|󰄟|Scrcpy|
+scrcpy|󰄟|Scrcpy (Android Mirror)|
 theme|󰔟|Theme|
 xcolor|󰌁|Color Picker|
 MODULES
