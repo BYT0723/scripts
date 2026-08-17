@@ -73,7 +73,7 @@ rofi_cmd() {
 		-theme-str 'configuration {show-icons:false;}' \
 		-theme-str 'window {width: 500px;}' \
 		-p "Quicklinks" \
-		-mesg "Enter: Open    Alt+1: Edit    Alt+2: Delete" \
+		-mesg "Enter open · Alt+1 edit · Alt+2 delete" \
 		-markup-rows \
 		-theme "${theme}" \
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary \
@@ -102,7 +102,7 @@ clipboard_url() {
 
 # 常用分类图标池: 图标+名称, 候选项间用 ! 分隔 (yad CBE 原生格式)
 # 图标均取自 Nerd Font cheat sheet (nf-md-forum/chat/email/movie, nf-linux-neovim, nf-md-code_brackets)
-ICON_POOL="󰖟 web! search!󰖬 doc!󰊌 forum! chat! mail! video! music!󰊖 game! linux! neovim! code!🔞 adult"
+ICON_POOL="󰖟 web! search!󰖬 doc!󰊌 forum!󰭹 chat! mail! video! music! game! linux! neovim! code!🔞 adult"
 
 # Alt+2 删除: 按 _id_map 定位, 确认后按 id 删除
 _delete_link() {
