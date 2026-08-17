@@ -22,12 +22,15 @@ tools/brightness.sh ──sources──► utils/notify.sh
 tools/calendar.sh ──sources──► utils/notify.sh
 tools/keyboard.sh ──sources──► utils/notify.sh
 tools/volume.sh ──sources──► utils/notify.sh
+utils/form.sh ──sources──► 无外部脚本; ──requires─► jq, yad (优先) / zenity (fallback)
+utils/url.sh ──sources──► 无外部脚本
+utils/string.sh ──sources──► 无外部脚本
 
 tools/yt-dlp.sh ◄──sourced by── rofi/scripts/yt-dlp-wrapper.sh
 
 rofi/scripts/yt-dlp-wrapper.sh ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh, tools/yt-dlp.sh
 
-rofi/scripts/quicklinks.sh  ──sources──► rofi/scripts/util.sh
+rofi/scripts/quicklinks.sh  ──sources──► utils/form.sh, utils/notify.sh, utils/url.sh, utils/string.sh
 rofi/scripts/module.sh      ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/wallpaper.sh   ──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh, tools/wallpaper-lib.sh
 rofi/scripts/notification.sh──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh
@@ -69,6 +72,25 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | `ipinfo-openMeteo()` | dwm-status-tools.sh (update_weather) |
 | `weather-forecast()` | dwm-status-tools.sh                  |
 
+### utils/form.sh
+
+| 函数          | 调用者                             |
+| ------------- | ---------------------------------- |
+| `form_show()` | quicklinks.sh (_new_link 表单录入) |
+
+### utils/url.sh
+
+| 函数         | 调用者                                     |
+| ------------ | ------------------------------------------ |
+| `is_url()`   | quicklinks.sh (run_cmd 判断打开或搜索)     |
+| `valid_url()`| quicklinks.sh (_new_link 校验 / clipboard_url) |
+
+### utils/string.sh
+
+| 函数        | 调用者                                       |
+| ----------- | -------------------------------------------- |
+| `trim_str()`| quicklinks.sh (_new_link / clipboard_url)    |
+
 ### tools/lock.sh
 
 | 函数                  | 调用者                                                       |
@@ -87,6 +109,13 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | `icon()`       | lib-module.sh, wallpaper.sh |
 | `toggleConf()` | wallpaper.sh                |
 | `getConfig()`  | wallpaper.sh                |
+
+### rofi/scripts/quicklinks.sh
+
+| 函数               | 调用者                                |
+| ------------------ | ------------------------------------- |
+| `_new_link()`      | run_cmd (NEW_LINK 分支 → 表单录入)    |
+| `clipboard_url()`  | _new_link (首次打开表单预填 URL)      |
 
 ### rofi/scripts/module.sh
 

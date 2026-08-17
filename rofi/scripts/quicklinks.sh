@@ -7,8 +7,15 @@ style='style-5.rasi'
 theme="$type/$style"
 font="JetBrains Mono Nerd Font 14"
 
-NEW_LINK=" New Link"
+NEW_LINK=" New (Add)"
 CONFIG="$HOME/.config/dwm/quicklinks.json"
+SEARCH_ENGINE="https://www.google.com/search?q="
+
+WORK_DIR="$(dirname "$ROFI_DIR")"
+source "$WORK_DIR/utils/form.sh"
+source "$WORK_DIR/utils/notify.sh"
+source "$WORK_DIR/utils/url.sh"
+source "$WORK_DIR/utils/string.sh"
 
 # ---- parse links ----
 declare -A _url_map
@@ -37,20 +44,78 @@ rofi_cmd() {
 		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }
 
-_is_url() {
-	[[ "$1" =~ ^https?:// ]] && return 0
-	[[ "$1" =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,} ]] && return 0
-	return 1
+# 读取剪贴板, trim 首尾空白后必须为严格完整有效 URL (http/https), 否则静默返回非 0
+clipboard_url() {
+	local clip
+	if command -v xclip >/dev/null 2>&1; then
+		clip=$(xclip -o -selection clipboard 2>/dev/null)
+	elif command -v xsel >/dev/null 2>&1; then
+		clip=$(xsel --clipboard --output 2>/dev/null)
+	elif command -v wl-paste >/dev/null 2>&1; then
+		clip=$(wl-paste 2>/dev/null)
+	fi
+	[[ -n "$clip" ]] || return 1
+	clip=$(trim_str "$clip")
+	# valid_url 只校验 host, path 不查; 须整体无空白 (拒绝多行/含空格文本)
+	[[ "$clip" != *[[:space:]]* ]] || return 1
+	valid_url "$clip" || return 1
+	printf '%s' "$clip"
 }
 
-QUICKLINKS_EDITOR=${QUICKLINKS_EDITOR:-"kitty nvim"}
-SEARCH="https://www.google.com/search?q="
+# ---- new link via form ----
+
+# 常用分类图标池: 图标+名称, 候选项间用 ! 分隔 (yad CBE 原生格式)
+# 图标均取自 Nerd Font cheat sheet (nf-md-forum/chat/email/movie, nf-linux-neovim, nf-md-code_brackets)
+ICON_POOL="󰖟 web!󰍉 search!󰈙 doc!󰊌 forum!󰭹 chat!󰇮 mail!󰎁 video!󰓇 music!󰊖 game!󰌽 linux! neovim!󰅪 code!󰈸 adult"
+
+_new_link() {
+	local name icon url
+	# 首次打开时预填剪贴板有效 URL; 循环内不再回读 (重开保留用户输入)
+	url=$(clipboard_url)
+	while :; do
+		local json=$(
+			form_show <<EOF
+name|entry|Name|${name:-}|
+icon|combo-entry|Icon|󰖟 web|${ICON_POOL}
+url|entry|URL|${url:-}|
+EOF
+		)
+		[[ -z "$json" ]] && return 1
+
+		name=$(jq -r '.name' <<<"$json")
+		icon=$(jq -r '.icon' <<<"$json")
+		url=$(jq -r '.url' <<<"$json")
+		name=$(trim_str "$name")
+		url=$(trim_str "$url")
+		if [[ -z "$name" ]]; then
+			tool-notify critical "Quicklinks" "链接名称不能为空"
+			continue
+		fi
+		if [[ -z "$url" ]]; then
+			tool-notify critical "Quicklinks" "链接 URL 不能为空"
+			continue
+		fi
+		icon=${icon:0:1}
+		[[ -z "$icon" || "$icon" == " " ]] && icon="󰖟"
+
+		if ! valid_url "$url" && ! valid_url "https://$url"; then
+			tool-notify critical "Quicklinks" "链接 URL 无效: $url"
+			continue
+		fi
+		[[ "$url" =~ ^https?:// ]] || url="https://$url"
+		break
+	done
+
+	jq --arg name "$name" --arg icon "$icon" --arg url "$url" \
+		'.links += [{name: $name, icon: $icon, url: $url}]' \
+		"$CONFIG" >"$CONFIG.tmp" && mv "$CONFIG.tmp" "$CONFIG"
+}
 
 run_cmd() {
 	local chosen="$1"
 
 	[[ "$chosen" == "$NEW_LINK" ]] && {
-		$QUICKLINKS_EDITOR "$CONFIG"
+		_new_link
 		return
 	}
 
@@ -60,13 +125,13 @@ run_cmd() {
 		return
 	fi
 
-	if _is_url "$chosen"; then
+	if is_url "$chosen"; then
 		[[ "$chosen" =~ ^https?:// ]] || chosen="https://$chosen"
 		xdg-open "$chosen"
 		return
 	fi
 
-	xdg-open "${SEARCH}${chosen}"
+	xdg-open "${SEARCH_ENGINE}${chosen}"
 }
 
 chosen=$(printf '%s\n%s' "$_menu" "$NEW_LINK" | rofi_cmd)
