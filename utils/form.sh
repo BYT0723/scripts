@@ -22,6 +22,7 @@
 #   FORM_BACKEND=yad|zenity  强制后端
 #   FORM_CSS=<css>           覆盖默认 GTK CSS (表单 grid/entry margin)
 #   FORM_WIDTH=<px>          yad 窗口宽度 (默认留空 = 自动)
+#   FORM_FONT=<font>         设置表单字体 (yad 专用, 如 "JetBrains Mono Nerd Font 14"; zenity 不支持)
 
 declare -gA _F_TYPE _F_LABEL _F_DEFAULT _F_CANDIDATE
 declare -ga _F_KEYS
@@ -67,6 +68,18 @@ _form_yad() {
 	local -n out=$1
 	local -a args=(--form)
 	local css="${FORM_CSS:-$_FORM_CSS_DEFAULT}"
+	if [[ -n "${FORM_FONT:-}" ]]; then
+		local font_desc="${FORM_FONT#\"}"
+		font_desc="${font_desc%\"}"
+		local family size=""
+		if [[ "$font_desc" =~ ^(.+)[[:space:]]+([0-9]+)$ ]]; then
+			family="${BASH_REMATCH[1]}"
+			size="${BASH_REMATCH[2]}"
+			css="* { font-family: \"$family\"; font-size: ${size}px; } $css"
+		else
+			css="* { font-family: \"$font_desc\"; } $css"
+		fi
+	fi
 	[[ -n "$css" ]] && args+=("--css=$css")
 	local width="${FORM_WIDTH:-400}"
 	[[ -n "$width" ]] && args+=("--width=$width")

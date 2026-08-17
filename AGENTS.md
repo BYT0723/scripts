@@ -22,7 +22,7 @@ tools/brightness.sh ──sources──► utils/notify.sh
 tools/calendar.sh ──sources──► utils/notify.sh
 tools/keyboard.sh ──sources──► utils/notify.sh
 tools/volume.sh ──sources──► utils/notify.sh
-utils/form.sh ──sources──► 无外部脚本; ──requires─► jq, yad (优先) / zenity (fallback)
+utils/form.sh ──sources──► 无外部脚本; ──requires─► jq, yad (优先) / zenity (fallback); 环境变量 FORM_BACKEND/FORM_CSS/FORM_WIDTH/FORM_FONT (yad 字体)
 utils/url.sh ──sources──► 无外部脚本
 utils/string.sh ──sources──► 无外部脚本
 
@@ -115,8 +115,8 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | 函数              | 调用者                                          |
 | ----------------- | ----------------------------------------------- |
 | `_gen_id()`       | _ensure_ids, _new_link (uuid 优先, 无则 base64 fallback + 提示安装) |
-| `_ensure_ids()`   | 脚本启动 (_load 前全量重生成 id)               |
-| `_load()`         | 脚本启动 (构建 _url_map/_id_map/_menu)          |
+| `_ensure_ids()`   | 脚本启动 (_load 前; 全部有 id 时零写入早退, 仅缺 id 时全量重生成) |
+| `_load()`         | 脚本启动 (构建 _url_map/_id_map/_menu; key 为 `icon空格name`, icon 空用空格占位) |
 | `icon_symbol()`   | _edit_loop (\\uXXXX/\\UXXXXXXXX 字面转义转实际符号) |
 | `_edit_loop()`    | _new_link, _edit_link (表单录入 + 校验循环)     |
 | `_new_link()`     | run_cmd (NEW_LINK 分支 → 表单新增)              |

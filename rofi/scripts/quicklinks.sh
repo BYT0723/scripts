@@ -36,11 +36,15 @@ _gen_id() {
 	printf '%s|%s' "$1" "$2" | base64 | tr -d '\n'
 }
 
-# 全量重生成: 每条 link 的 id 重新生成 (uuid, 无则 base64)
+# 补全缺失 id: 正常情况所有链接已有 id, 零写入 (避免每次启动全量重写文件)
+# 仅当存在缺 id 的链接 (迁移/异常) 时才全量重生成
 _ensure_ids() {
 	local total i
 	total=$(jq '.links | length' "$CONFIG")
 	((total == 0)) && return 0
+	if ! jq -e 'any(.links[]?; (.id // "") == "")' "$CONFIG" >/dev/null 2>&1; then
+		return 0
+	fi
 	for i in $(seq 0 $((total - 1))); do
 		local name url
 		name=$(jq -r --argjson i "$i" '.links[$i].name' "$CONFIG")
@@ -98,7 +102,7 @@ clipboard_url() {
 
 # 常用分类图标池: 图标+名称, 候选项间用 ! 分隔 (yad CBE 原生格式)
 # 图标均取自 Nerd Font cheat sheet (nf-md-forum/chat/email/movie, nf-linux-neovim, nf-md-code_brackets)
-ICON_POOL="󰖟 web!󰍉 search!󰈙 doc!󰊌 forum!󰭹 chat!󰇮 mail!󰎁 video!󰓇 music!󰊖 game!󰌽 linux! neovim!󰅪 code!󰈸 adult"
+ICON_POOL="󰖟 web! search!󰖬 doc!󰊌 forum! chat! mail! video! music!󰊖 game! linux! neovim! code!🔞 adult"
 
 # Alt+2 删除: 按 _id_map 定位, 确认后按 id 删除
 _delete_link() {
