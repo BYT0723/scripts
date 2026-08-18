@@ -104,7 +104,7 @@ get_wallpaper_rotation() {
 		local vid_dim=$(get_video_dim "$file")
 		if [ -n "$vid_dim" ]; then
 			read vid_w vid_h <<< "$vid_dim"
-			read mon_w mon_h <<< "$(get_monitor_dim "$name" "$monitors_list")"
+			read mon_w mon_h <<< "$(get_monitor_dim "$name")"
 			if orientation_mismatch "$mon_w" "$mon_h" "$vid_w" "$vid_h"; then
 				if ! $force_preview; then
 					local cached=$(awk -F'|' -v f="$file" -v m="$name" '$1 == f && $2 == m {print $3; exit}' "$rotation_cache" 2>/dev/null)
@@ -138,7 +138,7 @@ apply_wallpaper() {
 		set_wallpaper_to_group "$name" "$file" && return
 	fi
 
-	if [[ "$name" != "Screen" && "$name" != "ALL" ]]; then
+	if [[ "$name" != "Screen" ]]; then
 		local grp=$(group_for_monitor "$name")
 		[ -n "$grp" ] && error "Monitor '$name' belongs to group '$grp'. Disable the group first or use '-m $grp'." && return 1
 	fi
@@ -147,12 +147,9 @@ apply_wallpaper() {
 		set_wallpaper_to_screen "$file" && return
 	fi
 
-	echo "$monitors_list" | awk 'NR>1 {sub(":","",$1); print $1,$NF}' | while read -r monitor_index monitor_name; do
-		is_group_member "$monitor_name" && continue
-		if [[ "$name" == "ALL" || "$name" == "$monitor_name" ]]; then
-			set_wallpaper_to_monitor "$monitor_index" "$file"
-		fi
-	done
+	local monitor_index
+	monitor_index=$(echo "$monitors_list" | awk -v n="$name" 'NR>1 && $NF==n {sub(":","",$1); print $1}')
+	[ -n "$monitor_index" ] && set_wallpaper_to_monitor "$monitor_index" "$file"
 }
 
 set_latest() {
@@ -255,17 +252,7 @@ case "$op" in
 	shift
 	action="$1"
 	case "$action" in
-		next)
-			if [[ "$monitor" == "ALL" ]]; then
-				while read -r m; do
-					is_group_member "$m" && continue
-					file=$(random_wallpaper "$m")
-					[ -n "$file" ] && apply_wallpaper "$m" "$file"
-				done < <(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}')
-				exit 0
-			fi
-			file=$(random_wallpaper "$monitor"); fflag=""
-			;;
+		next) file=$(random_wallpaper "$monitor"); fflag="" ;;
 		select) file=$(select_wallpaper "$monitor"); fflag="-f" ;;
 		*) exit 1 ;;
 	esac

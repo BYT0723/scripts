@@ -204,7 +204,7 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 
 | 函数                          | 调用者                                                  |
 | ----------------------------- | ------------------------------------------------------- |
-| `monitor_selection()`         | wallpaper.sh (主入口: 选择 monitor/组)                  |
+| `monitor_selection()`         | wallpaper.sh (主入口: 选择 monitor/组)       |
 | `handle_next()`               | wallpaper.sh (模块主菜单: 下一张)                       |
 | `handle_select()`             | wallpaper.sh (模块主菜单: 选择文件)                     |
 | `handle_random_switch()`      | wallpaper.sh (模块主菜单: 随机开关 toggle)              |
@@ -220,6 +220,7 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | 函数                         | 调用者                                                                                                                                                                                                       |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `getConfig()`                | wallpaper.sh, wallpaper-lib.sh (内部)                                                                                                                                                                        |
+| `ensure_monitor_config()`    | rofi/scripts/wallpaper.sh (主入口选定 monitor 后初始化写入)                                                                                                                                                  |
 | `detect_file_type()`         | wallpaper.sh, wallpaper-render.sh                                                                                                                                                                            |
 | `get_video_dim()`            | wallpaper.sh (get_wallpaper_rotation)                                                                                                                                                                        |
 | `orientation_mismatch()`     | wallpaper.sh (get_wallpaper_rotation)                                                                                                                                                                        |
@@ -352,7 +353,7 @@ tools/theme.sh auto (守护进程)
 | Group 名 | `landscape`, `portrait` | `~/.cache/wallpaper/wallpaper_latest_grp_<组名>` | `set_wallpaper_to_group()` |
 | 全屏 | `Screen` | `~/.cache/wallpaper/wallpaper_latest_full` | `set_wallpaper_to_screen()` |
 
-> **规则**: 任何读取/比对当前壁纸的逻辑，必须枚举以上三种目标类型，逐类命中对应缓存文件。`ALL` 不是独立目标，CLI handler 将其展开为逐个实体显示器名。
+> **规则**: 任何读取/比对当前壁纸的逻辑，必须枚举以上三种目标类型，逐类命中对应缓存文件。monitor 尚无配置时，`ensure_monitor_config()` 用脚本默认值（`config` 数组）初始化写入 `.monitors["<monitor>"]`。
 
 ### 壁纸链路
 

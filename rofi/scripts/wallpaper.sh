@@ -13,7 +13,7 @@ source "$WORK_DIR/tools/wallpaper-lib.sh"
 # ---- Monitor Selection ----
 monitor_selection() {
 	local list_text=$(get_monitor_list_text)
-	local groups="󰋃 Groups"
+	local groups=" Groups"
 
 	if [ "$(echo "$list_text" | wc -l)" = 1 ]; then
 		echo "$list_text"
@@ -24,23 +24,23 @@ monitor_selection() {
 	[ -z "$chosen" ] && return
 
 	[[ "$chosen" == "$groups" ]] && echo "__GROUPS__" && return
-	echo "$chosen" | awk '{print $1}'
+	echo "$chosen" | awk '{print $2}'
 }
 
 handle_group() {
-	local opts=()
+	local new_group=" New (Add)"
+	local opts=("$new_group")
 	while IFS= read -r grp; do
 		[ -z "$grp" ] && continue
 		local en_icon="󰔢"
 		[ "$(get_group_enabled "$grp")" = "true" ] && en_icon="󰔡"
 		opts+=("$en_icon $grp")
 	done < <(group_names)
-	opts+=("󰐕 New Group")
 
-	local chosen=$(printf '%s\n' "${opts[@]}" | module_sub_rofi "󰮄 Group" "Select or create a group")
+	local chosen=$(printf '%s\n' "${opts[@]}" | module_sub_rofi "󰮄  Wallpaper Groups" "Select or create a group")
 	[ -z "$chosen" ] && return
 
-	if [[ "$chosen" == *"New Group"* ]]; then
+	if [[ "$chosen" == "$new_group" ]]; then
 		local monitors=$(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}')
 		[ -z "$monitors" ] && {
 			error "No monitors detected"
@@ -134,12 +134,13 @@ handle_group() {
 MONITOR=$(monitor_selection)
 [ -z "$MONITOR" ] && exit 0
 
-MODULE_MESG="Monitor: $MONITOR"
-
 if [[ "$MONITOR" == "__GROUPS__" ]]; then
 	handle_group
 	exit 0
 fi
+
+ensure_monitor_config "$MONITOR"
+MODULE_MESG="Monitor: $MONITOR"
 
 module_parse <<'MODULES'
 next|󰑐|Next|

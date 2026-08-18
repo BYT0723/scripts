@@ -16,7 +16,7 @@ icon() {
 		if [ "$3" = "wallpaper" ]; then
 			local w_conf="$HOME/.config/dwm/wallpaper.json"
 			local val=""
-			[ "$6" != "ALL" ] && [ -n "$6" ] && val=$(jq -r ".monitors[\"$6\"].\"$4\" // empty" "$w_conf" 2>/dev/null)
+			[ -n "$6" ] && val=$(jq -r ".monitors[\"$6\"].\"$4\" // empty" "$w_conf" 2>/dev/null)
 			[ -z "$val" ] && val=$(jq -r ".defaults.\"$4\" // empty" "$w_conf" 2>/dev/null)
 			[ "$val" != "$(typeToValue $5)" ] && [ -n "$val" ] && idx=1
 		else
@@ -43,8 +43,7 @@ toggleConf() {
 	if [ "$1" = "wallpaper" ]; then
 		local key="$2" type="$3" monitor="${4:-}"
 		local conf="$HOME/.config/dwm/wallpaper.json"
-		local path=".defaults"
-		[ "$monitor" != "ALL" ] && [ -n "$monitor" ] && path=".monitors[\"$monitor\"]"
+		local path=".monitors[\"$monitor\"]"
 
 		local def=$(typeToValue "$type")
 		local cur=$(jq -r "${path}.${key} // empty" "$conf" 2>/dev/null)

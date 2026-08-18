@@ -50,6 +50,18 @@ config["random_video_dir"]="~/Videos"
 config["random_depth"]=3
 config["duration"]=30
 
+# 若 monitor 尚无配置，用脚本内默认值初始化写入 config
+ensure_monitor_config() {
+	local monitor="$1"
+	[ -z "$monitor" ] && return
+	jq -e --arg m "$monitor" '.monitors[$m]' "$conf" >/dev/null 2>&1 && return
+
+	local obj
+	obj=$(for k in "${!config[@]}"; do printf '"%s": "%s",' "$k" "${config[$k]}"; done)
+	obj="{${obj%,}}"
+	jq --arg m "$monitor" ".monitors[\$m] = $obj" "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
+}
+
 # Get configuration value by key, with fallback to defaults
 # Usage: getConfig [-m <monitor>] <key>
 getConfig() {
@@ -58,8 +70,7 @@ getConfig() {
 	local key="$1"
 
 	if [ -f "$conf" ]; then
-		# "ALL" uses defaults directly
-		if [ "$monitor" != "ALL" ] && [ -n "$monitor" ]; then
+		if [ -n "$monitor" ]; then
 			local val=$(jq -r ".monitors[\"$monitor\"].$key // empty" "$conf" 2>/dev/null)
 			[ -n "$val" ] && echo "$val" && return
 		fi
@@ -185,15 +196,13 @@ get_group_dim() {
 
 # Returns "width height" for the selected monitor (or screen)
 get_monitor_dim() {
-	local select="$1" list="$2"
+	local select="$1"
 	if [[ "$select" == "Screen" ]]; then
 		get_screen_size | sed 's/\([0-9]*\)x\([0-9]*\).*/\1 \2/'
 	elif has_group "$select"; then
 		get_group_dim "$select" | awk '{print $1, $2}'
 	else
-		local mon="$select"
-		[[ "$mon" == "ALL" ]] && mon=$(echo "$list" | awk 'NR>1 {print $NF; exit}')
-		xrandr --current | awk -v m="$mon" '
+		xrandr --current | awk -v m="$select" '
 			$1==m {for(i=1;i<=NF;i++) if($i ~ /^[0-9]+x[0-9]+/) {split($i,a,"[x+]"); print a[1], a[2]; exit}}
 		'
 	fi
@@ -417,8 +426,9 @@ source "$_WALLPAPER_HOME_DIR/rofi/scripts/lib-module.sh"
 
 # Format xrandr monitor list for display. Single monitor returns just its name.
 get_monitor_list_text() {
-	local monitors_list
-	monitors_list=$(xrandr --listactivemonitors 2>/dev/null)
+	local monitor_icon="󰍹"
+	local group_icon=""
+	local monitors_list=$(xrandr --listactivemonitors 2>/dev/null)
 
 	if [ "$(echo "$monitors_list" | wc -l)" = 2 ]; then
 		echo "$monitors_list" | awk 'END{print $NF}'
@@ -426,12 +436,12 @@ get_monitor_list_text() {
 	fi
 
 	local screen_dim=$(get_screen_size | sed 's/+.*//')
-	printf "ALL\n%-28s %s\n" "Screen" "$screen_dim"
-	echo "$monitors_list" | awk 'NR>1 {
+	printf "%s %-26s %s\n" "$monitor_icon" "Screen" "$screen_dim"
+	echo "$monitors_list" | awk -v icon="$monitor_icon" 'NR > 1 {
 		gsub("/[0-9]+", "", $3)
-		split($3,a,"+")
-		split(a[1],b,"x")
-		printf "%-28s %sx%s\n", $NF, b[1], b[2]
+		split($3, a, "+")
+		split(a[1], b, "x")
+		printf "%s %-26s %sx%s\n", icon, $NF, b[1], b[2]
 	}'
 
 	while IFS= read -r grp; do
@@ -440,25 +450,15 @@ get_monitor_list_text() {
 		local dims=$(get_group_dim "$grp" 2>/dev/null) || continue
 		local gw gh
 		read gw gh _ _ <<<"$dims"
-		printf "%-28s %sx%s\n" "$grp" "$gw" "$gh"
+		printf "%s %-26s %sx%s\n" "$group_icon" "$grp" "$gw" "$gh"
 	done < <(group_names)
-}
-
-# Get JSON path for jq config writes
-_json_path_for() {
-	local monitor="$1"
-	if [ "$monitor" != "ALL" ]; then
-		echo ".monitors[\"$monitor\"]"
-	else
-		echo ".defaults"
-	fi
 }
 
 # Pick config directory via yazi, write to wallpaper.json
 pick_config_dir() {
 	local monitor="$1"
 	local key="$2"
-	local json_path=$(_json_path_for "$monitor")
+	local json_path=".monitors[\"$monitor\"]"
 	local cur=$(getConfig -m "$monitor" "$key")
 	local cur_dir=$(expand_path "$cur")
 	[ ! -d "$cur_dir" ] && cur_dir="$HOME"
@@ -481,7 +481,7 @@ set_numeric_config() {
 	local min="${5:-1}"
 	local max="${6:-99999}"
 
-	local json_path=$(_json_path_for "$monitor")
+	local json_path=".monitors[\"$monitor\"]"
 	local cur=$(getConfig -m "$monitor" "$key")
 	local new=$(module_input "$prompt" "$mesg" "$cur")
 	[ -n "$new" ] && [ "$new" -ge "$min" ] 2>/dev/null && [ "$new" -le "$max" ] 2>/dev/null &&
