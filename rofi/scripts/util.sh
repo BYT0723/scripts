@@ -26,6 +26,7 @@ icon() {
 	cmd)
 		[[ -n $(ps ax | grep "$3" | grep -v grep) ]] && idx=1
 		;;
+	raw) idx=$($3) ;;
 	esac
 	echo ${icons[$idx]}
 }

@@ -1,14 +1,14 @@
 #!/bin/bash
 
 msgTag="touchpad"
-status=$(synclient -l | grep -c 'TouchpadOff.*=.*0')
 
-case "$1" in
-"toggle")
+status() { synclient -l | grep -c 'TouchpadOff.*=.*0'; }
+toggle() {
+	local s=$(status)
 	# Toggle TouchPad
-	synclient TouchpadOff=$status
+	synclient TouchpadOff=$s
 
-	if [ $status -eq 1 ]; then
+	if [ $s -eq 1 ]; then
 		msg="Locked"
 		icon='touchpad-disabled-symbolic'
 	else
@@ -18,6 +18,10 @@ case "$1" in
 
 	# notify
 	notify-send -c tools -i $icon -h string:x-dunst-stack-tag:$msgTag "$msg"
-	;;
+}
+
+case "$1" in
+"status") status ;;
+"toggle") toggle ;;
 *) ;;
 esac

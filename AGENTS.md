@@ -22,6 +22,7 @@ tools/brightness.sh ──sources──► utils/notify.sh
 tools/calendar.sh ──sources──► utils/notify.sh
 tools/keyboard.sh ──sources──► utils/notify.sh
 tools/volume.sh ──sources──► utils/notify.sh
+tools/touchpad.sh ──sources──► 无外部脚本
 utils/form.sh ──sources──► 无外部脚本; ──requires─► jq, yad (优先) / zenity (fallback); 环境变量 FORM_BACKEND/FORM_CSS/FORM_WIDTH/FORM_FONT (yad 字体)
 utils/url.sh ──sources──► 无外部脚本
 utils/string.sh ──sources──► 无外部脚本
@@ -133,6 +134,15 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | `handle_theme()`          | module.sh (Theme 子菜单 → rofi/scripts/theme.sh)            |
 | `handle_yt_dlp_wrapper()` | module.sh (YT-DLP Wrapper → rofi/scripts/yt-dlp-wrapper.sh) |
 | `handle_xcolor()`         | module.sh (Color Picker → xcolor + xclip + dunstify)        |
+| `handle_wallpaper()`      | module.sh (Wallpaper → rofi/scripts/wallpaper.sh)           |
+| `handle_touchpad()`       | module.sh (Touch Pad → tools/touchpad.sh toggle)            |
+
+### tools/touchpad.sh
+
+| 函数      | 调用者                                 |
+| --------- | -------------------------------------- |
+| `status()` | module.sh (注册表 `toggle-raw` 图标状态) |
+| `toggle()` | module.sh (handle_touchpad)            |
 
 ### rofi/scripts/lib-module.sh
 
@@ -309,6 +319,8 @@ dwm-launcher.sh (快捷键)
   → rofi/scripts/module.sh   (模块管理)
     → rofi/scripts/theme.sh (主题控制子菜单，由 module.sh handle_theme 调用)
     → rofi/scripts/yt-dlp-wrapper.sh (YT-DLP Wrapper，由 module.sh handle_yt_dlp_wrapper 调用)
+    → rofi/scripts/wallpaper.sh (壁纸管理，由 module.sh handle_wallpaper 调用)
+    → tools/touchpad.sh toggle (触控板开关，由 module.sh handle_touchpad 调用)
   → rofi/scripts/media-scraping.sh  (Media 启停子菜单，由 module.sh 调用)
   → rofi/scripts/screenshot.sh
   → rofi/scripts/screencast.sh
@@ -379,7 +391,8 @@ key|icon|label|status
 - **key**: kebab-case，对应 `handle_<key>` 调度函数名（`-` 转 `_`）
 - **icon**: Nerd Font 图标，始终非空（不含 sddm.sh 旧式空 icon）
 - **label**: Title Case 纯名词短语，**不带括号解释**。括号仅用于并列子实体名如 `Hub (jellyfin)`。命名实体的官方写法优先（如 `sing-box` 而非 `SingBox`）
-- **status**: `toggle` / `active` / `active-svc` / `active:<svc>` / `cmd:<expr>` / `str:<text>` 或空
+- **status**: `toggle` / `toggle-raw:<cmd>` / `active` / `active-svc` / `active:<svc>` / `cmd:<expr>` / `str:<text>` 或空
+  - `toggle-raw:<cmd>` 把 `<cmd>` 的执行输出当作 toggle 图标索引（`util.sh icon() raw` 分支），适用于状态来自自定义命令的场景（如 `tools/touchpad.sh status`）
 - status 的 `cmd:` 表达式在每次 menu build 时重新 eval；需引用脚本变量或命令结果（如 `$(getConfig ...)`）时，注册表 heredoc 必须加引号（`<<'MODULES'`），否则 parse 时展开会把旧值固化进表达式（见 wallpaper.sh random_type）
 
 > **module_loop 返回约定**: ESC/取消返回 1，派发完成后固定返回 0（不受 handler 返回值影响）。需要持续交互的脚本用 `while module_loop; do :; done` 包一层（如 wallpaper.sh），单次即退的脚本直接调用。

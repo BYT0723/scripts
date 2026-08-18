@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-ROFI_DIR="$(dirname "$(dirname "$0")")"
+ROFI_DIR="$(dirname "$(dirname "$(realpath "$0")")")"
 WORK_DIR="$(dirname "$ROFI_DIR")"
 
 MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
@@ -32,15 +32,17 @@ network|󰈀|Network|active:NetworkManager
 bluetooth|󰂯|Bluetooth|active-svc
 audio-output|󰓃|Audio Output|
 notification||Notification|cmd:$ROFI_DIR/scripts/notification.sh unread
-sddm|󰍂|SDDM|
-media-scraping|󰎁|Media Scraping|
-sing-box||sing-box (proxy)|active
-yt-dlp-wrapper|󰎆|YT-DLP Wrapper (downloader)|
-calendar||Calendar|
 calendar-lunar|󰃚|Lunar Calendar|
+calendar||Calendar|
+media-scraping|󰎁|Media Scraping|
 scrcpy|󰄟|Scrcpy (Android Mirror)|
+sddm|󰍂|SDDM|
+sing-box||sing-box (proxy)|active
 theme|󰔟|Theme|
+wallpaper|󰸉|Wallpaper|
 xcolor|󰌁|Color Picker|
+yt-dlp-wrapper|󰎆|YT-DLP Wrapper (downloader)|
+touchpad||Touch Pad|toggle-raw:$WORK_DIR/tools/touchpad.sh status
 MODULES
 
 # ====== Handlers ======
@@ -87,6 +89,8 @@ handle_scrcpy() { /bin/bash $ROFI_DIR/scripts/scrcpy.sh; }
 handle_yt_dlp_wrapper() { /bin/bash $ROFI_DIR/scripts/yt-dlp-wrapper.sh; }
 handle_theme() { /bin/bash $ROFI_DIR/scripts/theme.sh; }
 handle_xcolor() { /bin/bash $WORK_DIR/tools/color-picker.sh; }
+handle_wallpaper() { /bin/bash $ROFI_DIR/scripts/wallpaper.sh; }
+handle_touchpad() { /bin/bash $WORK_DIR/tools/touchpad.sh toggle; }
 
 handle_audio_output() {
 	local default_sink default_desc line name desc vol

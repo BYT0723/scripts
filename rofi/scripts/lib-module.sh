@@ -36,6 +36,7 @@ _module_status() {
 	case "$expr" in
 	toggle:*) icon toggle app "${expr#*:}" ;;
 	toggle) icon toggle app "$key" ;;
+	toggle-raw:*) icon toggle raw "${expr#*:}" ;;
 	active:*) icon active app "${expr#*:}" ;;
 	active) icon active app "$key" ;;
 	active-svc:*) icon active service "${expr#*:}" ;;

@@ -39,6 +39,8 @@ wallpaper=$(find "$wallpaperDir" -maxdepth 1 -type f -regextype posix-extended -
 mpd_status=$(mpc status | awk 'NR==2 {print $1}')
 volume_status=$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)\].*/\1/')
 
+idletimeout=30
+
 _lock() {
 	i3lock \
 		-i "$wallpaper" \
@@ -102,7 +104,7 @@ _screen_lock_loop() {
 		while pgrep -x i3lock >/dev/null; do
 			while pgrep -x i3lock >/dev/null && ! xset q 2>/dev/null | grep -q "Monitor is On"; do sleep 1; done
 			pgrep -x i3lock >/dev/null || break
-			while pgrep -x i3lock >/dev/null && [ "$(xprintidle 2>/dev/null)" -lt 10000 ]; do sleep 1; done
+			while pgrep -x i3lock >/dev/null && [ "$(xprintidle 2>/dev/null)" -lt $((idletimeout * 1000)) ]; do sleep 1; done
 			pgrep -x i3lock >/dev/null || break
 			xdotool key Escape 2>/dev/null
 			sleep 1
@@ -113,7 +115,7 @@ _screen_lock_loop() {
 		while pgrep -x i3lock >/dev/null; do
 			while pgrep -x i3lock >/dev/null && ! xset q 2>/dev/null | grep -q "Monitor is On"; do sleep 1; done
 			pgrep -x i3lock >/dev/null || break
-			sleep 30
+			sleep $idletimeout
 			xdotool key Escape 2>/dev/null
 			xset dpms force standby
 		done
