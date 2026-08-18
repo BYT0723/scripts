@@ -16,7 +16,13 @@ theme='style-5'
 ## Run
 rofi \
 	-modes "combi,quicklinks:$(realpath $(dirname $0))/quicklinks-mode.sh" \
+	-combi-modes "window,drun,run" \
+	-show-icons \
+	-display-combi " " \
+	-display-window " " \
+	-display-drun " " \
+	-display-run " " \
 	-theme-str 'configuration {display-quicklinks: "󰖟 ";}' \
+	-window-format "{c} {t}" \
 	-show combi \
-	-theme ${dir}/${theme}.rasi \
-	-hover-select -me-select-entry '' -me-accept-entry MousePrimary
+	-theme ${dir}/${theme}.rasi

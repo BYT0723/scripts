@@ -1,12 +1,8 @@
 /*****----- Configuration -----*****/
 configuration {
-	modi:                       "combi,calc";
+	modi:                       "combi";
 	combi-modes:                "drun,run";
     show-icons:                 true;
-    display-combi:              " ";
-    display-drun:               " ";
-    display-run:                " ";
-    display-calc:               " ";
     calc {
         no-bold: false;
         terse: false;
