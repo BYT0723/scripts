@@ -15,6 +15,8 @@ theme='style-5'
 
 ## Run
 rofi \
+	-modes "combi,quicklinks:$(realpath $(dirname $0))/quicklinks-mode.sh" \
+	-theme-str 'configuration {display-quicklinks: "󰖟 ";}' \
 	-show combi \
-	-theme ${dir}/${theme}.rasi
-# -hover-select -me-select-entry '' -me-accept-entry MousePrimary
+	-theme ${dir}/${theme}.rasi \
+	-hover-select -me-select-entry '' -me-accept-entry MousePrimary

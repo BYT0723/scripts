@@ -32,6 +32,8 @@ tools/yt-dlp.sh ◄──sourced by── rofi/scripts/yt-dlp-wrapper.sh
 rofi/scripts/yt-dlp-wrapper.sh ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh, tools/yt-dlp.sh
 
 rofi/scripts/quicklinks.sh  ──sources──► utils/form.sh, utils/notify.sh, utils/url.sh, utils/string.sh, rofi/scripts/lib-module.sh (module_confirm)
+rofi/scripts/quicklinks.sh  ──sources──► utils/form.sh, utils/notify.sh, utils/url.sh, utils/string.sh, rofi/scripts/lib-module.sh (module_confirm)
+rofi/scripts/quicklinks-mode.sh──sources──► utils/form.sh, utils/notify.sh, utils/url.sh, utils/string.sh, rofi/scripts/lib-module.sh (module_confirm); ──挂载于── dwm-launcher.sh quicklinks (rofi -show quicklinks -modes)
 rofi/scripts/module.sh      ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/wallpaper.sh   ──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh, tools/wallpaper-lib.sh
 rofi/scripts/notification.sh──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh
@@ -77,20 +79,45 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 
 | 函数          | 调用者                             |
 | ------------- | ---------------------------------- |
-| `form_show()` | quicklinks.sh (_new_link 表单录入) |
+| `form_show()` | quicklinks.sh (_new_link 表单录入), quicklinks-mode.sh (_edit_loop 表单录入) |
 
 ### utils/url.sh
 
 | 函数         | 调用者                                     |
 | ------------ | ------------------------------------------ |
-| `is_url()`   | quicklinks.sh (run_cmd 判断打开或搜索)     |
-| `valid_url()`| quicklinks.sh (_new_link 校验 / clipboard_url) |
+| `is_url()`   | quicklinks.sh (run_cmd 判断打开或搜索), quicklinks-mode.sh (_handle_input) |
+| `valid_url()`| quicklinks.sh (_new_link 校验 / clipboard_url), quicklinks-mode.sh (_edit_loop 校验 / clipboard_url) |
 
 ### utils/string.sh
 
 | 函数        | 调用者                                       |
 | ----------- | -------------------------------------------- |
-| `trim_str()`| quicklinks.sh (_new_link / clipboard_url)    |
+| `trim_str()`| quicklinks.sh (_new_link / clipboard_url), quicklinks-mode.sh (_edit_loop / clipboard_url) |
+
+### rofi/scripts/quicklinks-mode.sh (rofi script mode, 参考 quicklinks.sh, 原文件保持不动)
+
+| 函数               | 调用者                                                                 |
+| ------------------ | ---------------------------------------------------------------------- |
+| `_main()`          | 主入口 (按 ROFI_RETV 分派: 0=列表, 1=选中, 2=自定义输入, 3/11=删除, 10=编辑) |
+| `_list()`          | _main (RETV=0; _ensure_ids + _load 后输出 `icon name\0info\x1f<id>` 列表 + New 行 + use-hot-keys) |
+| `_dispatch()`      | _main (RETV=1; info=new → _new_link, 否则按 id 打开)                   |
+| `_open_url()`      | _open_by_id, _handle_input (xdg-open 后台执行, 外部程序必须 `( cmd & )` 否则 rofi 等待其输出) |
+| `_open_by_id()`    | _dispatch (jq 查 URL → _open_url)                                      |
+| `_handle_input()`  | _main (RETV=2; is_url ? 补协议打开 : SEARCH_ENGINE 搜索)               |
+| `_interact_async()`| _edit_link, _delete_link, _new_link (后台子 shell 等 rofi 退出释放 grab 后执行命令 — script mode 下 rofi 存活期间 grab 键盘, 须先让 rofi 退出) |
+| `_write_json()`    | _ensure_ids, _edit_form, _delete_form, _new_form (jq 表达式原子写回 CONFIG: 唯一 tmp + mv, 避免并发写 .tmp 冲突) |
+| `_edit_link()`     | _main (RETV=10; 按 id 预填数据 → _interact_async _edit_form)           |
+| `_edit_form()`     | _interact_async (表单录入 + 按 id 替换写库, 保留 id)                   |
+| `_delete_link()`   | _main (RETV=3/11; 按 id 取名字 → _interact_async _delete_form)         |
+| `_delete_form()`   | _interact_async (module_confirm 确认后 jq 删除 + notify)               |
+| `_new_link()`      | _dispatch (info=new; → _interact_async _new_form)                      |
+| `_new_form()`      | _interact_async (剪贴板 URL 预填 + 表单校验 + jq 追加; clipboard_url 须在此执行 — xclip 可能阻塞, 不能留在 rofi grab 存活期间) |
+| `_edit_loop()`     | _edit_form, _new_form (表单录入 + 校验循环)                            |
+| `icon_symbol()`    | _edit_loop (\uXXXX/\UXXXXXXXX 字面转义转实际符号)                      |
+| `clipboard_url()`  | _new_form (剪贴板严格 URL 校验, 无效静默返回非 0)                      |
+| `_gen_id()`        | _ensure_ids, _new_form (uuid 优先, base64 fallback)                    |
+| `_ensure_ids()`    | _list (全部有 id 时零写入早退, 仅缺 id 时全量重生成)                    |
+| `_load()`          | _list (构建 _id_map/_menu; key 为 `icon空格name`, icon 空用空格占位)    |
 
 ### tools/lock.sh
 
@@ -153,7 +180,7 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | `module_sub_rofi()`   | module.sh (handle_network, handle_bluetooth, handle_audio_output 的子菜单), sddm.sh (handle_set_theme, handle_set_config 的子菜单), scrcpy.sh (handle_select_device 的子菜单), wallpaper.sh (monitor_selection / handle_group 的子菜单), sing-box.sh (主菜单), yt-dlp-wrapper.sh (格式/清晰度子菜单) |
 | `module_input()`      | yt-dlp-wrapper.sh (URL 输入框), wallpaper.sh (handle_group 组名输入)                                                                                                                                                                                                                                 |
 | `module_multi_rofi()` | wallpaper.sh (handle_group 组成员多选)                                                                                                                                                                                                                                                               |
-| `module_confirm()`   | quicklinks.sh (_delete_link Alt+2 删除确认)                                                                                                                                                                                                                                                          |
+| `module_confirm()`   | quicklinks.sh (_delete_link Alt+2 删除确认), quicklinks-mode.sh (_delete_link Alt+2 删除确认) |
 
 ### rofi/scripts/media-scraping.sh
 
@@ -325,7 +352,7 @@ dwm-launcher.sh (快捷键)
   → rofi/scripts/media-scraping.sh  (Media 启停子菜单，由 module.sh 调用)
   → rofi/scripts/screenshot.sh
   → rofi/scripts/screencast.sh
-  → rofi/scripts/quicklinks.sh
+  → rofi/scripts/quicklinks-mode.sh (rofi -show quicklinks 外部脚本模式, ROFI_RETV 分派; 原 quicklinks.sh 保留参考)
   → rofi/scripts/emoji.sh
   → rofi/scripts/notification.sh
 ```
