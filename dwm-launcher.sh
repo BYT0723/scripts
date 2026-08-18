@@ -31,7 +31,6 @@ mpd() { /bin/bash "$WORK_DIR"/rofi/scripts/mpd.sh "$@"; }
 modules() { /bin/bash "$WORK_DIR"/rofi/scripts/module.sh "$@"; }
 screenshot() { [ -z "$1" ] && /bin/bash "$WORK_DIR"/rofi/scripts/screenshot.sh || /bin/bash "$WORK_DIR/tools/screenshot.sh" "$@"; }
 screencast() { /bin/bash "$WORK_DIR"/rofi/scripts/screencast.sh "$@"; }
-quicklinks() { /bin/bash "$WORK_DIR"/rofi/scripts/quicklinks.sh "$@"; }
 emoji() { /bin/bash "$WORK_DIR"/rofi/scripts/emoji.sh "$@"; }
 wallpaper() { /bin/bash "$WORK_DIR"/rofi/scripts/wallpaper.sh "$@"; }
 
@@ -72,7 +71,6 @@ case "$subcmd" in
 "mpd") mpd $@ ;;
 "screenshot") screenshot $@ ;;
 "screencast") screencast $@ ;;
-"quicklinks") quicklinks $@ ;;
 "emoji") emoji $@ ;;
 "conky") conky_launcher $@ ;;
 "wallpaper") wallpaper $@ ;;

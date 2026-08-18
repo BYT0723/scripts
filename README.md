@@ -100,7 +100,6 @@
 | `module.sh`       | 系统模块管理 (picom/net/bluetooth/...) | networkmanager / bluez / rofi |
 | `screenshot.sh`   | 截图工具 (全屏/区域/窗口)              | maim / xclip / feh / xdotool  |
 | `screencast.sh`   | 屏幕录制                               | ffmpeg / slop / ffprobe       |
-| `quicklinks.sh`   | URL 书签启动器                         | firefox / chromium            |
 | `emoji.sh`        | emoji 选择器                           | rofi-emoji                    |
 | `theme.sh`        | 主题控制菜单 (light/dark/auto 开关)    | tools/theme.sh                |
 | `wallpaper.sh`    | 壁纸配置 UI                            | rofi                          |

@@ -31,9 +31,7 @@ tools/yt-dlp.sh ◄──sourced by── rofi/scripts/yt-dlp-wrapper.sh
 
 rofi/scripts/yt-dlp-wrapper.sh ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh, tools/yt-dlp.sh
 
-rofi/scripts/quicklinks.sh  ──sources──► utils/form.sh, utils/notify.sh, utils/url.sh, utils/string.sh, rofi/scripts/lib-module.sh (module_confirm)
-rofi/scripts/quicklinks.sh  ──sources──► utils/form.sh, utils/notify.sh, utils/url.sh, utils/string.sh, rofi/scripts/lib-module.sh (module_confirm)
-rofi/scripts/quicklinks-mode.sh──sources──► utils/form.sh, utils/notify.sh, utils/url.sh, utils/string.sh, rofi/scripts/lib-module.sh (module_confirm); ──挂载于── dwm-launcher.sh quicklinks (rofi -show quicklinks -modes)
+rofi/scripts/quicklinks-mode.sh──sources──► utils/form.sh, utils/notify.sh, utils/url.sh, utils/string.sh, rofi/scripts/lib-module.sh (module_confirm); ──挂载于── rofi/launchers/type-3/launcher.sh (combi 模式 quicklinks modi)
 rofi/scripts/module.sh      ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/wallpaper.sh   ──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh, tools/wallpaper-lib.sh
 rofi/scripts/notification.sh──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh
@@ -79,27 +77,27 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 
 | 函数          | 调用者                             |
 | ------------- | ---------------------------------- |
-| `form_show()` | quicklinks.sh (_new_link 表单录入), quicklinks-mode.sh (_edit_loop 表单录入) |
+| `form_show()` | quicklinks-mode.sh (_edit_loop 表单录入) |
 
 ### utils/url.sh
 
 | 函数         | 调用者                                     |
 | ------------ | ------------------------------------------ |
-| `is_url()`   | quicklinks.sh (run_cmd 判断打开或搜索), quicklinks-mode.sh (_handle_input) |
-| `valid_url()`| quicklinks.sh (_new_link 校验 / clipboard_url), quicklinks-mode.sh (_edit_loop 校验 / clipboard_url) |
+| `is_url()`   | quicklinks-mode.sh (_handle_input) |
+| `valid_url()`| quicklinks-mode.sh (_edit_loop 校验 / clipboard_url) |
 
 ### utils/string.sh
 
 | 函数        | 调用者                                       |
 | ----------- | -------------------------------------------- |
-| `trim_str()`| quicklinks.sh (_new_link / clipboard_url), quicklinks-mode.sh (_edit_loop / clipboard_url) |
+| `trim_str()`| quicklinks-mode.sh (_edit_loop / clipboard_url) |
 
-### rofi/scripts/quicklinks-mode.sh (rofi script mode, 参考 quicklinks.sh, 原文件保持不动)
+### rofi/scripts/quicklinks-mode.sh (rofi script mode)
 
 | 函数               | 调用者                                                                 |
 | ------------------ | ---------------------------------------------------------------------- |
 | `_main()`          | 主入口 (按 ROFI_RETV 分派: 0=列表, 1=选中, 2=自定义输入, 3/11=删除, 10=编辑) |
-| `_list()`          | _main (RETV=0; _ensure_ids + _load 后输出 `icon name\0info\x1f<id>` 列表 + New 行 + use-hot-keys) |
+| `_list()`          | _main (RETV=0; _ensure_ids + _load + _ensure_icons 后输出; 缓存 hit 输出 `name\0icon\x1f<png>\x1finfo\x1f<id>`, miss/fail 输出纯文本 `name\0info\x1f<id>` + New 行 + use-hot-keys) |
 | `_dispatch()`      | _main (RETV=1; info=new → _new_link, 否则按 id 打开)                   |
 | `_open_url()`      | _open_by_id, _handle_input (xdg-open 后台执行, 外部程序必须 `( cmd & )` 否则 rofi 等待其输出) |
 | `_open_by_id()`    | _dispatch (jq 查 URL → _open_url)                                      |
@@ -112,12 +110,15 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | `_delete_form()`   | _interact_async (module_confirm 确认后 jq 删除 + notify)               |
 | `_new_link()`      | _dispatch (info=new; → _interact_async _new_form)                      |
 | `_new_form()`      | _interact_async (剪贴板 URL 预填 + 表单校验 + jq 追加; clipboard_url 须在此执行 — xclip 可能阻塞, 不能留在 rofi grab 存活期间) |
-| `_edit_loop()`     | _edit_form, _new_form (表单录入 + 校验循环)                            |
-| `icon_symbol()`    | _edit_loop (\uXXXX/\UXXXXXXXX 字面转义转实际符号)                      |
+| `_edit_loop()`     | _edit_form, _new_form (表单录入 + 校验循环; 仅 name/url 两字段)        |
 | `clipboard_url()`  | _new_form (剪贴板严格 URL 校验, 无效静默返回非 0)                      |
 | `_gen_id()`        | _ensure_ids, _new_form (uuid 优先, base64 fallback)                    |
 | `_ensure_ids()`    | _list (全部有 id 时零写入早退, 仅缺 id 时全量重生成)                    |
-| `_load()`          | _list (构建 _id_map/_menu; key 为 `icon空格name`, icon 空用空格占位)    |
+| `_load()`          | _list (构建 `_links` 四元组数组 `name|id|url|host`, host 一次性提取复用, 避免每次 fork python3) |
+| `_host_from_url()` | _load (纯 bash 参数展开提取 hostname, 零子进程; 去协议/路径/端口/www)  |
+| `_icon_state()`    | _list (输出 hit/fail/miss — 检查 `$ICON_CACHE_DIR/$host.png[.fail]`)   |
+| `_fetch_favicon()` | _ensure_icons (降级链 DuckDuckGo→Google s2→站内 /favicon.ico; curl 超时 + file MIME 校验 image/* + tmp/mv 原子写; 全失败写 .fail 标记) |
+| `_ensure_icons()`  | _list (收集 miss host 去重 → 后台子 shell 分片并发下载, 每 8 个 wait 一轮防限流; 已 png/.fail 跳过; stdout/stderr 重定向防 SIGPIPE) |
 
 ### tools/lock.sh
 
@@ -137,20 +138,6 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | `icon()`       | lib-module.sh, wallpaper.sh |
 | `toggleConf()` | wallpaper.sh                |
 | `getConfig()`  | wallpaper.sh                |
-
-### rofi/scripts/quicklinks.sh
-
-| 函数              | 调用者                                          |
-| ----------------- | ----------------------------------------------- |
-| `_gen_id()`       | _ensure_ids, _new_link (uuid 优先, 无则 base64 fallback + 提示安装) |
-| `_ensure_ids()`   | 脚本启动 (_load 前; 全部有 id 时零写入早退, 仅缺 id 时全量重生成) |
-| `_load()`         | 脚本启动 (构建 _url_map/_id_map/_menu; key 为 `icon空格name`, icon 空用空格占位) |
-| `icon_symbol()`   | _edit_loop (\\uXXXX/\\UXXXXXXXX 字面转义转实际符号) |
-| `_edit_loop()`    | _new_link, _edit_link (表单录入 + 校验循环)     |
-| `_new_link()`     | run_cmd (NEW_LINK 分支 → 表单新增)              |
-| `_edit_link()`    | 主入口 (Alt+1 编辑选中链接, 按 id 替换)         |
-| `_delete_link()`  | 主入口 (Alt+2 删除选中链接, module_confirm 确认) |
-| `clipboard_url()` | _new_link (首次打开表单预填 URL)                |
 
 ### rofi/scripts/module.sh
 
@@ -180,7 +167,7 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | `module_sub_rofi()`   | module.sh (handle_network, handle_bluetooth, handle_audio_output 的子菜单), sddm.sh (handle_set_theme, handle_set_config 的子菜单), scrcpy.sh (handle_select_device 的子菜单), wallpaper.sh (monitor_selection / handle_group 的子菜单), sing-box.sh (主菜单), yt-dlp-wrapper.sh (格式/清晰度子菜单) |
 | `module_input()`      | yt-dlp-wrapper.sh (URL 输入框), wallpaper.sh (handle_group 组名输入)                                                                                                                                                                                                                                 |
 | `module_multi_rofi()` | wallpaper.sh (handle_group 组成员多选)                                                                                                                                                                                                                                                               |
-| `module_confirm()`   | quicklinks.sh (_delete_link Alt+2 删除确认), quicklinks-mode.sh (_delete_link Alt+2 删除确认) |
+| `module_confirm()`   | quicklinks-mode.sh (_delete_link Alt+2 删除确认) |
 
 ### rofi/scripts/media-scraping.sh
 
@@ -352,7 +339,7 @@ dwm-launcher.sh (快捷键)
   → rofi/scripts/media-scraping.sh  (Media 启停子菜单，由 module.sh 调用)
   → rofi/scripts/screenshot.sh
   → rofi/scripts/screencast.sh
-  → rofi/scripts/quicklinks-mode.sh (rofi -show quicklinks 外部脚本模式, ROFI_RETV 分派; 原 quicklinks.sh 保留参考)
+  → rofi/scripts/quicklinks-mode.sh (rofi -show quicklinks 外部脚本模式, ROFI_RETV 分派; )
   → rofi/scripts/emoji.sh
   → rofi/scripts/notification.sh
 ```
@@ -402,6 +389,7 @@ wallpaper.sh → source utils/monitor.sh, utils/notify.sh
 - `rofi/` 下各 type 目录的 `*.rasi` 文件
 - `rofi/fonts/` 字体文件
 - `rofi/colors/` `rofi/images/`
+- `~/.config/dwm/quicklinks.json` — quicklinks 书签, `links` 数组元素含 `id`(uuid)、`name`、`url` (icon 字段已废弃移除)
 - `~/.config/dwm/wallpaper.json` — 壁纸配置, 含 `defaults`、`monitors`(按屏/组名键)、`groups`(成员名单 + enabled 启停)
 - `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置，`"auto"` 含 `enabled`(默认 false)、`sun_rise_offset`(日出延迟分钟数)、`sun_set_offset`(日落延迟分钟数)，`"cursor"` 含 `theme`/`size`，`"dpi"` 为 Xft.dpi 值，`light`/`dark` 的 `colorscheme` 引用 `~/.config/dwm/colorschemes/` 下的颜色方案文件
 - `~/.xsettingsd` — `set_gtk_theme()` 维护 `Net/ThemeName`(当前 GTK 主题) 行, 保留其他 XSETTINGS 键, `killall -HUP xsettingsd` 触发 XSETTINGS 重载广播
@@ -444,6 +432,7 @@ calendar-lunar|󰃚|Lunar Calendar|
 - `tools/theme.sh apply` 的退出码已修复：auto 关闭时末尾 `[ ... ]` 返回 1 导致 apply 成功但 exit 1，现显式 `exit 0`
 - `module.sh handle_network` 已改用 `nmcli -t -f BARS,BAND,BSSID,SSID` 解析 WiFi 列表（条目形如 `▂▄▆█ [2.4 GHz] SSID`，无 SSID 的隐藏网络以 BSSID 兜底）：nmcli ≥1.58 在表格输出新增 BAND 列（且 RATE 两 token），旧 `substr+$8` 列位解析会把 RATE 的 "Mbit/s" 当信号条显示
 - 隐藏网络无法仅凭 BSSID 连接（802.11 关联握手必须携带真实 SSID，NM 会报 `A 'wireless' setting with a valid SSID is required for hidden access points`）：`handle_network` 检测到选中项为 MAC 时弹 `module_input` 让用户输入真实 SSID，再 `nmcli device wifi connect <ssid> hidden yes bssid <BSSID>`
+- **rofi script mode 多属性必须用 `\x1f` 连接**：正确格式 `text\0icon\x1f<v>\x1finfo\x1f<id>`（仅行文本后一个 `\0`）。曾错误写成 `text\0icon\x1f<v>\0info\x1f<id>`（两个 `\0`）导致选中无反应：rofi 按 C 字符串语义解析属性块（`dmenuscript_parse_entry_extras` 的 `g_strsplit` 遇 `\0` 截断），第二个 `\0` 之后的内容（含 info）不可见 → `ROFI_INFO` 不设置 → 静默返回。测试断言注意：`grep -a` 对含 NUL 文件匹配不可靠、`$'\x00'` bash 展开的字面 NUL 会截断 grep -P 模式，须用单引号模式 `'\x00info'` + `grep -P`
 
 ---
 

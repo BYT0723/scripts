@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # rofi script mode: quicklinks (rofi -show quicklinks)
-# 参考 rofi/scripts/quicklinks.sh 实现, 该文件保持不动
 
 ROFI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK_DIR="$(dirname "$ROFI_DIR")"
@@ -17,9 +16,56 @@ source "$WORK_DIR/utils/url.sh"
 source "$WORK_DIR/utils/string.sh"
 source "$ROFI_DIR/scripts/lib-module.sh"
 
+# ---- favicon 缓存 ----
+ICON_CACHE_DIR="${ICON_CACHE_DIR:-$HOME/.cache/dwm/quicklinks-icons}"
+
+# 提取 hostname (纯 bash 参数展开, 零子进程): 去协议/路径/端口/www
+_host_from_url() {
+	local url="$1" host
+	host=${url#*://}
+	host=${host%%/*}
+	host=${host%%:*}
+	[[ "$host" == www.* ]] && host="${host#www.}"
+	printf '%s' "$host"
+}
+
+# 缓存状态: hit (有 png) / fail (有 .fail) / miss
+_icon_state() {
+	local f="$ICON_CACHE_DIR/$1"
+	[[ -f "$f.png" ]] && {
+		printf 'hit'
+		return
+	}
+	[[ -f "$f.png.fail" ]] && {
+		printf 'fail'
+		return
+	}
+	printf 'miss'
+}
+
+# 降级链下载 favicon: DuckDuckGo → Google s2 → 站内 /favicon.ico
+# file 校验 MIME 为 image/* 才有效; 全部失败写 .fail 标记 (避免反复请求)
+_fetch_favicon() {
+	local host="$1" tmp
+	mkdir -p "$ICON_CACHE_DIR" 2>/dev/null || return 1
+	tmp=$(mktemp "$ICON_CACHE_DIR/.favicon.XXXXXX") || return 1
+	local src
+	for src in \
+		"https://icons.duckduckgo.com/ip3/$host.ico" \
+		"https://www.google.com/s2/favicons?domain=$host&sz=64" \
+		"https://$host/favicon.ico"; do
+		if curl -fsSL --connect-timeout 3 --max-time 5 -o "$tmp" "$src" 2>/dev/null &&
+			[[ "$(file -b --mime-type "$tmp" 2>/dev/null)" == image/* ]]; then
+			mv "$tmp" "$ICON_CACHE_DIR/$host.png"
+			return 0
+		fi
+	done
+	rm -f "$tmp"
+	: >"$ICON_CACHE_DIR/$host.png.fail"
+	return 1
+}
+
 # ---- parse links ----
-declare -A _id_map
-_menu=""
 
 # 生成链接 id: 优先 uuidgen, 无则 base64(name|url) fallback 并提示安装
 _gen_id() {
@@ -52,22 +98,56 @@ _ensure_ids() {
 }
 
 _load() {
-	_id_map=()
-	_menu=""
-	while IFS=$'\t' read -r key id url; do
-		_id_map["$key"]="$id"
-		_menu+="${_menu:+$'\n'}$key"
-	done < <(jq -r '.links[] | "\((if (.icon // "") == "" then " " else .icon end)) \(.name)\t\(.id)\t\(.url)"' "$CONFIG")
+	_links=()
+	while IFS=$'\t' read -r name id url; do
+		# 四元组用 \x1f 分隔: name/url 可能含 | (表单不禁止), | 拼接会导致字段错位
+		_links+=("$name"$'\x1f'"$id"$'\x1f'"$url"$'\x1f'"$(_host_from_url "$url")")
+	done < <(jq -r '.links[] | "\(.name)\t\(.id)\t\(.url)"' "$CONFIG")
 }
 
-# 行文本 -> id: _id_map 以行文本为 key, ROFI_INFO 以 id 传递选中项
+# 收集未缓存 (miss) 的 host, 后台分片并发下载; 已 png/.fail 的跳过
+_ensure_icons() {
+	mkdir -p "$ICON_CACHE_DIR" 2>/dev/null || return 0
+	local entry host
+	local -A seen=()
+	local -a pending=()
+	for entry in "${_links[@]}"; do
+		IFS=$'\x1f' read -r _ _ _ host <<<"$entry"
+		[[ -n "$host" && -z "${seen[$host]:-}" ]] || continue
+		[[ -f "$ICON_CACHE_DIR/$host.png" || -f "$ICON_CACHE_DIR/$host.png.fail" ]] && continue
+		seen[$host]=1
+		pending+=("$host")
+	done
+	((${#pending[@]})) || return 0
+	# 分片并发 (每 8 个等一轮), 避免首次全量 miss 时数十个并发 curl 触发限流
+	(
+		i=0
+		for h in "${pending[@]}"; do
+			_fetch_favicon "$h" >/dev/null 2>&1 &
+			((++i % 8 == 0)) && wait
+		done
+		wait
+	) >/dev/null 2>&1 &
+}
+
+# _links 为 "name|id|url|host" 四元组, 缓存 hit 时附加图片属性
 _list() {
 	_ensure_ids
 	_load
-	local line
-	while IFS= read -r line; do
-		printf '%s\0info\x1f%s\n' "$line" "${_id_map[$line]}"
-	done <<<"$_menu"
+	_ensure_icons
+	local entry name id url host state
+	for entry in "${_links[@]}"; do
+		IFS=$'\x1f' read -r name id url host <<<"$entry"
+		state=$(_icon_state "$host")
+		if [[ "$state" == hit ]]; then
+			# 多属性必须用 \x1f 连接 (仅行文本后一个 \0): rofi 按 C 字符串解析属性块,
+			# 第二个 \0 会把 info 截断在字符串外 → ROFI_INFO 丢失, 选中无反应
+			printf '%s\0icon\x1f%s\x1finfo\x1f%s\n' "$name" "$ICON_CACHE_DIR/$host.png" "$id"
+		else
+			# miss/fail fallback: 无图标纯文本行
+			printf '%s\0info\x1f%s\n' "$name" "$id"
+		fi
+	done
 	printf '%s\0info\x1fnew\n' "$NEW_LINK"
 	printf '\0use-hot-keys\x1ftrue\n'
 }
@@ -129,18 +209,17 @@ _edit_link() {
 	cur=$(jq -c --arg id "$id" '.links[] | select(.id == $id)' "$CONFIG" 2>/dev/null)
 	[[ -n "$cur" ]] || return 0
 
-	local name icon url
+	local name url
 	name=$(jq -r '.name' <<<"$cur")
-	icon=$(jq -r '.icon' <<<"$cur")
 	url=$(jq -r '.url' <<<"$cur")
-	_interact_async _edit_form "$id" "$name" "$icon" "$url"
+	_interact_async _edit_form "$id" "$name" "$url"
 }
 
 _edit_form() { # 表单录入 + 按 id 替换写库 (rofi 退出后执行)
-	local id="$1" name="$2" icon="$3" url="$4"
-	_edit_loop "$name" "$icon" "$url" &&
-		_write_json --arg id "$id" --arg name "$_LINK_NAME" --arg icon "$_LINK_ICON" --arg url "$_LINK_URL" \
-			'(.links[] | select(.id == $id)) |= {id: .id, name: $name, icon: $icon, url: $url}'
+	local id="$1" name="$2" url="$3"
+	_edit_loop "$name" "$url" &&
+		_write_json --arg id "$id" --arg name "$_LINK_NAME" --arg url "$_LINK_URL" \
+			'(.links[] | select(.id == $id)) |= {id: .id, name: $name, url: $url}'
 }
 
 # Alt+2/Shift+Delete 删除: 按 id 定位, 确认后删除
@@ -169,9 +248,9 @@ _new_form() { # 剪贴板预填 + 表单 + 追加写库 (rofi 退出后执行)
 	local url
 	# clipboard_url 也在此执行: xclip/xsel/wl-paste 读取剪贴板可能阻塞, 不能留在 rofi grab 存活期间
 	url=$(clipboard_url)
-	_edit_loop "" "" "$url" &&
-		_write_json --arg id "$(_gen_id "$_LINK_NAME" "$_LINK_URL")" --arg name "$_LINK_NAME" --arg icon "$_LINK_ICON" --arg url "$_LINK_URL" \
-			'.links += [{name: $name, icon: $icon, url: $url, id: $id}]'
+	_edit_loop "" "$url" &&
+		_write_json --arg id "$(_gen_id "$_LINK_NAME" "$_LINK_URL")" --arg name "$_LINK_NAME" --arg url "$_LINK_URL" \
+			'.links += [{name: $name, url: $url, id: $id}]'
 }
 
 _dispatch() {
@@ -193,35 +272,21 @@ _handle_input() {
 	_open_url "$text"
 }
 
-# ---- 表单 (参考 quicklinks.sh, yad form_show) ----
+# ---- 表单 (yad form_show) ----
 
-ICON_POOL="󰖟 web! search!󰖬 doc!󰊌 forum!󰭹 chat! mail! video! music! game! linux! neovim! code!🔞 adult"
-
-# 将 icon 输入的 \uXXXX / \UXXXXXXXX 字面转义转换为实际 Unicode 字符
-icon_symbol() {
-	local icon="$1"
-	if [[ "$icon" =~ ^\\[uU]([0-9a-fA-F]{4}|[0-9a-fA-F]{8})$ ]]; then
-		printf '%b' "$icon"
-		return
-	fi
-	printf '%s' "$icon"
-}
-
-# 弹表单录入链接, 校验失败 notify 并重开; 成功设置 _LINK_NAME/_LINK_ICON/_LINK_URL, 取消返回 1
+# 弹表单录入链接, 校验失败 notify 并重开; 成功设置 _LINK_NAME/_LINK_URL, 取消返回 1
 _edit_loop() {
-	local name="$1" icon="$2" url="$3"
+	local name="$1" url="$2"
 	while :; do
 		local json=$(
 			form_show <<EOF
 name|entry|Name|${name:-}|
-icon|combo-entry|Icon|${icon:-󰖟 web}|${ICON_POOL}
 url|entry|URL|${url:-}|
 EOF
 		)
 		[[ -z "$json" ]] && return 1
 
 		name=$(jq -r '.name' <<<"$json")
-		icon=$(jq -r '.icon' <<<"$json")
 		url=$(jq -r '.url' <<<"$json")
 		name=$(trim_str "$name")
 		url=$(trim_str "$url")
@@ -233,9 +298,6 @@ EOF
 			tool-notify critical "Quicklinks" "链接 URL 不能为空"
 			continue
 		fi
-		icon=$(icon_symbol "$icon")
-		icon=${icon:0:1}
-		[[ -z "$icon" || "$icon" == " " ]] && icon="󰖟"
 
 		if ! valid_url "$url" && ! valid_url "https://$url"; then
 			tool-notify critical "Quicklinks" "链接 URL 无效: $url"
@@ -245,7 +307,6 @@ EOF
 		break
 	done
 	_LINK_NAME="$name"
-	_LINK_ICON="$icon"
 	_LINK_URL="$url"
 }
 
@@ -262,5 +323,6 @@ _main() {
 
 # ---- main (source 时跳过) ----
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-	_main
+	# rofi 把自定义输入/选中文本作为命令行参数传入, 须转发给 _main (函数内 $* 为函数自身参数)
+	_main "$@"
 fi
