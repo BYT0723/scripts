@@ -147,7 +147,5 @@ case "$1" in
 *)
 	launch_daemon &
 	launch_refresh &
-
-	wait
 	;;
 esac

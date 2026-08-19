@@ -40,7 +40,7 @@ launch() {
 
 desktop_setting() {
 	# 状态栏信息
-	/bin/bash $WORK_DIR/dwm-status.sh reboot &
+	/bin/bash $WORK_DIR/dwm-status.sh reboot
 	# systray sni
 	launch check snixembed "snixembed"
 	# 壁纸(不使用launch_monitor是因为wallpaper每次启动都要使用新的instance, 移除旧的实例)
