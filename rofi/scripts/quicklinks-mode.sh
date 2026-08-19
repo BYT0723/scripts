@@ -20,27 +20,13 @@ source "$ROFI_DIR/scripts/lib-module.sh"
 ICON_CACHE_DIR="${ICON_CACHE_DIR:-$HOME/.cache/dwm/quicklinks-icons}"
 
 # 提取 hostname (纯 bash 参数展开, 零子进程): 去协议/路径/端口/www
+# 结果写 $_HOST 全局变量 (避免 $() 命令替换 fork, _load 循环内每行一次; 调用方须先调用后读取)
 _host_from_url() {
-	local url="$1" host
-	host=${url#*://}
-	host=${host%%/*}
-	host=${host%%:*}
-	[[ "$host" == www.* ]] && host="${host#www.}"
-	printf '%s' "$host"
-}
-
-# 缓存状态: hit (有 png) / fail (有 .fail) / miss
-_icon_state() {
-	local f="$ICON_CACHE_DIR/$1"
-	[[ -f "$f.png" ]] && {
-		printf 'hit'
-		return
-	}
-	[[ -f "$f.png.fail" ]] && {
-		printf 'fail'
-		return
-	}
-	printf 'miss'
+	local url="$1"
+	_HOST=${url#*://}
+	_HOST=${_HOST%%/*}
+	_HOST=${_HOST%%:*}
+	[[ "$_HOST" == www.* ]] && _HOST="${_HOST#www.}"
 }
 
 # 降级链下载 favicon: DuckDuckGo → Google s2 → 站内 /favicon.ico
@@ -100,8 +86,9 @@ _ensure_ids() {
 _load() {
 	_links=()
 	while IFS=$'\t' read -r name id url; do
+		_host_from_url "$url"
 		# 四元组用 \x1f 分隔: name/url 可能含 | (表单不禁止), | 拼接会导致字段错位
-		_links+=("$name"$'\x1f'"$id"$'\x1f'"$url"$'\x1f'"$(_host_from_url "$url")")
+		_links+=("$name"$'\x1f'"$id"$'\x1f'"$url"$'\x1f'"$_HOST")
 	done < <(jq -r '.links[] | "\(.name)\t\(.id)\t\(.url)"' "$CONFIG")
 }
 
@@ -135,11 +122,11 @@ _list() {
 	_ensure_ids
 	_load
 	_ensure_icons
-	local entry name id url host state
+	local entry name id url host
 	for entry in "${_links[@]}"; do
 		IFS=$'\x1f' read -r name id url host <<<"$entry"
-		state=$(_icon_state "$host")
-		if [[ "$state" == hit ]]; then
+		# hit 判定内联 (避免 $() 命令替换 fork; fail/miss 输出相同, 无需三态)
+		if [[ -f "$ICON_CACHE_DIR/$host.png" ]]; then
 			# 多属性必须用 \x1f 连接 (仅行文本后一个 \0): rofi 按 C 字符串解析属性块,
 			# 第二个 \0 会把 info 截断在字符串外 → ROFI_INFO 丢失, 选中无反应
 			printf '%s\0icon\x1f%s\x1finfo\x1f%s\n' "$name" "$ICON_CACHE_DIR/$host.png" "$id"

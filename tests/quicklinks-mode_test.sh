@@ -36,19 +36,15 @@ source "$SCRIPT"
 FAKE_BIN="$TEST_DIR/bin"
 mkdir -p "$FAKE_BIN"
 
-# ---- Task 1: _host_from_url / _icon_state ----
-assert_eq "$(_host_from_url "https://www.github.com/x")" "github.com" "host: strip www"
-assert_eq "$(_host_from_url "https://github.com")" "github.com" "host: 无 www 原样"
-assert_eq "$(_host_from_url "http://localhost:8080/path")" "localhost" "host: 端口剥除"
-assert_eq "$(_host_from_url "https://translate.google.com/")" "translate.google.com" "host: 子域保留"
-assert_eq "$(_host_from_url "not-a-url")" "not-a-url" "host: 非 URL 兜底"
+# ---- Task 1: _host_from_url ----
+# _host_from_url 结果写 $_HOST 全局变量 (避免 $() 命令替换 fork — 性能优化)
+_host_from_url "https://www.github.com/x"; assert_eq "$_HOST" "github.com" "host: strip www"
+_host_from_url "https://github.com"; assert_eq "$_HOST" "github.com" "host: 无 www 原样"
+_host_from_url "http://localhost:8080/path"; assert_eq "$_HOST" "localhost" "host: 端口剥除"
+_host_from_url "https://translate.google.com/"; assert_eq "$_HOST" "translate.google.com" "host: 子域保留"
+_host_from_url "not-a-url"; assert_eq "$_HOST" "not-a-url" "host: 非 URL 兜底"
 
-: >"$ICON_CACHE_DIR/github.com.png"
-: >"$ICON_CACHE_DIR/example.com.png.fail"
-assert_eq "$(_icon_state "github.com")" "hit" "state: png 存在 → hit"
-assert_eq "$(_icon_state "example.com")" "fail" "state: .fail 存在 → fail"
-assert_eq "$(_icon_state "nosite.com")" "miss" "state: 无文件 → miss"
-rm -f "$ICON_CACHE_DIR"/*
+rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
 
 # ---- Task 2: _fetch_favicon 降级链 ----
 # mock curl: MOCK_CURL_SEQ_FILE 每行一次调用 (ok=成功写入 -o 目标, 其他=失败); 无序列时默认失败
@@ -82,7 +78,7 @@ printf 'ok\n' >"$TEST_DIR/curl-seq"
 export MOCK_CURL_SEQ_FILE="$TEST_DIR/curl-seq"
 _fetch_favicon "github.com"
 unset MOCK_CURL_SEQ_FILE
-assert_eq "$(_icon_state "github.com")" "hit" "下载: 首源成功 → hit"
+assert_eq "$([[ -f "$ICON_CACHE_DIR/github.com.png" ]] && echo yes)" "yes" "下载: 首源成功 → png 落盘"
 assert_eq "$(wc -c <"$ICON_CACHE_DIR/github.com.png")" "7" "下载: 缓存内容落盘"
 
 rm -f "$ICON_CACHE_DIR"/*
@@ -90,14 +86,14 @@ printf 'fail\nok\n' >"$TEST_DIR/curl-seq"
 export MOCK_CURL_SEQ_FILE="$TEST_DIR/curl-seq"
 _fetch_favicon "example.com"
 unset MOCK_CURL_SEQ_FILE
-assert_eq "$(_icon_state "example.com")" "hit" "下载: 首源失败降级次源 → hit"
+assert_eq "$([[ -f "$ICON_CACHE_DIR/example.com.png" ]] && echo yes)" "yes" "下载: 首源失败降级次源 → png 落盘"
 
 rm -f "$ICON_CACHE_DIR"/*
 printf 'fail\nfail\nfail\n' >"$TEST_DIR/curl-seq"
 export MOCK_CURL_SEQ_FILE="$TEST_DIR/curl-seq"
 _fetch_favicon "nosite.com"
 unset MOCK_CURL_SEQ_FILE
-assert_eq "$(_icon_state "nosite.com")" "fail" "下载: 三源全失败 → fail"
+assert_eq "$([[ -f "$ICON_CACHE_DIR/nosite.com.png.fail" ]] && echo yes)" "yes" "下载: 三源全失败 → .fail 标记"
 [[ -f "$ICON_CACHE_DIR/nosite.com.png" ]] && { echo "FAIL: 全失败不应有 png"; FAIL=1; } || echo "ok: 全失败无 png 残留"
 
 # 下载内容非 image → file 校验拦截, 全源作废
@@ -106,7 +102,7 @@ printf 'ok\nok\nok\n' >"$TEST_DIR/curl-seq"
 export MOCK_CURL_SEQ_FILE="$TEST_DIR/curl-seq" MOCK_FILE_MIME="text/html"
 _fetch_favicon "badcontent.com"
 unset MOCK_CURL_SEQ_FILE MOCK_FILE_MIME
-assert_eq "$(_icon_state "badcontent.com")" "fail" "下载: 内容非 image 全源作废 → fail"
+assert_eq "$([[ -f "$ICON_CACHE_DIR/badcontent.com.png.fail" ]] && echo yes)" "yes" "下载: 内容非 image 全源作废 → .fail 标记"
 
 rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
 
@@ -244,8 +240,8 @@ printf 'ok\n' >"$TEST_DIR/curl-seq"
 export MOCK_CURL_SEQ_FILE="$TEST_DIR/curl-seq"
 _ensure_icons
 wait
-assert_eq "$(_icon_state "github.com")" "hit" "预取: miss host 后台下载成功 → hit"
-assert_eq "$(_icon_state "example.com")" "fail" "预取: 已 fail host 跳过不下载"
+assert_eq "$([[ -f "$ICON_CACHE_DIR/github.com.png" ]] && echo yes)" "yes" "预取: miss host 后台下载成功 → png 落盘"
+assert_eq "$([[ -f "$ICON_CACHE_DIR/example.com.png.fail" ]] && echo yes)" "yes" "预取: 已 fail host 跳过不下载"
 assert_eq "$(head -1 "$TEST_DIR/curl-seq" 2>/dev/null)" "" "预取: 序列耗尽 (仅下载 github.com)"
 unset MOCK_CURL_SEQ_FILE
 
@@ -263,7 +259,7 @@ printf 'ok\n' >"$TEST_DIR/curl-seq"
 export MOCK_CURL_SEQ_FILE="$TEST_DIR/curl-seq"
 _ensure_icons
 wait
-assert_eq "$(_icon_state "github.com")" "hit" "预取: 同域多链接只下载一次 → hit"
+assert_eq "$([[ -f "$ICON_CACHE_DIR/github.com.png" ]] && echo yes)" "yes" "预取: 同域多链接只下载一次 → png 落盘"
 assert_eq "$(head -1 "$TEST_DIR/curl-seq" 2>/dev/null)" "" "预取: 序列仅消耗一次"
 unset MOCK_CURL_SEQ_FILE
 cat >"$CONFIG" <<'JSON'

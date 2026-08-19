@@ -97,7 +97,7 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | 函数               | 调用者                                                                 |
 | ------------------ | ---------------------------------------------------------------------- |
 | `_main()`          | 主入口 (按 ROFI_RETV 分派: 0=列表, 1=选中, 2=自定义输入, 3/11=删除, 10=编辑) |
-| `_list()`          | _main (RETV=0; _ensure_ids + _load + _ensure_icons 后输出; 缓存 hit 输出 `name\0icon\x1f<png>\x1finfo\x1f<id>`, miss/fail 输出纯文本 `name\0info\x1f<id>` + New 行 + use-hot-keys) |
+| `_list()`          | _main (RETV=0; _ensure_ids + _load + _ensure_icons 后输出; 缓存 hit 输出 `name\0icon\x1f<png>\x1finfo\x1f<id>`, miss/fail 输出纯文本 `name\0info\x1f<id>` + New 行 + use-hot-keys; hit 判定内联 `[[ -f ]]` 避免 `$()` fork) |
 | `_dispatch()`      | _main (RETV=1; info=new → _new_link, 否则按 id 打开)                   |
 | `_open_url()`      | _open_by_id, _handle_input (xdg-open 后台执行, 外部程序必须 `( cmd & )` 否则 rofi 等待其输出) |
 | `_open_by_id()`    | _dispatch (jq 查 URL → _open_url)                                      |
@@ -115,8 +115,7 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | `_gen_id()`        | _ensure_ids, _new_form (uuid 优先, base64 fallback)                    |
 | `_ensure_ids()`    | _list (全部有 id 时零写入早退, 仅缺 id 时全量重生成)                    |
 | `_load()`          | _list (构建 `_links` 四元组数组 `name|id|url|host`, host 一次性提取复用, 避免每次 fork python3) |
-| `_host_from_url()` | _load (纯 bash 参数展开提取 hostname, 零子进程; 去协议/路径/端口/www)  |
-| `_icon_state()`    | _list (输出 hit/fail/miss — 检查 `$ICON_CACHE_DIR/$host.png[.fail]`)   |
+| `_host_from_url()` | _load (纯 bash 参数展开提取 hostname, 零子进程; 结果写 `$_HOST` 全局变量而非 stdout — 避免 `$()` 命令替换 fork, _load 循环每行一次约省 40ms/64 条) |
 | `_fetch_favicon()` | _ensure_icons (降级链 DuckDuckGo→Google s2→站内 /favicon.ico; curl 超时 + file MIME 校验 image/* + tmp/mv 原子写; 全失败写 .fail 标记) |
 | `_ensure_icons()`  | _list (收集 miss host 去重 → 后台子 shell 分片并发下载, 每 8 个 wait 一轮防限流; 已 png/.fail 跳过; stdout/stderr 重定向防 SIGPIPE) |
 
