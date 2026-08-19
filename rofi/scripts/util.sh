@@ -3,9 +3,9 @@
 icon() {
 	local icons
 	if [[ "$1" == "toggle" ]]; then
-		icons=(" " " ")
+		icons=("" "")
 	else
-		icons=(" " " ")
+		icons=("" "")
 	fi
 
 	local idx=0
