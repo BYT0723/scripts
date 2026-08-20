@@ -3,27 +3,26 @@ launch_video_xwinwrap() {
 	check_command xwinwrap "xwinwrap (https://github.com/BYT0723/xwinwrap)" || return 1
 	check_command mpv "mpv" || return 1
 
+	local keymapConf="$HOME/.config/dwm/wallpaperKeyMap.conf"
+
 	local position=$1
 	shift
 	local rotate="$1"
 	shift
 	local filepath=$@
 
-	local keymapConf=$(getConfig video_keymap_conf)
-	keymapConf=$(expand_path "$keymapConf")
+	local fps=$(getConfig render.video.fps)
+	fps=${fps:-30}
 
 	[ -n "$rotate" ] && rotate="--video-rotate=$rotate"
 
-	local fileType=$(detect_file_type "$filepath")
-	local video_flags=""
-	if [ "$fileType" = "video" ]; then
-		local fps=$(getConfig render.video.fps)
-		[ -n "$fps" ] && video_flags="$video_flags --vf=fps=$fps"
-		video_flags="$video_flags --video-sync=audio --vid=1 --hwdec=auto-safe --framedrop=vo --audio-client-name=wallpaper"
-	fi
-
 	xwinwrap -ov -g "$position" -- mpv -wid WID "$filepath" \
-		$video_flags \
+		--vf=fps=$fps \
+		--video-sync=audio \
+		--vid=1 \
+		--hwdec=auto-safe \
+		--framedrop=vo \
+		--audio-client-name=wallpaper \
 		--no-config \
 		--load-scripts=no \
 		--no-keepaspect \
@@ -39,9 +38,19 @@ launch_video_xwinwrap() {
 		--vo=gpu-next \
 		--no-sub \
 		--stop-screensaver=no \
-		--image-display-duration=inf \
 		$rotate \
 		--input-conf="$keymapConf" >~/.wallpaper.log 2>&1 &
+}
+
+launch_image_xwinwrap() {
+	# command detection using check_command
+	check_command xwinwrap "xwinwrap (https://github.com/BYT0723/xwinwrap)" || return 1
+	check_command nsxiv "nsxiv" || return 1
+
+	local position=$1
+	shift
+	local filepath=$@
+	xwinwrap -ov -ni -nf -g "$position" -- nsxiv -e WID -g ${position%%+*} -b -s F "$filepath" >~/.wallpaper.log 2>&1 &
 }
 
 launch_page_xwinwrap() {
@@ -52,7 +61,7 @@ launch_page_xwinwrap() {
 	local position=$1
 	shift
 	local filepath=$@
-	xwinwrap -ov -g "$position" -- tabbed -w WID -g $(echo $position | sed -E 's/^([0-9]+x[0-9]+).*/\1/') -r 2 surf -e '' "$filepath" >~/.wallpaper.log 2>&1 &
+	xwinwrap -ov -g "$position" -- tabbed -w WID -g ${position%%+*} -r 2 surf -e '' "$filepath" >~/.wallpaper.log 2>&1 &
 }
 
 launch_dynamic_wallpaper() {
@@ -62,7 +71,8 @@ launch_dynamic_wallpaper() {
 	local filepath="$4"
 
 	case "$type" in
-	"video" | "image") launch_video_xwinwrap "$position" "$rotate" "$filepath" || return 1 ;;
+	"video") launch_video_xwinwrap "$position" "$rotate" "$filepath" || return 1 ;;
+	"image") launch_image_xwinwrap "$position" "$filepath" || return 1 ;;
 	"page") launch_page_xwinwrap "$position" "$filepath" || return 1 ;;
 	*) return 1 ;;
 	esac

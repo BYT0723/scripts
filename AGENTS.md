@@ -240,7 +240,7 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | `get_monitor_dim()`          | wallpaper.sh (get_wallpaper_rotation)                                                                                                                                                                        |
 | `preview_rotation()`         | wallpaper.sh (get_wallpaper_rotation)                                                                                                                                                                        |
 | `find_wallpapers()`          | wallpaper.sh (random_wallpaper)                                                                                                                                                                              |
-| `check_command()`            | wallpaper-render.sh (launch_video_xwinwrap, launch_page_xwinwrap)                                                                                                                                            |
+| `check_command()`            | wallpaper-render.sh (launch_video_xwinwrap, launch_image_xwinwrap, launch_page_xwinwrap)                                                                                                                                            |
 | `safe_kill_pidfile()`        | wallpaper-lib.sh (clean_latest, clean_target 内部)                                                                                                                                                           |
 | `handle_error()` / `error()` | wallpaper-lib.sh 内部, rofi/scripts/wallpaper.sh (handle_group)                                                                                                                                              |
 | `clean_latest()`             | 死代码 (已被 clean_target 替代)                                                                                                                                                                              |
@@ -263,6 +263,7 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | 函数                         | 调用者                                                           |
 | ---------------------------- | ---------------------------------------------------------------- |
 | `launch_video_xwinwrap()`    | wallpaper-render.sh (launch_dynamic_wallpaper 内部)              |
+| `launch_image_xwinwrap()`    | wallpaper-render.sh (launch_dynamic_wallpaper 内部)              |
 | `launch_page_xwinwrap()`     | wallpaper-render.sh (launch_dynamic_wallpaper 内部)              |
 | `launch_dynamic_wallpaper()` | wallpaper-render.sh (set_wallpaper_to_screen/monitor/group 内部) |
 | `set_wallpaper_to_screen()`  | wallpaper.sh (apply_wallpaper, set_latest)                       |
@@ -372,10 +373,10 @@ tools/theme.sh auto (守护进程)
 
 ```
 wallpaper.sh → source utils/monitor.sh, utils/notify.sh
-  ├─ 图（image） → feh (单屏/全屏) / feh --no-fehbg (多屏合并)
+  ├─ 图（image） → feh (单屏/全屏/多屏) / nsxiv → xwinwrap (组)
   ├─ 视频（video）→ mpv → xwinwrap (单屏/全屏/组)
   ├─ 网页（page）→ surf → tabbed → xwinwrap (单屏/全屏/组)
-  └─ monitor 组 → xwinwrap 按 bbox 跨成员屏铺视频/网页
+  └─ monitor 组 → xwinwrap 按 bbox 跨成员屏铺图/视频/网页
        ├─ 组名即目标 -m <组> (config: groups.<组>)
        ├─ rofi 多选创建/编辑/启停
        ├─ 成员互斥（一屏至多归一组）
