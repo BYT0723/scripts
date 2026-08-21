@@ -15,14 +15,16 @@ theme='style-5'
 
 ## Run
 rofi \
-	-modes "combi,quicklinks:$(realpath $(dirname $0))/quicklinks-mode.sh" \
-	-combi-modes "window,drun,run" \
-	-show-icons \
-	-display-combi " " \
-	-display-window " " \
-	-display-drun " " \
-	-display-run " " \
-	-theme-str 'configuration {display-quicklinks: "󰖟 ";}' \
-	-window-format "{c} {t}" \
-	-show combi \
-	-theme ${dir}/${theme}.rasi
+    -modes "combi,quicklinks:$(realpath $(dirname $0))/quicklinks-mode.sh" \
+    -combi-modes "window,drun,run,ssh" \
+    -show-icons \
+    -display-combi " " \
+    -display-window " " \
+    -display-drun " " \
+    -display-run " " \
+    -display-ssh " " \
+    -theme-str 'configuration {display-quicklinks: "󰖟 ";}' \
+    -theme-str 'configuration {terminal: "'${TERMINAL:-kitty}'";}' \
+    -window-format "{c} {t}" \
+    -show combi \
+    -theme ${dir}/${theme}.rasi
