@@ -6,7 +6,7 @@ WORK_DIR="$(dirname "$ROFI_DIR")"
 
 CONFIG="${CONFIG:-$HOME/.config/dwm/quicklinks.json}"
 SEARCH_ENGINE="https://www.google.com/search?q="
-NEW_LINK=" New Link"
+NEW_LINK=" New"
 NEW_SEARCHER=" New Searcher"
 # script mode 下 rofi 存活期间 grab 键盘: 交互前须等待其退出释放 grab (实测 EOF→退出 < 0.4s)
 GRAB_RELEASE_WAIT=0.4
@@ -93,19 +93,30 @@ _load() {
     done < <(jq -r '.links[] | "\(.name)\t\(.id)\t\(.url)"' "$CONFIG")
 }
 
+# 未缓存 host 入 pending (去重 + 跳过已 png/.fail); 依赖 _ensure_icons 内局部 seen/pending (bash 动态作用域)
+_collect_host() {
+    local h="$1"
+    [[ -n "$h" && -z "${seen[$h]:-}" ]] || return 0
+    [[ -f "$ICON_CACHE_DIR/$h.png" || -f "$ICON_CACHE_DIR/$h.png.fail" ]] && return 0
+    seen[$h]=1
+    pending+=("$h")
+}
+
 # 收集未缓存 (miss) 的 host, 后台分片并发下载; 已 png/.fail 的跳过
+# links 与 searcher 的 host 都收集 (searcher url 无 {key} 时取整个域名)
 _ensure_icons() {
     mkdir -p "$ICON_CACHE_DIR" 2>/dev/null || return 0
-    local entry host
+    local entry host surl
     local -A seen=()
     local -a pending=()
     for entry in "${_links[@]}"; do
         IFS=$'\x1f' read -r _ _ _ host <<<"$entry"
-        [[ -n "$host" && -z "${seen[$host]:-}" ]] || continue
-        [[ -f "$ICON_CACHE_DIR/$host.png" || -f "$ICON_CACHE_DIR/$host.png.fail" ]] && continue
-        seen[$host]=1
-        pending+=("$host")
+        _collect_host "$host"
     done
+    while read -r surl; do
+        _host_from_url "$surl"
+        _collect_host "$_HOST"
+    done < <(jq -r '.searcher[]?.url' "$CONFIG" 2>/dev/null)
     ((${#pending[@]})) || return 0
     # 分片并发 (每 8 个等一轮), 避免首次全量 miss 时数十个并发 curl 触发限流
     (
@@ -138,6 +149,17 @@ _list() {
     done
     printf '%s\0info\x1fnew\n' "$NEW_LINK"
     printf '%s\0info\x1fnew-searcher\n' "$NEW_SEARCHER"
+    # @ 提示: 输入 @ 时 rofi 过滤仅剩 @<name> 行 (links/New 均不含 @) → 展示可用 searcher;
+    # nonselectable 只展示不可选中, 不影响 RETV=2 自定义输入 (@name 搜索词走 _handle_input)
+    local sname surl
+    while IFS=$'\t' read -r sname surl; do
+        _host_from_url "$surl"
+        if [[ -f "$ICON_CACHE_DIR/$_HOST.png" ]]; then
+            printf '@%s\0nonselectable\x1ftrue\x1ficon\x1f%s\n' "$sname" "$ICON_CACHE_DIR/$_HOST.png"
+        else
+            printf '@%s\0nonselectable\x1ftrue\n' "$sname"
+        fi
+    done < <(jq -r '.searcher[]? | [.name, .url] | @tsv' "$CONFIG" 2>/dev/null)
     printf '\0use-hot-keys\x1ftrue\n'
 }
 

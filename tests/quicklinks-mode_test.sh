@@ -145,7 +145,7 @@ chmod +x "$FAKE_BIN/xdg-open" "$FAKE_BIN/yad" "$FAKE_BIN/rofi" "$FAKE_BIN/notify
 
 # ---- Task 2: 列表输出 ----
 _list >"$TEST_DIR/list.out"
-printf 'GitHub\0info\x1fid-1\nExample\0info\x1fid-2\n New (Add)\0info\x1fnew\n New Searcher\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' >"$TEST_DIR/list.expected"
+printf 'GitHub\0info\x1fid-1\nExample\0info\x1fid-2\n%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" >"$TEST_DIR/list.expected"
 if cmp -s "$TEST_DIR/list.out" "$TEST_DIR/list.expected"; then
 	echo "ok: _list 输出 (含 info 元数据, New 行底部, use-hot-keys)"
 else
@@ -155,6 +155,57 @@ else
 	FAIL=1
 fi
 
+# ---- Task 2b: @ 提示 searcher 行 ----
+# 输入 @ 时 rofi 过滤仅剩 @<name> 行 → 提示可用引擎; nonselectable 使其不可选中
+cat >"$CONFIG" <<'JSON'
+{"searcher":[
+  {"name":"google","url":"https://www.google.com/search?q={key}"},
+  {"name":"bing","url":"https://www.bing.com/search?q={key}"}
+],"links":[]}
+JSON
+_list >"$TEST_DIR/list-searcher.out"
+printf '%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n@google\0nonselectable\x1ftrue\n@bing\0nonselectable\x1ftrue\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" >"$TEST_DIR/list-searcher.expected"
+if cmp -s "$TEST_DIR/list-searcher.out" "$TEST_DIR/list-searcher.expected"; then
+	echo "ok: _list 含 searcher → @<name> 提示行 + nonselectable 不可选中"
+else
+	echo "FAIL: _list searcher 提示行"
+	echo "--- got ---"; xxd "$TEST_DIR/list-searcher.out" | head -10
+	echo "--- want ---"; xxd "$TEST_DIR/list-searcher.expected" | head -10
+	FAIL=1
+fi
+
+# ---- Task 2c: searcher icon 展示 (host 命中缓存 → \0icon 属性) ----
+wait
+rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
+: >"$ICON_CACHE_DIR/google.com.png"
+_list >"$TEST_DIR/list-searcher-icon.out"
+printf '%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n@google\0nonselectable\x1ftrue\x1ficon\x1f%s\n@bing\0nonselectable\x1ftrue\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" "$ICON_CACHE_DIR/google.com.png" >"$TEST_DIR/list-searcher-icon.expected"
+if cmp -s "$TEST_DIR/list-searcher-icon.out" "$TEST_DIR/list-searcher-icon.expected"; then
+	echo "ok: _list searcher icon hit → @<name> + \\x1f 连接 icon 属性"
+else
+	echo "FAIL: _list searcher icon 展示"
+	echo "--- got ---"; xxd "$TEST_DIR/list-searcher-icon.out" | head -10
+	echo "--- want ---"; xxd "$TEST_DIR/list-searcher-icon.expected" | head -10
+	FAIL=1
+fi
+
+# ---- Task 2d: _ensure_icons 收集 searcher host 触发下载 ----
+wait
+rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
+: >"$ICON_CACHE_DIR/bing.com.png.fail"
+printf 'ok\n' >"$TEST_DIR/curl-seq"
+export MOCK_CURL_SEQ_FILE="$TEST_DIR/curl-seq"
+_ensure_icons
+wait
+unset MOCK_CURL_SEQ_FILE
+assert_eq "$([[ -f "$ICON_CACHE_DIR/google.com.png" ]] && echo yes)" "yes" "预取: searcher host 也触发 favicon 下载"
+cat >"$CONFIG" <<'JSON'
+{"links":[
+  {"name":"GitHub","url":"https://github.com","id":"id-1"},
+  {"name":"Example","url":"https://example.com","id":"id-2"}
+]}
+JSON
+
 # ---- Task 3: favicon 列表输出 ----
 # hit: 缓存命中 → \0icon 图片属性 + \x1f 连接 info
 # 注意: 多属性用 \x1f 连接 (rofi C 字符串解析, 第二个 \0 会截断 info → ROFI_INFO 丢失)
@@ -162,7 +213,7 @@ wait
 rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
 : >"$ICON_CACHE_DIR/github.com.png"
 _list >"$TEST_DIR/list-hit.out"
-printf 'GitHub\0icon\x1f%s\x1finfo\x1fid-1\nExample\0info\x1fid-2\n New (Add)\0info\x1fnew\n New Searcher\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' "$ICON_CACHE_DIR/github.com.png" >"$TEST_DIR/list-hit.expected"
+printf 'GitHub\0icon\x1f%s\x1finfo\x1fid-1\nExample\0info\x1fid-2\n%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' "$ICON_CACHE_DIR/github.com.png" "$NEW_LINK" "$NEW_SEARCHER" >"$TEST_DIR/list-hit.expected"
 if cmp -s "$TEST_DIR/list-hit.out" "$TEST_DIR/list-hit.expected"; then
 	echo "ok: _list hit → 图片属性, 行文本无字符 icon"
 else
@@ -182,7 +233,7 @@ wait
 rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
 : >"$ICON_CACHE_DIR/github.com.png.fail"
 _list >"$TEST_DIR/list-fail.out"
-printf 'GitHub\0info\x1fid-1\nExample\0info\x1fid-2\n New (Add)\0info\x1fnew\n New Searcher\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' >"$TEST_DIR/list-fail.expected"
+printf 'GitHub\0info\x1fid-1\nExample\0info\x1fid-2\n%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" >"$TEST_DIR/list-fail.expected"
 if cmp -s "$TEST_DIR/list-fail.out" "$TEST_DIR/list-fail.expected"; then
 	echo "ok: _list fail → fallback 原样输出"
 else
@@ -201,7 +252,7 @@ cat >"$CONFIG" <<'JSON'
 ]}
 JSON
 _list >"$TEST_DIR/list-pipe.out"
-printf 'A|B\0info\x1fid-pipe\n New (Add)\0info\x1fnew\n New Searcher\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' >"$TEST_DIR/list-pipe.expected"
+printf 'A|B\0info\x1fid-pipe\n%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" >"$TEST_DIR/list-pipe.expected"
 if cmp -s "$TEST_DIR/list-pipe.out" "$TEST_DIR/list-pipe.expected"; then
 	echo "ok: 分隔符: name/url 含 | 不破坏解析"
 else
