@@ -108,6 +108,7 @@ rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
 
 # ---- fixture (source 后覆盖, 脚本内 CONFIG 默认值在 source 时定义) ----
 CONFIG="$TEST_DIR/quicklinks.json"
+export CONFIG
 cat >"$CONFIG" <<'JSON'
 {"links":[
   {"name":"GitHub","url":"https://github.com","id":"id-1"},
@@ -144,7 +145,7 @@ chmod +x "$FAKE_BIN/xdg-open" "$FAKE_BIN/yad" "$FAKE_BIN/rofi" "$FAKE_BIN/notify
 
 # ---- Task 2: 列表输出 ----
 _list >"$TEST_DIR/list.out"
-printf 'GitHub\0info\x1fid-1\nExample\0info\x1fid-2\n New (Add)\0info\x1fnew\n\0use-hot-keys\x1ftrue\n' >"$TEST_DIR/list.expected"
+printf 'GitHub\0info\x1fid-1\nExample\0info\x1fid-2\n New (Add)\0info\x1fnew\n New Searcher\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' >"$TEST_DIR/list.expected"
 if cmp -s "$TEST_DIR/list.out" "$TEST_DIR/list.expected"; then
 	echo "ok: _list 输出 (含 info 元数据, New 行底部, use-hot-keys)"
 else
@@ -161,7 +162,7 @@ wait
 rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
 : >"$ICON_CACHE_DIR/github.com.png"
 _list >"$TEST_DIR/list-hit.out"
-printf 'GitHub\0icon\x1f%s\x1finfo\x1fid-1\nExample\0info\x1fid-2\n New (Add)\0info\x1fnew\n\0use-hot-keys\x1ftrue\n' "$ICON_CACHE_DIR/github.com.png" >"$TEST_DIR/list-hit.expected"
+printf 'GitHub\0icon\x1f%s\x1finfo\x1fid-1\nExample\0info\x1fid-2\n New (Add)\0info\x1fnew\n New Searcher\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' "$ICON_CACHE_DIR/github.com.png" >"$TEST_DIR/list-hit.expected"
 if cmp -s "$TEST_DIR/list-hit.out" "$TEST_DIR/list-hit.expected"; then
 	echo "ok: _list hit → 图片属性, 行文本无字符 icon"
 else
@@ -171,17 +172,17 @@ else
 	FAIL=1
 fi
 # 回归锁定: hit 行内属性必须 \x1f 连接 (第二 \0 会截断 info → ROFI_INFO 丢失)
-# \0info 只应出现在 Example (miss) 与 New 行, 共 2 行; GitHub hit 行不得含
+# \0info 只应出现在 Example (miss) 与 New/New Searcher 行, 共 3 行; GitHub hit 行不得含
 # 注意: 模式须单引号让 grep -P 解析 \x00 (bash $'\x00' 展开的字面 NUL 会截断模式); grep -a 对 NUL 文件不可靠
 n=$(grep -Pac '\x00info' "$TEST_DIR/list-hit.out")
-assert_eq "$n" "2" "hit 行属性以 \\x1f 连接 (\\0info 仅 miss/New 行, 共 2 行)"
+assert_eq "$n" "3" "hit 行属性以 \\x1f 连接 (\\0info 仅 miss/New/New Searcher 行, 共 3 行)"
 
 # fail: .fail 标记 → 与 miss 相同 fallback 输出 (纯文本行)
 wait
 rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
 : >"$ICON_CACHE_DIR/github.com.png.fail"
 _list >"$TEST_DIR/list-fail.out"
-printf 'GitHub\0info\x1fid-1\nExample\0info\x1fid-2\n New (Add)\0info\x1fnew\n\0use-hot-keys\x1ftrue\n' >"$TEST_DIR/list-fail.expected"
+printf 'GitHub\0info\x1fid-1\nExample\0info\x1fid-2\n New (Add)\0info\x1fnew\n New Searcher\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' >"$TEST_DIR/list-fail.expected"
 if cmp -s "$TEST_DIR/list-fail.out" "$TEST_DIR/list-fail.expected"; then
 	echo "ok: _list fail → fallback 原样输出"
 else
@@ -200,7 +201,7 @@ cat >"$CONFIG" <<'JSON'
 ]}
 JSON
 _list >"$TEST_DIR/list-pipe.out"
-printf 'A|B\0info\x1fid-pipe\n New (Add)\0info\x1fnew\n\0use-hot-keys\x1ftrue\n' >"$TEST_DIR/list-pipe.expected"
+printf 'A|B\0info\x1fid-pipe\n New (Add)\0info\x1fnew\n New Searcher\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' >"$TEST_DIR/list-pipe.expected"
 if cmp -s "$TEST_DIR/list-pipe.out" "$TEST_DIR/list-pipe.expected"; then
 	echo "ok: 分隔符: name/url 含 | 不破坏解析"
 else
@@ -370,6 +371,83 @@ ROFI_RETV=1 ROFI_INFO=new _main
 wait
 unset MOCK_YAD_OUTPUT
 assert_eq "$(jq -r '.links | length' "$CONFIG")" "3" "新增: 无剪贴板仍可新增"
+
+# ---- Task 6: searcher 搜索 (RETV=2) ----
+SEARCHER_CONFIG="$TEST_DIR/searcher.json"
+cat >"$SEARCHER_CONFIG" <<'JSON'
+{"searcher":[
+  {"name":"google","url":"https://www.google.com/search?q={key}"},
+  {"name":"Github","url":"https://github.com/search?q={key}&type=code"},
+  {"name":"ddg","url":"https://duckduckgo.com/?q="}
+],"links":[]}
+JSON
+
+sopen() { # term → 清 log 后执行 RETV=2 子进程 (CONFIG 显式传 searcher fixture)
+	rm -f "$XDG_FAKE_LOG"
+	CONFIG="$SEARCHER_CONFIG" ROFI_RETV=2 /bin/bash "$SCRIPT" "$1"
+	sleep 0.3
+}
+
+sopen "hello world"
+assert_file_has "$XDG_FAKE_LOG" "OPEN:https://www.google.com/search?q=hello%20world" "searcher: 默认第一个引擎 + {key} 替换 (空格编码)"
+
+sopen "你好"
+assert_file_has "$XDG_FAKE_LOG" "OPEN:https://www.google.com/search?q=%E4%BD%A0%E5%A5%BD" "searcher: 中文 URL 编码"
+
+sopen "@github hello"
+assert_file_has "$XDG_FAKE_LOG" "OPEN:https://github.com/search?q=hello&type=code" "searcher: @name 精确匹配命中 (忽略大小写)"
+
+sopen "@github a&b"
+assert_file_has "$XDG_FAKE_LOG" "OPEN:https://github.com/search?q=a%26b&type=code" "searcher: 搜索词 & 编码后 {key} 替换"
+
+sopen "@unknown hello"
+assert_file_has "$XDG_FAKE_LOG" "OPEN:https://www.google.com/search?q=%40unknown%20hello" "searcher: @未命中 → 回退默认, 整串含 @ 作搜索词"
+
+sopen "@ddg hello"
+assert_file_has "$XDG_FAKE_LOG" "OPEN:https://duckduckgo.com/?q=hello" "searcher: url 无 {key} → 搜索词追加末尾"
+
+sopen "@google"
+if [[ -s "$XDG_FAKE_LOG" ]]; then
+	echo "FAIL: @name 无搜索词不应打开"; FAIL=1
+else
+	echo "ok: @name 无搜索词 → 不打开"
+fi
+
+# ---- Task 7: 新增 searcher (info=new-searcher) ----
+# 恢复干净 links fixture (前面编辑/删除/新增已改动)
+cat >"$CONFIG" <<'JSON'
+{"links":[
+  {"name":"GitHub","url":"https://github.com","id":"id-1"},
+  {"name":"Example","url":"https://example.com","id":"id-2"}
+]}
+JSON
+
+export MOCK_YAD_OUTPUT="Google Search|https://www.google.com/search?q={key}"
+ROFI_RETV=1 ROFI_INFO=new-searcher _main
+wait
+unset MOCK_YAD_OUTPUT
+assert_eq "$(jq -r '.searcher | length' "$CONFIG")" "1" "新增 searcher: 条数 +1"
+assert_eq "$(jq -r '.searcher[0].name' "$CONFIG")" "Google Search" "新增 searcher: name 写入"
+assert_eq "$(jq -r '.searcher[0].url' "$CONFIG")" "https://www.google.com/search?q={key}" "新增 searcher: url 写入 (含 {key})"
+assert_eq "$(jq -r '.searcher[0] | has("id")' "$CONFIG")" "false" "新增 searcher: 无 id 字段"
+assert_eq "$(jq -r '.links | length' "$CONFIG")" "2" "新增 searcher: links 不变"
+
+# 重名 (忽略大小写) → critical 通知, 不写入
+export MOCK_YAD_OUTPUT="google search|https://example.com/search?q={key}"
+rm -f "$XDG_FAKE_LOG"
+ROFI_RETV=1 ROFI_INFO=new-searcher _main
+wait
+unset MOCK_YAD_OUTPUT
+assert_eq "$(jq -r '.searcher | length' "$CONFIG")" "1" "新增 searcher: 重名不写入"
+assert_file_has "$XDG_FAKE_LOG" "-u critical" "新增 searcher: 重名触发 critical 通知"
+
+# 恢复 links-only fixture (_ensure_ids 零写入测试需要干净基准)
+cat >"$CONFIG" <<'JSON'
+{"links":[
+  {"name":"GitHub","url":"https://github.com","id":"id-1"},
+  {"name":"Example","url":"https://example.com","id":"id-2"}
+]}
+JSON
 
 # ---- _ensure_ids 零写入 (id 齐全) ----
 before=$(md5sum "$CONFIG" | cut -d' ' -f1)

@@ -97,20 +97,24 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | 函数               | 调用者                                                                 |
 | ------------------ | ---------------------------------------------------------------------- |
 | `_main()`          | 主入口 (按 ROFI_RETV 分派: 0=列表, 1=选中, 2=自定义输入, 3/11=删除, 10=编辑) |
-| `_list()`          | _main (RETV=0; _ensure_ids + _load + _ensure_icons 后输出; 缓存 hit 输出 `name\0icon\x1f<png>\x1finfo\x1f<id>`, miss/fail 输出纯文本 `name\0info\x1f<id>` + New 行 + use-hot-keys; hit 判定内联 `[[ -f ]]` 避免 `$()` fork) |
-| `_dispatch()`      | _main (RETV=1; info=new → _new_link, 否则按 id 打开)                   |
+| `_list()`          | _main (RETV=0; _ensure_ids + _load + _ensure_icons 后输出; 缓存 hit 输出 `name\0icon\x1f<png>\x1finfo\x1f<id>`, miss/fail 输出纯文本 `name\0info\x1f<id>` + New 行 + New Searcher 行 + use-hot-keys; hit 判定内联 `[[ -f ]]` 避免 `$()` fork) |
+| `_dispatch()`      | _main (RETV=1; info=new → _new_link, info=new-searcher → _new_searcher, 否则按 id 打开) |
 | `_open_url()`      | _open_by_id, _handle_input (xdg-open 后台执行, 外部程序必须 `( cmd & )` 否则 rofi 等待其输出) |
 | `_open_by_id()`    | _dispatch (jq 查 URL → _open_url)                                      |
-| `_handle_input()`  | _main (RETV=2; is_url ? 补协议打开 : SEARCH_ENGINE 搜索)               |
-| `_interact_async()`| _edit_link, _delete_link, _new_link (后台子 shell 等 rofi 退出释放 grab 后执行命令 — script mode 下 rofi 存活期间 grab 键盘, 须先让 rofi 退出) |
-| `_write_json()`    | _ensure_ids, _edit_form, _delete_form, _new_form (jq 表达式原子写回 CONFIG: 唯一 tmp + mv, 避免并发写 .tmp 冲突) |
+| `_handle_input()`  | _main (RETV=2; is_url ? 补协议打开 : 搜索引擎搜索; 首 token `@<name>` 精确匹配(忽略大小写)命中 searcher → 用目标引擎, 未命中/无 @ → 默认 searcher[0], searcher 数组为空回退 SEARCH_ENGINE; 仅 `@name` 无搜索词不打开) |
+| `_build_search_url()` | _handle_input (jq @uri 编码搜索词替换 `{key}`; 无 `{key}` 追加 url 末尾; bash 参数展开花括号须转义 `\{key\}`) |
+| `_searcher_url_by_name()` | _handle_input (jq ascii_downcase 忽略大小写精确匹配 searcher name → url, 未命中输出空) |
+| `_interact_async()`| _edit_link, _delete_link, _new_link, _new_searcher (后台子 shell 等 rofi 退出释放 grab 后执行命令 — script mode 下 rofi 存活期间 grab 键盘, 须先让 rofi 退出) |
+| `_write_json()`    | _ensure_ids, _edit_form, _delete_form, _new_form, _new_searcher_form (jq 表达式原子写回 CONFIG: 唯一 tmp + mv, 避免并发写 .tmp 冲突) |
 | `_edit_link()`     | _main (RETV=10; 按 id 预填数据 → _interact_async _edit_form)           |
 | `_edit_form()`     | _interact_async (表单录入 + 按 id 替换写库, 保留 id)                   |
 | `_delete_link()`   | _main (RETV=3/11; 按 id 取名字 → _interact_async _delete_form)         |
 | `_delete_form()`   | _interact_async (module_confirm 确认后 jq 删除 + notify)               |
 | `_new_link()`      | _dispatch (info=new; → _interact_async _new_form)                      |
 | `_new_form()`      | _interact_async (剪贴板 URL 预填 + 表单校验 + jq 追加; clipboard_url 须在此执行 — xclip 可能阻塞, 不能留在 rofi grab 存活期间) |
-| `_edit_loop()`     | _edit_form, _new_form (表单录入 + 校验循环; 仅 name/url 两字段)        |
+| `_new_searcher()`  | _dispatch (info=new-searcher; → _interact_async _new_searcher_form)    |
+| `_new_searcher_form()` | _interact_async (复用 _edit_loop 表单 + jq 追加到 `.searcher`; name 忽略大小写重名 → critical notify 拒绝, 不写入) |
+| `_edit_loop()`     | _edit_form, _new_form, _new_searcher_form (表单录入 + 校验循环; 仅 name/url 两字段; 第三参 url_label 自定义 URL 字段标签) |
 | `clipboard_url()`  | _new_form (剪贴板严格 URL 校验, 无效静默返回非 0)                      |
 | `_gen_id()`        | _ensure_ids, _new_form (uuid 优先, base64 fallback)                    |
 | `_ensure_ids()`    | _list (全部有 id 时零写入早退, 仅缺 id 时全量重生成)                    |
@@ -389,7 +393,7 @@ wallpaper.sh → source utils/monitor.sh, utils/notify.sh
 - `rofi/` 下各 type 目录的 `*.rasi` 文件
 - `rofi/fonts/` 字体文件
 - `rofi/colors/` `rofi/images/`
-- `~/.config/dwm/quicklinks.json` — quicklinks 书签, `links` 数组元素含 `id`(uuid)、`name`、`url` (icon 字段已废弃移除)
+- `~/.config/dwm/quicklinks.json` — quicklinks 书签, `links` 数组元素含 `id`(uuid)、`name`、`url` (icon 字段已废弃移除); 顶层 `searcher` 数组存搜索引擎 `{name, url}`(name 为唯一键, url 用 `{key}` 占位搜索词, 可省略 → 追加 url 末尾), 自定义输入搜索默认用 `searcher[0]`, 支持 `@<name>` 首 token 指定引擎
 - `~/.config/dwm/wallpaper.json` — 壁纸配置, 含 `defaults`、`monitors`(按屏/组名键)、`groups`(成员名单 + enabled 启停)
 - `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置，`"auto"` 含 `enabled`(默认 false)、`sun_rise_offset`(日出延迟分钟数)、`sun_set_offset`(日落延迟分钟数)，`"cursor"` 含 `theme`/`size`，`"dpi"` 为 Xft.dpi 值，`light`/`dark` 的 `colorscheme` 引用 `~/.config/dwm/colorschemes/` 下的颜色方案文件
 - `~/.xsettingsd` — `set_gtk_theme()` 维护 `Net/ThemeName`(当前 GTK 主题) 行, 保留其他 XSETTINGS 键, `killall -HUP xsettingsd` 触发 XSETTINGS 重载广播
