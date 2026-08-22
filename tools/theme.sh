@@ -140,6 +140,7 @@ set_dunst_theme() {
     [ -z "$mode" ] && return
 
     local cfg="$HOME/.config/dunst/dunstrc"
+    local icon_theme=$(get_theme_config "$mode" "icon") || return
 
     read bg fg < <(get_bg_fg_colors)
     [ -z "$bg" ] && return
@@ -160,6 +161,12 @@ set_dunst_theme() {
         sed -i "s/^\([[:space:]]*\)frame_color[[:space:]]*=.*/\1frame_color = \"$fg\"/" "$cfg"
     else
         echo "frame_color = \"$fg\"" >>"$cfg"
+    fi
+
+    if grep -q 'icon_theme' "$cfg"; then
+        sed -i "s/^\([[:space:]]*\)icon_theme[[:space:]]*=.*/\1icon_theme = \"$icon_theme\"/" "$cfg"
+    else
+        echo "icon_theme = \"$icon_theme\"" >>"$cfg"
     fi
 
     dunstctl reload 2>/dev/null || killall -SIGUSR1 dunst

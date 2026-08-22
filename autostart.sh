@@ -49,7 +49,7 @@ desktop_setting() {
     # 屏保
     launch restart screen "/bin/bash $TOOLS_DIR/screen.sh"
     # 自动主题切换 (auto=false 时立即退出)
-    launch check theme-auto "/bin/bash $TOOLS_DIR/theme.sh auto"
+    launch restart theme-auto "/bin/bash $TOOLS_DIR/theme.sh auto"
 }
 
 application_launch() {
