@@ -14,4 +14,12 @@ esac
 
 curr=$(printf "%.0f" $(echo "$(brightnessctl g)*100/$(brightnessctl m)" | bc))
 
-notify-send -c tools -i display-brightness-symbolic -h string:x-dunst-stack-tag:brightness -h int:value:"$curr" "$curr"
+if [[ $curr -gt 66 ]]; then
+    icon="display-brightness-high-symbolic"
+elif [[ $curr -gt 33 ]]; then
+    icon="display-brightness-medium-symbolic"
+else
+    icon="display-brightness-low-symbolic"
+fi
+
+notify-send -c tools -i $icon -h string:x-dunst-stack-tag:brightness -h int:value:"$curr" "$curr"
