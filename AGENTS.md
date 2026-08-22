@@ -122,7 +122,9 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | `_ensure_ids()`    | _list (全部有 id 时零写入早退, 仅缺 id 时全量重生成)                    |
 | `_load()`          | _list (构建 `_links` 四元组数组 `name|id|url|host`, host 一次性提取复用, 避免每次 fork python3) |
 | `_host_from_url()` | _load (纯 bash 参数展开提取 hostname, 零子进程; 结果写 `$_HOST` 全局变量而非 stdout — 避免 `$()` 命令替换 fork, _load 循环每行一次约省 40ms/64 条) |
-| `_fetch_favicon()` | _ensure_icons (降级链 DuckDuckGo→Google s2→站内 /favicon.ico; curl 超时 + file MIME 校验 image/* + tmp/mv 原子写; 全失败写 .fail 标记) |
+| `_fetch_favicon()` | _ensure_icons (① 页面 HTML 解析 link rel=icon 真实 favicon (优先标准 rel=icon 排除 apple-touch 白底大图), 相对路径拼接 host → ② 降级链 DuckDuckGo→Google s2→站内 /favicon.ico; curl 带浏览器 UA 防 429 限流 + 超时 + file MIME 校验 image/* + tmp/mv 原子写; 全失败写 .fail 标记) |
+| `_dl_icon()`      | _fetch_favicon (curl 下载到文件 + file MIME 校验 image/*, 失败返回 1) |
+| `_icon_href()`    | _fetch_favicon (从 HTML 提取 icon link 的 href, 第二参排除子串如 apple-touch) |
 
 ### tools/lock.sh
 

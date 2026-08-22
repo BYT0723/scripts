@@ -19,6 +19,8 @@ source "$ROFI_DIR/scripts/lib-module.sh"
 
 # ---- favicon 缓存 ----
 ICON_CACHE_DIR="${ICON_CACHE_DIR:-$HOME/.cache/dwm/quicklinks-icons}"
+# 浏览器 UA: 部分站点 (如 platform.deepseek.com) 对无 UA 请求返回 429 限流
+_UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 
 # 提取 hostname (纯 bash 参数展开, 零子进程): 去协议/路径/端口/www
 # 结果写 $_HOST 全局变量 (避免 $() 命令替换 fork, _load 循环内每行一次; 调用方须先调用后读取)
@@ -30,23 +32,72 @@ _host_from_url() {
     [[ "$_HOST" == www.* ]] && _HOST="${_HOST#www.}"
 }
 
-# 降级链下载 favicon: DuckDuckGo → Google s2 → 站内 /favicon.ico
+# curl 下载到文件并校验 MIME 为 image/* (失败返回 1)
+_dl_icon() { # $1=url $2=输出文件
+    curl -fsSL \
+        -A "$_UA" \
+        --connect-timeout 3 \
+        --max-time 5 \
+        -o "$2" "$1" 2>/dev/null &&
+        [[ "$(file -b --mime-type "$2" 2>/dev/null)" == image/* ]]
+}
+
+# 从 HTML 提取 icon link 的 href; 第二参排除子串 (如 apple-touch, 其常为白底大图非期望缩略图)
+_icon_href() { # $1=html $2=排除子串
+    local links
+    links=$(printf '%s' "$1" |
+        grep -oEi '<link[^>]+rel=["'\''][^"'\'']*icon[^"'\'']*["'\''][^>]*>')
+    [[ -n "${2:-}" ]] && links=$(printf '%s' "$links" | grep -viE "$2")
+    printf '%s' "$links" |
+        grep -oEi 'href=["'\''][^"'\'']+["'\'']' |
+        head -n1 |
+        sed -E 's/^href=["'\''](.*)["'\'']$/\1/'
+}
+
+# 下载 favicon: ① 页面 HTML 解析真实 favicon (优先标准 rel=icon) → ② 降级链 DuckDuckGo → Google s2 → 站内 /favicon.ico
 # file 校验 MIME 为 image/* 才有效; 全部失败写 .fail 标记 (避免反复请求)
 _fetch_favicon() {
-    local host="$1" tmp
+    local host="$1" tmp html src
     mkdir -p "$ICON_CACHE_DIR" 2>/dev/null || return 1
     tmp=$(mktemp "$ICON_CACHE_DIR/.favicon.XXXXXX") || return 1
-    local src
+
+    # 1. 从页面 HTML 中寻找 favicon
+    html=$(curl -fsSL \
+        -A "$_UA" \
+        --connect-timeout 3 \
+        --max-time 5 \
+        "https://$host/" 2>/dev/null) || html=
+
+    if [[ -n "$html" ]]; then
+        # 优先标准 rel=icon (排除 apple-touch); 仅含 apple-touch 的站点降级取用
+        src=$(_icon_href "$html" apple-touch)
+        [[ -n "$src" ]] || src=$(_icon_href "$html")
+
+        if [[ -n "$src" ]]; then
+            case "$src" in
+            https://* | http://*) ;;
+            //*) src="https:$src" ;;
+            /*) src="https://$host$src" ;;
+            *) src="https://$host/$src" ;;
+            esac
+            if _dl_icon "$src" "$tmp"; then
+                mv "$tmp" "$ICON_CACHE_DIR/$host.png"
+                return 0
+            fi
+        fi
+    fi
+
+    # 2. fallback 降级链
     for src in \
         "https://icons.duckduckgo.com/ip3/$host.ico" \
         "https://www.google.com/s2/favicons?domain=$host&sz=64" \
         "https://$host/favicon.ico"; do
-        if curl -fsSL --connect-timeout 3 --max-time 5 -o "$tmp" "$src" 2>/dev/null &&
-            [[ "$(file -b --mime-type "$tmp" 2>/dev/null)" == image/* ]]; then
+        if _dl_icon "$src" "$tmp"; then
             mv "$tmp" "$ICON_CACHE_DIR/$host.png"
             return 0
         fi
     done
+
     rm -f "$tmp"
     : >"$ICON_CACHE_DIR/$host.png.fail"
     return 1

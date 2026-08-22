@@ -46,10 +46,13 @@ _host_from_url "not-a-url"; assert_eq "$_HOST" "not-a-url" "host: 非 URL 兜底
 
 rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
 
-# ---- Task 2: _fetch_favicon 降级链 ----
-# mock curl: MOCK_CURL_SEQ_FILE 每行一次调用 (ok=成功写入 -o 目标, 其他=失败); 无序列时默认失败
+# ---- Task 2: _fetch_favicon ----
+# mock curl: 无 -o → HTML 请求 (输出 MOCK_HTML 到 stdout), 有 -o → 下载请求 (写 FAKEIMG)
+# MOCK_CURL_SEQ_FILE 每行一次调用 (ok=成功, 其他=失败); 无序列时默认失败
+# MOCK_CURL_LOG 记录每次调用的全部参数 (验证 UA 传递 / URL)
 cat >"$FAKE_BIN/curl" <<'EOF'
 #!/usr/bin/env bash
+[[ -n "${MOCK_CURL_LOG:-}" ]] && printf '%s\n' "$*" >>"$MOCK_CURL_LOG"
 if [[ -n "${MOCK_CURL_SEQ_FILE:-}" && -s "$MOCK_CURL_SEQ_FILE" ]]; then
 	first=$(head -1 "$MOCK_CURL_SEQ_FILE")
 	tail -n +2 "$MOCK_CURL_SEQ_FILE" >"$MOCK_CURL_SEQ_FILE.tmp" && mv "$MOCK_CURL_SEQ_FILE.tmp" "$MOCK_CURL_SEQ_FILE"
@@ -58,7 +61,11 @@ if [[ -n "${MOCK_CURL_SEQ_FILE:-}" && -s "$MOCK_CURL_SEQ_FILE" ]]; then
 		while [[ $# -gt 0 ]]; do
 			if [[ "$1" == "-o" ]]; then out="$2"; shift 2; else shift; fi
 		done
-		[[ -n "$out" ]] && printf 'FAKEIMG' >"$out"
+		if [[ -n "$out" ]]; then
+			printf 'FAKEIMG' >"$out"
+		else
+			printf '%s' "${MOCK_HTML:-}"
+		fi
 		exit 0
 	fi
 	exit 1
@@ -74,31 +81,66 @@ chmod +x "$FAKE_BIN/curl" "$FAKE_BIN/file"
 export PATH="$FAKE_BIN:$PATH"
 
 rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
-printf 'ok\n' >"$TEST_DIR/curl-seq"
+# HTML 解析到 link favicon (相对路径 /favicon.ico 拼接 host) → png 落盘
+export MOCK_HTML='<html><head><link rel="icon" href="/favicon.ico" /></head></html>' MOCK_CURL_LOG="$TEST_DIR/curl-url.log"
+printf 'ok\nok\n' >"$TEST_DIR/curl-seq"
+export MOCK_CURL_SEQ_FILE="$TEST_DIR/curl-seq"
+_fetch_favicon "github.com"
+unset MOCK_CURL_SEQ_FILE MOCK_HTML MOCK_CURL_LOG
+assert_eq "$([[ -f "$ICON_CACHE_DIR/github.com.png" ]] && echo yes)" "yes" "HTML: 解析 link favicon → png 落盘"
+assert_file_has "$TEST_DIR/curl-url.log" "https://github.com/favicon.ico" "HTML: 相对路径 /favicon.ico 拼接 https://host + path"
+assert_file_has "$TEST_DIR/curl-url.log" "-A Mozilla/5.0" "curl: 携带浏览器 UA (防 429 限流)"
+
+# HTML 同时含 apple-touch-icon 与 rel=icon → 优先标准 rel=icon (排除白底大图)
+rm -f "$ICON_CACHE_DIR"/*
+rm -f "$TEST_DIR/curl-url.log"
+export MOCK_HTML='<link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png"><link rel="icon" type="image/x-icon" href="/favicon.svg">' MOCK_CURL_LOG="$TEST_DIR/curl-url.log"
+printf 'ok\nok\n' >"$TEST_DIR/curl-seq"
+export MOCK_CURL_SEQ_FILE="$TEST_DIR/curl-seq"
+_fetch_favicon "example.com"
+unset MOCK_CURL_SEQ_FILE MOCK_HTML MOCK_CURL_LOG
+assert_file_has "$TEST_DIR/curl-url.log" "https://example.com/favicon.svg" "HTML: 优先 rel=icon → 取 favicon.svg 而非 apple-touch-icon"
+assert_eq "$([[ -f "$ICON_CACHE_DIR/example.com.png" ]] && echo yes)" "yes" "HTML: 标准 favicon → png 落盘"
+
+# 仅含 apple-touch-icon → 降级取用
+rm -f "$ICON_CACHE_DIR"/*
+rm -f "$TEST_DIR/curl-url.log"
+export MOCK_HTML='<link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png">' MOCK_CURL_LOG="$TEST_DIR/curl-url.log"
+printf 'ok\nok\n' >"$TEST_DIR/curl-seq"
+export MOCK_CURL_SEQ_FILE="$TEST_DIR/curl-seq"
+_fetch_favicon "example.com"
+unset MOCK_CURL_SEQ_FILE MOCK_HTML MOCK_CURL_LOG
+assert_file_has "$TEST_DIR/curl-url.log" "https://example.com/icon-180.png" "HTML: 仅 apple-touch-icon → 降级取用"
+
+rm -f "$ICON_CACHE_DIR"/*
+# HTML 请求失败 → 降级链 DDG 成功
+printf 'fail\nok\n' >"$TEST_DIR/curl-seq"
 export MOCK_CURL_SEQ_FILE="$TEST_DIR/curl-seq"
 _fetch_favicon "github.com"
 unset MOCK_CURL_SEQ_FILE
-assert_eq "$([[ -f "$ICON_CACHE_DIR/github.com.png" ]] && echo yes)" "yes" "下载: 首源成功 → png 落盘"
-assert_eq "$(wc -c <"$ICON_CACHE_DIR/github.com.png")" "7" "下载: 缓存内容落盘"
+assert_eq "$([[ -f "$ICON_CACHE_DIR/github.com.png" ]] && echo yes)" "yes" "降级: HTML 失败 → DDG 成功 → png 落盘"
+assert_eq "$(wc -c <"$ICON_CACHE_DIR/github.com.png")" "7" "降级: 缓存内容落盘"
 
 rm -f "$ICON_CACHE_DIR"/*
-printf 'fail\nok\n' >"$TEST_DIR/curl-seq"
+# HTML 空 + DDG 失败 → Google 成功
+printf 'ok\nfail\nok\n' >"$TEST_DIR/curl-seq"
 export MOCK_CURL_SEQ_FILE="$TEST_DIR/curl-seq"
 _fetch_favicon "example.com"
 unset MOCK_CURL_SEQ_FILE
-assert_eq "$([[ -f "$ICON_CACHE_DIR/example.com.png" ]] && echo yes)" "yes" "下载: 首源失败降级次源 → png 落盘"
+assert_eq "$([[ -f "$ICON_CACHE_DIR/example.com.png" ]] && echo yes)" "yes" "降级: HTML 空 → DDG 失败 → Google 成功 → png 落盘"
 
 rm -f "$ICON_CACHE_DIR"/*
-printf 'fail\nfail\nfail\n' >"$TEST_DIR/curl-seq"
+# HTML + 降级链全失败 → .fail 标记
+printf 'fail\nfail\nfail\nfail\n' >"$TEST_DIR/curl-seq"
 export MOCK_CURL_SEQ_FILE="$TEST_DIR/curl-seq"
 _fetch_favicon "nosite.com"
 unset MOCK_CURL_SEQ_FILE
-assert_eq "$([[ -f "$ICON_CACHE_DIR/nosite.com.png.fail" ]] && echo yes)" "yes" "下载: 三源全失败 → .fail 标记"
+assert_eq "$([[ -f "$ICON_CACHE_DIR/nosite.com.png.fail" ]] && echo yes)" "yes" "下载: 全失败 → .fail 标记"
 [[ -f "$ICON_CACHE_DIR/nosite.com.png" ]] && { echo "FAIL: 全失败不应有 png"; FAIL=1; } || echo "ok: 全失败无 png 残留"
 
-# 下载内容非 image → file 校验拦截, 全源作废
+# 下载内容非 image → file 校验拦截, HTML + 降级链全作废
 rm -f "$ICON_CACHE_DIR"/*
-printf 'ok\nok\nok\n' >"$TEST_DIR/curl-seq"
+printf 'ok\nok\nok\nok\n' >"$TEST_DIR/curl-seq"
 export MOCK_CURL_SEQ_FILE="$TEST_DIR/curl-seq" MOCK_FILE_MIME="text/html"
 _fetch_favicon "badcontent.com"
 unset MOCK_CURL_SEQ_FILE MOCK_FILE_MIME
@@ -193,7 +235,7 @@ fi
 wait
 rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
 : >"$ICON_CACHE_DIR/bing.com.png.fail"
-printf 'ok\n' >"$TEST_DIR/curl-seq"
+printf 'ok\nok\n' >"$TEST_DIR/curl-seq"
 export MOCK_CURL_SEQ_FILE="$TEST_DIR/curl-seq"
 _ensure_icons
 wait
@@ -288,7 +330,7 @@ unset MOCK_CURL_SEQ_FILE
 wait
 rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
 : >"$ICON_CACHE_DIR/example.com.png.fail"
-printf 'ok\n' >"$TEST_DIR/curl-seq"
+printf 'ok\nok\n' >"$TEST_DIR/curl-seq"
 export MOCK_CURL_SEQ_FILE="$TEST_DIR/curl-seq"
 _ensure_icons
 wait
@@ -307,7 +349,7 @@ cat >"$CONFIG" <<'JSON'
 ]}
 JSON
 _load
-printf 'ok\n' >"$TEST_DIR/curl-seq"
+printf 'ok\nok\n' >"$TEST_DIR/curl-seq"
 export MOCK_CURL_SEQ_FILE="$TEST_DIR/curl-seq"
 _ensure_icons
 wait
