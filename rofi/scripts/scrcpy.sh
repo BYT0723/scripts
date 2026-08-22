@@ -23,52 +23,52 @@ SCRCPY_FLAGS=" \
 "
 
 _sanitize_key() {
-	echo "$1" | tr -c '[:alnum:]' '_'
+    echo "$1" | tr -c '[:alnum:]' '_'
 }
 
 _device_pid_file() {
-	echo "/tmp/scrcpy_pid_$(_sanitize_key "$1")"
+    echo "/tmp/scrcpy_pid_$(_sanitize_key "$1")"
 }
 
 _check_deps() {
-	if ! command -v adb &>/dev/null; then
-		notify-send -c tools -i dialog-error "Scrcpy" "adb not found. Please install android-tools."
-		exit 1
-	fi
-	if ! command -v scrcpy &>/dev/null; then
-		notify-send -c tools -i dialog-error "Scrcpy" "scrcpy not found."
-		exit 1
-	fi
+    if ! command -v adb &>/dev/null; then
+        notify-send -c tools -i dialog-error "Scrcpy" "adb not found. Please install android-tools."
+        exit 1
+    fi
+    if ! command -v scrcpy &>/dev/null; then
+        notify-send -c tools -i dialog-error "Scrcpy" "scrcpy not found."
+        exit 1
+    fi
 }
 
 _get_devices() {
-	adb devices -l 2>/dev/null | grep -w device | grep -v '_adb-tls-connect' | while read -r serial _ rest; do
-		local model=$(echo "$rest" | grep -oP 'model:\K\S+')
-		[ -n "$model" ] && echo "${serial} (${model//_/ })" || echo "$serial"
-	done
+    adb devices -l 2>/dev/null | grep -w device | grep -v '_adb-tls-connect' | while read -r serial _ rest; do
+        local model=$(echo "$rest" | grep -oP 'model:\K\S+')
+        [ -n "$model" ] && echo "${serial} (${model//_/ })" || echo "$serial"
+    done
 }
 
 _is_device_connected() {
-	local pid_file=$(_device_pid_file "$1")
-	if [ -f "$pid_file" ]; then
-		kill -0 "$(cat "$pid_file")" 2>/dev/null && return 0
-		rm -f "$pid_file"
-	fi
-	return 1
+    local pid_file=$(_device_pid_file "$1")
+    if [ -f "$pid_file" ]; then
+        kill -0 "$(cat "$pid_file")" 2>/dev/null && return 0
+        rm -f "$pid_file"
+    fi
+    return 1
 }
 
 _connect() {
-	local serial="$1"
-	nohup scrcpy ${SCRCPY_FLAGS} -s "$serial" >/dev/null 2>&1 &
-	echo $! >"$(_device_pid_file "$serial")"
+    local serial="$1"
+    nohup scrcpy ${SCRCPY_FLAGS} -s "$serial" >/dev/null 2>&1 &
+    echo $! >"$(_device_pid_file "$serial")"
 }
 
 _disconnect() {
-	local pid_file=$(_device_pid_file "$1")
-	if [ -f "$pid_file" ]; then
-		kill "$(cat "$pid_file")" 2>/dev/null
-		rm -f "$pid_file"
-	fi
+    local pid_file=$(_device_pid_file "$1")
+    if [ -f "$pid_file" ]; then
+        kill "$(cat "$pid_file")" 2>/dev/null
+        rm -f "$pid_file"
+    fi
 }
 
 _check_deps
@@ -79,21 +79,21 @@ declare -A _device_map
 menu_lines=""
 
 if [ -n "$devices" ]; then
-	while IFS= read -r line; do
-		[ -z "$line" ] && continue
-		serial=$(echo "$line" | awk '{print $1}')
-		key="device_$(_sanitize_key "$serial")"
-		_device_map[$key]="$serial"
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        serial=$(echo "$line" | awk '{print $1}')
+        key="device_$(_sanitize_key "$serial")"
+        _device_map[$key]="$serial"
 
-		if _is_device_connected "$serial"; then
-			icon=""
-		else
-			icon=""
-		fi
+        if _is_device_connected "$serial"; then
+            icon=""
+        else
+            icon=""
+        fi
 
-		printf -v _line "%s|%s|%s|\n" "$key" "$icon" "$line"
-		menu_lines+="$_line"
-	done <<<"$devices"
+        printf -v _line "%s|%s|%s|\n" "$key" "$icon" "$line"
+        menu_lines+="$_line"
+    done <<<"$devices"
 fi
 
 printf -v _line "%s|%s|%s|\n" "wireless-connect" "󰈀" "Wireless Connect"
@@ -105,48 +105,48 @@ module_parse <<<"$menu_lines"
 
 connected=0
 for key in "${!_device_map[@]}"; do
-	serial="${_device_map[$key]}"
-	if _is_device_connected "$serial"; then
-		eval "handle_${key}() { _disconnect '${serial}'; }"
-		((connected++))
-	else
-		eval "handle_${key}() { _connect '${serial}'; }"
-	fi
+    serial="${_device_map[$key]}"
+    if _is_device_connected "$serial"; then
+        eval "handle_${key}() { _disconnect '${serial}'; }"
+        ((connected++))
+    else
+        eval "handle_${key}() { _connect '${serial}'; }"
+    fi
 done
 
 handle_wireless_connect() {
-	local connect_addr=$(module_input "Device Address" "IP and port from Wireless Debugging screen")
-	[[ -z "$connect_addr" ]] && return
+    local connect_addr=$(module_input "Device Address" "IP and port from Wireless Debugging screen")
+    [[ -z "$connect_addr" ]] && return
 
-	if ! adb connect "$connect_addr" 2>/dev/null; then
-		notify-send -c tools -i dialog-error "Scrcpy" "Connect failed."
-		return
-	fi
-	notify-send -c tools -i smartphone "Scrcpy" "Connected: $connect_addr"
+    if ! adb connect "$connect_addr" 2>/dev/null; then
+        notify-send -c tools -i dialog-error "Scrcpy" "Connect failed."
+        return
+    fi
+    notify-send -c tools -i smartphone "Scrcpy" "Connected: $connect_addr"
 
-	_connect "$connect_addr"
+    _connect "$connect_addr"
 }
 
 handle_wireless_pair() {
-	local pair_addr=$(module_input "Pairing Address" "IP and port shown in pairing section")
-	[[ -z "$pair_addr" ]] && return
+    local pair_addr=$(module_input "Pairing Address" "IP and port shown in pairing section")
+    [[ -z "$pair_addr" ]] && return
 
-	local pair_code=$(module_input "Pairing Code" "6-digit code displayed on your device")
-	[[ -z "$pair_code" ]] && return
+    local pair_code=$(module_input "Pairing Code" "6-digit code displayed on your device")
+    [[ -z "$pair_code" ]] && return
 
-	if ! adb pair "$pair_addr" "$pair_code" 2>/dev/null; then
-		notify-send -c tools -i dialog-error "Scrcpy" "Pairing failed."
-		return
-	fi
-	notify-send -c tools -i smartphone "Scrcpy" "Paired: $pair_addr"
+    if ! adb pair "$pair_addr" "$pair_code" 2>/dev/null; then
+        notify-send -c tools -i dialog-error "Scrcpy" "Pairing failed."
+        return
+    fi
+    notify-send -c tools -i smartphone "Scrcpy" "Paired: $pair_addr"
 
-	handle_wireless_connect
+    handle_wireless_connect
 }
 
 if [ "$connected" -gt 0 ]; then
-	MODULE_MESG="$connected device(s) connected"
+    MODULE_MESG="$connected device(s) connected"
 else
-	MODULE_MESG="Select device or connect wirelessly"
+    MODULE_MESG="Select device or connect wirelessly"
 fi
 
 module_loop

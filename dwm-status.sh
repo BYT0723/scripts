@@ -9,80 +9,80 @@ DWM_STATUS_VERTICAL_SPLIT="\x7F"
 # $1: background color
 # ${@:2} tools...
 new_pane() {
-	bg=$1
-	shift
+    bg=$1
+    shift
 
-	case "$1" in
-	\\x??*)
-		first_status_code="${1:0:4}"
-		first_text="${1:4}"
-		;;
-	*)
-		first_text="$1"
-		;;
-	esac
-	shift
+    case "$1" in
+    \\x??*)
+        first_status_code="${1:0:4}"
+        first_text="${1:4}"
+        ;;
+    *)
+        first_text="$1"
+        ;;
+    esac
+    shift
 
-	printf "%s" "^b$bg^$first_status_code$DWM_STATUS_LEFT_RADIUS$first_text$@$DWM_STATUS_RIGHT_RADIUS"
+    printf "%s" "^b$bg^$first_status_code$DWM_STATUS_LEFT_RADIUS$first_text$@$DWM_STATUS_RIGHT_RADIUS"
 }
 
 panes() {
-	local panes
-	local weather_str=$(print_weather)
-	local rss_str=$(print_rss)
-	local mail_str=$(print_mail)
-	local notification_str=$(print_notification)
-	local mpd_str=$(print_mpd)
+    local panes
+    local weather_str=$(print_weather)
+    local rss_str=$(print_rss)
+    local mail_str=$(print_mail)
+    local notification_str=$(print_notification)
+    local mpd_str=$(print_mpd)
 
-	[ -n "$weather_str" ] && panes+="$(new_pane $black "\x09^c$blue^$weather_str")"
-	[ $mpd_single_pane -gt 0 ] && [ -n "$mpd_str" ] && panes+="$(new_pane $black "\x0a$mpd_str")"
+    [ -n "$weather_str" ] && panes+="$(new_pane $black "\x09^c$blue^$weather_str")"
+    [ $mpd_single_pane -gt 0 ] && [ -n "$mpd_str" ] && panes+="$(new_pane $black "\x0a$mpd_str")"
 
-	# net traffic monitor pane
-	panes+="$(new_pane $black "\x0b^c$white^$(print_speed)")"
-	# system monitor pane
-	panes+="$(new_pane $black "\x08$(print_cpu)$(print_temperature)" "\x07$(print_mem)" "\x06$(print_disk)")"
+    # net traffic monitor pane
+    panes+="$(new_pane $black "\x0b^c$white^$(print_speed)")"
+    # system monitor pane
+    panes+="$(new_pane $black "\x08$(print_cpu)$(print_temperature)" "\x07$(print_mem)" "\x06$(print_disk)")"
 
-	panes+="$DWM_STATUS_VERTICAL_SPLIT"
+    panes+="$DWM_STATUS_VERTICAL_SPLIT"
 
-	# notification pane
-	if [[ -n $rss_str || -n $mail_str || -n $notification_str ]]; then
-		panes+="$(new_pane $black "\x0d$rss_str" "\x0c$mail_str" "\x0f$notification_str")"
-	fi
+    # notification pane
+    if [[ -n $rss_str || -n $mail_str || -n $notification_str ]]; then
+        panes+="$(new_pane $black "\x0d$rss_str" "\x0c$mail_str" "\x0f$notification_str")"
+    fi
 
-	# one icon tools pane
-	[ "$mpd_single_pane" -eq 0 ] && mpd_part="\x0a$mpd_str"
+    # one icon tools pane
+    [ "$mpd_single_pane" -eq 0 ] && mpd_part="\x0a$mpd_str"
 
-	panes+="$(new_pane $black "\x10$(print_screencast)" "\x0e$(print_singbox)" "$mpd_part" "\x03$(print_volume)" "\x02$(print_battery)")"
-	# datetime pane
-	panes+="$(new_pane $black "\x01^c$cyan^$(print_date)")"
+    panes+="$(new_pane $black "\x10$(print_screencast)" "\x0e$(print_singbox)" "$mpd_part" "\x03$(print_volume)" "\x02$(print_battery)")"
+    # datetime pane
+    panes+="$(new_pane $black "\x01^c$cyan^$(print_date)")"
 
-	printf "%b\n" "$panes"
+    printf "%b\n" "$panes"
 }
 
 launch_daemon() {
-	pids=()
-	mkdir -p /tmp/dwm-status
+    pids=()
+    mkdir -p /tmp/dwm-status
 
-	update_cpu_daemon &
-	pids+=($!)
-	update_traffic_daemon &
-	pids+=($!)
-	interval_update_daemon -i 1800 update_weather &
-	pids+=($!)
-	interval_update_daemon -i 3600 update_weather_forecast &
-	pids+=($!)
-	interval_update_daemon -i 60 update_mail &
-	pids+=($!)
-	interval_update_daemon -i 300 update_rss &
-	pids+=($!)
-	update_mpd_daemon &
-	pids+=($!)
+    update_cpu_daemon &
+    pids+=($!)
+    update_traffic_daemon &
+    pids+=($!)
+    interval_update_daemon -i 1800 update_weather &
+    pids+=($!)
+    interval_update_daemon -i 3600 update_weather_forecast &
+    pids+=($!)
+    interval_update_daemon -i 60 update_mail &
+    pids+=($!)
+    interval_update_daemon -i 300 update_rss &
+    pids+=($!)
+    update_mpd_daemon &
+    pids+=($!)
 
-	# 保存当前进程 PID
-	echo $BASHPID >/tmp/dwm-status/status-daemon-pid
+    # 保存当前进程 PID
+    echo $BASHPID >/tmp/dwm-status/status-daemon-pid
 
-	# 退出时杀掉所有子进程(含孙进程)
-	trap '
+    # 退出时杀掉所有子进程(含孙进程)
+    trap '
 		for p in "${pids[@]}"; do
 			pkill -P $p 2>/dev/null
 			kill $p 2>/dev/null
@@ -90,62 +90,62 @@ launch_daemon() {
 		rm -f /tmp/dwm-status/status-daemon-pid
 	' EXIT
 
-	# Keep daemon running
-	wait
+    # Keep daemon running
+    wait
 }
 
 launch_refresh() {
-	mkdir -p /tmp/dwm-status
+    mkdir -p /tmp/dwm-status
 
-	# 保存当前进程 PID
-	echo $BASHPID >/tmp/dwm-status/status-refresh-pid
+    # 保存当前进程 PID
+    echo $BASHPID >/tmp/dwm-status/status-refresh-pid
 
-	trap 'rm -f /tmp/dwm-status/status-refresh-pid' EXIT
+    trap 'rm -f /tmp/dwm-status/status-refresh-pid' EXIT
 
-	local interval=${1:-1}
-	# loop dwm-status-refresh.sh to refresh statusBar
-	while true; do
-		xsetroot -name "$(panes)"
-		# refresh interval
-		sleep $interval
-	done
+    local interval=${1:-1}
+    # loop dwm-status-refresh.sh to refresh statusBar
+    while true; do
+        xsetroot -name "$(panes)"
+        # refresh interval
+        sleep $interval
+    done
 }
 
 reboot_daemon() {
-	local pid_file="/tmp/dwm-status/status-daemon-pid"
-	if [ -f "$pid_file" ]; then
-		local pid=$(cat "$pid_file")
-		kill $pid 2>/dev/null
-		waitpid $pid
-	fi
+    local pid_file="/tmp/dwm-status/status-daemon-pid"
+    if [ -f "$pid_file" ]; then
+        local pid=$(cat "$pid_file")
+        kill $pid 2>/dev/null
+        waitpid $pid
+    fi
 
-	launch_daemon &
+    launch_daemon &
 }
 
 reboot_refresh() {
-	local pid_file="/tmp/dwm-status/status-refresh-pid"
-	if [ -f "$pid_file" ]; then
-		local pid=$(cat "$pid_file")
-		kill $pid 2>/dev/null
-		waitpid $pid
-	fi
+    local pid_file="/tmp/dwm-status/status-refresh-pid"
+    if [ -f "$pid_file" ]; then
+        local pid=$(cat "$pid_file")
+        kill $pid 2>/dev/null
+        waitpid $pid
+    fi
 
-	launch_refresh &
+    launch_refresh &
 }
 
 case "$1" in
 "reboot")
-	reboot_daemon
-	reboot_refresh
-	;;
+    reboot_daemon
+    reboot_refresh
+    ;;
 "reboot-daemon")
-	reboot_daemon
-	;;
+    reboot_daemon
+    ;;
 "reboot-refresh")
-	reboot_refresh
-	;;
+    reboot_refresh
+    ;;
 *)
-	launch_daemon &
-	launch_refresh &
-	;;
+    launch_daemon &
+    launch_refresh &
+    ;;
 esac

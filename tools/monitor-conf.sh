@@ -19,21 +19,21 @@ MONITOR_MAP["HDMI-A-0"]="--mode 1920x1080 --rate 144.00 --set "TearFree" on --ro
 current=$(xrandr | grep " connected " | wc -l)
 
 if [[ $current == 1 ]]; then
-	name="$(xrandr | grep " connected " | awk '{print $1}')"
-	xrandr --output $name ${SINGLE_MONITOR_MAP[$name]}
-	exit
+    name="$(xrandr | grep " connected " | awk '{print $1}')"
+    xrandr --output $name ${SINGLE_MONITOR_MAP[$name]}
+    exit
 fi
 
 cmd=(xrandr)
 
 while read -r monitor; do
-	cmd+=(--output "$monitor")
+    cmd+=(--output "$monitor")
 
-	if ((SINGLE_MONITOR_ENABLE > 0)) && [[ -n $SINGLE_MONITOR_NAME ]] && [[ "$name" != "$SINGLE_MONITOR_NAME" ]]; then
-		cmd+=(--off)
-	else
-		cmd+=(${MONITOR_MAP[$monitor]})
-	fi
+    if ((SINGLE_MONITOR_ENABLE > 0)) && [[ -n $SINGLE_MONITOR_NAME ]] && [[ "$name" != "$SINGLE_MONITOR_NAME" ]]; then
+        cmd+=(--off)
+    else
+        cmd+=(${MONITOR_MAP[$monitor]})
+    fi
 done < <(xrandr | grep " connected " | awk '{print $1}')
 
 "${cmd[@]}"

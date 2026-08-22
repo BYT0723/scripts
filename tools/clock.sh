@@ -11,11 +11,11 @@ CATEGORY=""
 TAG=""
 
 while getopts "l:c:" opt; do
-	case $opt in
-	l) LEVEL=$OPTARG ;;
-	c) CATEGORY=$OPTARG ;;
-	?) exit 1 ;;
-	esac
+    case $opt in
+    l) LEVEL=$OPTARG ;;
+    c) CATEGORY=$OPTARG ;;
+    ?) exit 1 ;;
+    esac
 done
 
 shift $((OPTIND - 1))
@@ -39,5 +39,5 @@ icons["PLAN"]="  "
 # Because this script is called by the cronie service, it needs to export DBUS_SESSION_BUS_ADDRESS
 # If DBUS_SESSION_BUS_ADDRESS is invalid, use `echo $DBUS_SESSION_BUS_ADDRESS` to get new DBUS_SESSION_BUS_ADDRESS
 DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS:-"unix:path=/run/user/1000/bus"} \
-	DISPLAY=${DISPLAY:-:0} \
-	timeout 1 notify-send -i preferences-system-time-symbolic -h string:x-dunst-stack-tag:$TAG -u "$LEVEL" "$ICON$(date +"%H:%M")" "$MESG"
+    DISPLAY=${DISPLAY:-:0} \
+    timeout 1 notify-send -i preferences-system-time-symbolic -h string:x-dunst-stack-tag:$TAG -u "$LEVEL" "$ICON$(date +"%H:%M")" "$MESG"

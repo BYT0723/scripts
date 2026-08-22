@@ -22,38 +22,38 @@ SECRET=$2
 # -----------------------------
 
 auth_header() {
-	if [[ -n "$SECRET" ]]; then
-		echo "-H Authorization: Bearer $SECRET"
-	fi
+    if [[ -n "$SECRET" ]]; then
+        echo "-H Authorization: Bearer $SECRET"
+    fi
 }
 
 get_selectors() {
-	local proxies
-	proxies=$(curl -s $(auth_header) "$API/proxies")
-	printf '%s\n' "$proxies" | jq -r '.proxies | to_entries[] | select(.value.type=="Selector") | "\(.key)\t\(.value.now)"' |
-		while IFS=$'\t' read -r key now; do
-			local delay delay_str
-			delay=$(printf '%s\n' "$proxies" | jq -r --arg n "$now" '.proxies[$n].history[0].delay // empty')
-			if [[ ! "$delay" =~ ^[0-9]+$ ]]; then
-				local child
-				child=$(printf '%s\n' "$proxies" | jq -r --arg n "$now" '.proxies[$n].now // empty')
-				[[ -n "$child" && "$child" != "$now" ]] && delay=$(printf '%s\n' "$proxies" | jq -r --arg n "$child" '.proxies[$n].history[0].delay // "✗"')
-			fi
-			if [[ "$delay" =~ ^[0-9]+$ ]]; then
-				delay_str="${delay}ms"
-			else
-				delay_str="${delay:-✗}"
-			fi
-			printf "%-16s  %-20s%6s\n" "$key" "$now" "$delay_str"
-		done
+    local proxies
+    proxies=$(curl -s $(auth_header) "$API/proxies")
+    printf '%s\n' "$proxies" | jq -r '.proxies | to_entries[] | select(.value.type=="Selector") | "\(.key)\t\(.value.now)"' |
+        while IFS=$'\t' read -r key now; do
+            local delay delay_str
+            delay=$(printf '%s\n' "$proxies" | jq -r --arg n "$now" '.proxies[$n].history[0].delay // empty')
+            if [[ ! "$delay" =~ ^[0-9]+$ ]]; then
+                local child
+                child=$(printf '%s\n' "$proxies" | jq -r --arg n "$now" '.proxies[$n].now // empty')
+                [[ -n "$child" && "$child" != "$now" ]] && delay=$(printf '%s\n' "$proxies" | jq -r --arg n "$child" '.proxies[$n].history[0].delay // "✗"')
+            fi
+            if [[ "$delay" =~ ^[0-9]+$ ]]; then
+                delay_str="${delay}ms"
+            else
+                delay_str="${delay:-✗}"
+            fi
+            printf "%-16s  %-20s%6s\n" "$key" "$now" "$delay_str"
+        done
 }
 
 get_options() {
-	local group="$1"
-	local current="$2"
-	local proxies
-	proxies=$(curl -s $(auth_header) "$API/proxies")
-	echo "$proxies" | jq -r --arg group "$group" --arg current "$current" '
+    local group="$1"
+    local current="$2"
+    local proxies
+    proxies=$(curl -s $(auth_header) "$API/proxies")
+    echo "$proxies" | jq -r --arg group "$group" --arg current "$current" '
 		.proxies[$group].all[] as $name |
 		(.proxies[$name] // {type: "?", history: []}) |
 		[ $name, .type, (.history[0].delay // "✗"), (.now // "") ] |
@@ -82,19 +82,19 @@ get_options() {
 }
 
 get_now() {
-	local group="$1"
-	curl -s $(auth_header) "$API/proxies/$group" |
-		jq -r '.now'
+    local group="$1"
+    curl -s $(auth_header) "$API/proxies/$group" |
+        jq -r '.now'
 }
 
 switch_node() {
-	local group="$1"
-	local node="$2"
+    local group="$1"
+    local node="$2"
 
-	curl -s -X PUT $(auth_header) \
-		-H "Content-Type: application/json" \
-		-d "{\"name\":\"$node\"}" \
-		"$API/proxies/$group" >/dev/null
+    curl -s -X PUT $(auth_header) \
+        -H "Content-Type: application/json" \
+        -d "{\"name\":\"$node\"}" \
+        "$API/proxies/$group" >/dev/null
 }
 
 # Group select

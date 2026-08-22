@@ -12,22 +12,22 @@ mkdir -p "$ICON_CACHE_DIR"
 
 FAIL=0
 assert_eq() { # got want msg
-	if [[ "$1" == "$2" ]]; then
-		echo "ok: $3"
-	else
-		echo "FAIL: $3"
-		echo "  got : $(printf '%q' "$1")"
-		echo "  want: $(printf '%q' "$2")"
-		FAIL=1
-	fi
+    if [[ "$1" == "$2" ]]; then
+        echo "ok: $3"
+    else
+        echo "FAIL: $3"
+        echo "  got : $(printf '%q' "$1")"
+        echo "  want: $(printf '%q' "$2")"
+        FAIL=1
+    fi
 }
 assert_file_has() { # file content msg
-	if grep -aqe "$2" "$1"; then
-		echo "ok: $3"
-	else
-		echo "FAIL: $3 (file 不含 $2)"
-		FAIL=1
-	fi
+    if grep -aqe "$2" "$1"; then
+        echo "ok: $3"
+    else
+        echo "FAIL: $3 (file 不含 $2)"
+        FAIL=1
+    fi
 }
 
 # ---- source ----
@@ -38,11 +38,16 @@ mkdir -p "$FAKE_BIN"
 
 # ---- Task 1: _host_from_url ----
 # _host_from_url 结果写 $_HOST 全局变量 (避免 $() 命令替换 fork — 性能优化)
-_host_from_url "https://www.github.com/x"; assert_eq "$_HOST" "github.com" "host: strip www"
-_host_from_url "https://github.com"; assert_eq "$_HOST" "github.com" "host: 无 www 原样"
-_host_from_url "http://localhost:8080/path"; assert_eq "$_HOST" "localhost" "host: 端口剥除"
-_host_from_url "https://translate.google.com/"; assert_eq "$_HOST" "translate.google.com" "host: 子域保留"
-_host_from_url "not-a-url"; assert_eq "$_HOST" "not-a-url" "host: 非 URL 兜底"
+_host_from_url "https://www.github.com/x"
+assert_eq "$_HOST" "github.com" "host: strip www"
+_host_from_url "https://github.com"
+assert_eq "$_HOST" "github.com" "host: 无 www 原样"
+_host_from_url "http://localhost:8080/path"
+assert_eq "$_HOST" "localhost" "host: 端口剥除"
+_host_from_url "https://translate.google.com/"
+assert_eq "$_HOST" "translate.google.com" "host: 子域保留"
+_host_from_url "not-a-url"
+assert_eq "$_HOST" "not-a-url" "host: 非 URL 兜底"
 
 rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
 
@@ -136,7 +141,10 @@ export MOCK_CURL_SEQ_FILE="$TEST_DIR/curl-seq"
 _fetch_favicon "nosite.com"
 unset MOCK_CURL_SEQ_FILE
 assert_eq "$([[ -f "$ICON_CACHE_DIR/nosite.com.png.fail" ]] && echo yes)" "yes" "下载: 全失败 → .fail 标记"
-[[ -f "$ICON_CACHE_DIR/nosite.com.png" ]] && { echo "FAIL: 全失败不应有 png"; FAIL=1; } || echo "ok: 全失败无 png 残留"
+[[ -f "$ICON_CACHE_DIR/nosite.com.png" ]] && {
+    echo "FAIL: 全失败不应有 png"
+    FAIL=1
+} || echo "ok: 全失败无 png 残留"
 
 # 下载内容非 image → file 校验拦截, HTML + 降级链全作废
 rm -f "$ICON_CACHE_DIR"/*
@@ -189,12 +197,14 @@ chmod +x "$FAKE_BIN/xdg-open" "$FAKE_BIN/yad" "$FAKE_BIN/rofi" "$FAKE_BIN/notify
 _list >"$TEST_DIR/list.out"
 printf 'GitHub\0info\x1fid-1\nExample\0info\x1fid-2\n%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" >"$TEST_DIR/list.expected"
 if cmp -s "$TEST_DIR/list.out" "$TEST_DIR/list.expected"; then
-	echo "ok: _list 输出 (含 info 元数据, New 行底部, use-hot-keys)"
+    echo "ok: _list 输出 (含 info 元数据, New 行底部, use-hot-keys)"
 else
-	echo "FAIL: _list 输出"
-	echo "--- got ---"; xxd "$TEST_DIR/list.out" | head -10
-	echo "--- want ---"; xxd "$TEST_DIR/list.expected" | head -10
-	FAIL=1
+    echo "FAIL: _list 输出"
+    echo "--- got ---"
+    xxd "$TEST_DIR/list.out" | head -10
+    echo "--- want ---"
+    xxd "$TEST_DIR/list.expected" | head -10
+    FAIL=1
 fi
 
 # ---- Task 2b: @ 提示 searcher 行 ----
@@ -208,12 +218,14 @@ JSON
 _list >"$TEST_DIR/list-searcher.out"
 printf '%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n@google\0nonselectable\x1ftrue\n@bing\0nonselectable\x1ftrue\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" >"$TEST_DIR/list-searcher.expected"
 if cmp -s "$TEST_DIR/list-searcher.out" "$TEST_DIR/list-searcher.expected"; then
-	echo "ok: _list 含 searcher → @<name> 提示行 + nonselectable 不可选中"
+    echo "ok: _list 含 searcher → @<name> 提示行 + nonselectable 不可选中"
 else
-	echo "FAIL: _list searcher 提示行"
-	echo "--- got ---"; xxd "$TEST_DIR/list-searcher.out" | head -10
-	echo "--- want ---"; xxd "$TEST_DIR/list-searcher.expected" | head -10
-	FAIL=1
+    echo "FAIL: _list searcher 提示行"
+    echo "--- got ---"
+    xxd "$TEST_DIR/list-searcher.out" | head -10
+    echo "--- want ---"
+    xxd "$TEST_DIR/list-searcher.expected" | head -10
+    FAIL=1
 fi
 
 # ---- Task 2c: searcher icon 展示 (host 命中缓存 → \0icon 属性) ----
@@ -223,12 +235,14 @@ rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
 _list >"$TEST_DIR/list-searcher-icon.out"
 printf '%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n@google\0nonselectable\x1ftrue\x1ficon\x1f%s\n@bing\0nonselectable\x1ftrue\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" "$ICON_CACHE_DIR/google.com.png" >"$TEST_DIR/list-searcher-icon.expected"
 if cmp -s "$TEST_DIR/list-searcher-icon.out" "$TEST_DIR/list-searcher-icon.expected"; then
-	echo "ok: _list searcher icon hit → @<name> + \\x1f 连接 icon 属性"
+    echo "ok: _list searcher icon hit → @<name> + \\x1f 连接 icon 属性"
 else
-	echo "FAIL: _list searcher icon 展示"
-	echo "--- got ---"; xxd "$TEST_DIR/list-searcher-icon.out" | head -10
-	echo "--- want ---"; xxd "$TEST_DIR/list-searcher-icon.expected" | head -10
-	FAIL=1
+    echo "FAIL: _list searcher icon 展示"
+    echo "--- got ---"
+    xxd "$TEST_DIR/list-searcher-icon.out" | head -10
+    echo "--- want ---"
+    xxd "$TEST_DIR/list-searcher-icon.expected" | head -10
+    FAIL=1
 fi
 
 # ---- Task 2d: _ensure_icons 收集 searcher host 触发下载 ----
@@ -257,12 +271,14 @@ rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
 _list >"$TEST_DIR/list-hit.out"
 printf 'GitHub\0icon\x1f%s\x1finfo\x1fid-1\nExample\0info\x1fid-2\n%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' "$ICON_CACHE_DIR/github.com.png" "$NEW_LINK" "$NEW_SEARCHER" >"$TEST_DIR/list-hit.expected"
 if cmp -s "$TEST_DIR/list-hit.out" "$TEST_DIR/list-hit.expected"; then
-	echo "ok: _list hit → 图片属性, 行文本无字符 icon"
+    echo "ok: _list hit → 图片属性, 行文本无字符 icon"
 else
-	echo "FAIL: _list hit 输出"
-	echo "--- got ---"; xxd "$TEST_DIR/list-hit.out" | head -10
-	echo "--- want ---"; xxd "$TEST_DIR/list-hit.expected" | head -10
-	FAIL=1
+    echo "FAIL: _list hit 输出"
+    echo "--- got ---"
+    xxd "$TEST_DIR/list-hit.out" | head -10
+    echo "--- want ---"
+    xxd "$TEST_DIR/list-hit.expected" | head -10
+    FAIL=1
 fi
 # 回归锁定: hit 行内属性必须 \x1f 连接 (第二 \0 会截断 info → ROFI_INFO 丢失)
 # \0info 只应出现在 Example (miss) 与 New/New Searcher 行, 共 3 行; GitHub hit 行不得含
@@ -277,12 +293,14 @@ rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
 _list >"$TEST_DIR/list-fail.out"
 printf 'GitHub\0info\x1fid-1\nExample\0info\x1fid-2\n%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" >"$TEST_DIR/list-fail.expected"
 if cmp -s "$TEST_DIR/list-fail.out" "$TEST_DIR/list-fail.expected"; then
-	echo "ok: _list fail → fallback 原样输出"
+    echo "ok: _list fail → fallback 原样输出"
 else
-	echo "FAIL: _list fail 输出"
-	echo "--- got ---"; xxd "$TEST_DIR/list-fail.out" | head -10
-	echo "--- want ---"; xxd "$TEST_DIR/list-fail.expected" | head -10
-	FAIL=1
+    echo "FAIL: _list fail 输出"
+    echo "--- got ---"
+    xxd "$TEST_DIR/list-fail.out" | head -10
+    echo "--- want ---"
+    xxd "$TEST_DIR/list-fail.expected" | head -10
+    FAIL=1
 fi
 
 # 分隔符: name/url 含 | 不破坏字段解析
@@ -296,12 +314,14 @@ JSON
 _list >"$TEST_DIR/list-pipe.out"
 printf 'A|B\0info\x1fid-pipe\n%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" >"$TEST_DIR/list-pipe.expected"
 if cmp -s "$TEST_DIR/list-pipe.out" "$TEST_DIR/list-pipe.expected"; then
-	echo "ok: 分隔符: name/url 含 | 不破坏解析"
+    echo "ok: 分隔符: name/url 含 | 不破坏解析"
 else
-	echo "FAIL: 分隔符: name/url 含 | 解析"
-	echo "--- got ---"; xxd "$TEST_DIR/list-pipe.out" | head -8
-	echo "--- want ---"; xxd "$TEST_DIR/list-pipe.expected" | head -8
-	FAIL=1
+    echo "FAIL: 分隔符: name/url 含 | 解析"
+    echo "--- got ---"
+    xxd "$TEST_DIR/list-pipe.out" | head -8
+    echo "--- want ---"
+    xxd "$TEST_DIR/list-pipe.expected" | head -8
+    FAIL=1
 fi
 wait
 # 恢复原 fixture
@@ -374,9 +394,10 @@ rm -f "$XDG_FAKE_LOG"
 ROFI_RETV=1 ROFI_INFO=no-such-id _main
 sleep 0.3
 if [[ -s "$XDG_FAKE_LOG" ]]; then
-	echo "FAIL: 未知 id 不应触发打开"; FAIL=1
+    echo "FAIL: 未知 id 不应触发打开"
+    FAIL=1
 else
-	echo "ok: 未知 id 静默忽略"
+    echo "ok: 未知 id 静默忽略"
 fi
 
 # ---- Task 3: 自定义输入 (RETV=2) ----
@@ -476,9 +497,9 @@ cat >"$SEARCHER_CONFIG" <<'JSON'
 JSON
 
 sopen() { # term → 清 log 后执行 RETV=2 子进程 (CONFIG 显式传 searcher fixture)
-	rm -f "$XDG_FAKE_LOG"
-	CONFIG="$SEARCHER_CONFIG" ROFI_RETV=2 /bin/bash "$SCRIPT" "$1"
-	sleep 0.3
+    rm -f "$XDG_FAKE_LOG"
+    CONFIG="$SEARCHER_CONFIG" ROFI_RETV=2 /bin/bash "$SCRIPT" "$1"
+    sleep 0.3
 }
 
 sopen "hello world"
@@ -501,9 +522,10 @@ assert_file_has "$XDG_FAKE_LOG" "OPEN:https://duckduckgo.com/?q=hello" "searcher
 
 sopen "@google"
 if [[ -s "$XDG_FAKE_LOG" ]]; then
-	echo "FAIL: @name 无搜索词不应打开"; FAIL=1
+    echo "FAIL: @name 无搜索词不应打开"
+    FAIL=1
 else
-	echo "ok: @name 无搜索词 → 不打开"
+    echo "ok: @name 无搜索词 → 不打开"
 fi
 
 # ---- Task 7: 新增 searcher (info=new-searcher) ----
@@ -549,7 +571,7 @@ after=$(md5sum "$CONFIG" | cut -d' ' -f1)
 assert_eq "$before" "$after" "_ensure_ids: id 齐全时零写入"
 
 if ((FAIL)); then
-	echo "== 有失败用例 =="
-	exit 1
+    echo "== 有失败用例 =="
+    exit 1
 fi
 echo "== 全部通过 =="

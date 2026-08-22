@@ -6,13 +6,13 @@
 ## Applets : Quick Links
 
 if [ -z "$(command -v rofi)" ]; then
-	notify-send "please install rofi"
-	exit 0
+    notify-send "please install rofi"
+    exit 0
 fi
 
 if [ -z "$(rofi -h | grep emoji)" ]; then
-	notify-send "please install rofi-emoji"
-	exit 0
+    notify-send "please install rofi-emoji"
+    exit 0
 fi
 
 ROFI_DIR="$(dirname "$(dirname "$0")")"
@@ -29,24 +29,24 @@ mesg="Search a emoji"
 
 # Rofi CMD
 rofi_cmd() {
-	rofi -modi emoji -show emoji \
-		-theme-str "element-text {font: \"$efonts\";}" \
-		-theme-str "element-icon {size: 0px;}" \
-		-theme-str "configuration { display-emoji: \" \";}" \
-		-emoji-mode $1 \
-		-emoji-format '{emoji}' \
-		-p "$prompt" \
-		-mesg "$mesg" \
-		-markup-rows \
-		-theme ${theme} \
-		-hover-select -me-select-entry '' -me-accept-entry MousePrimary
+    rofi -modi emoji -show emoji \
+        -theme-str "element-text {font: \"$efonts\";}" \
+        -theme-str "element-icon {size: 0px;}" \
+        -theme-str "configuration { display-emoji: \" \";}" \
+        -emoji-mode $1 \
+        -emoji-format '{emoji}' \
+        -p "$prompt" \
+        -mesg "$mesg" \
+        -markup-rows \
+        -theme ${theme} \
+        -hover-select -me-select-entry '' -me-accept-entry MousePrimary
 }
 
 case "$1" in
 "-o")
-	rofi_cmd stdout
-	;;
+    rofi_cmd stdout
+    ;;
 *)
-	rofi_cmd insert
-	;;
+    rofi_cmd insert
+    ;;
 esac

@@ -16,38 +16,38 @@ HUB=("jellyfin" "metatube")
 SCRAPER=("sonarr" "radarr" "prowlarr" "bazarr" "qbittorrent")
 
 _toggle() {
-	local target="$1"
-	shift
-	local services=("$@")
+    local target="$1"
+    shift
+    local services=("$@")
 
-	local any_running=false
-	for svc in "${services[@]}"; do
-		local state
-		state=$(docker compose -f "$COMPOSE_FILE" ps --format json "$svc" 2>/dev/null | jq -r '.State // "stopped"')
-		[[ "$state" == "running" ]] && any_running=true && break
-	done
+    local any_running=false
+    for svc in "${services[@]}"; do
+        local state
+        state=$(docker compose -f "$COMPOSE_FILE" ps --format json "$svc" 2>/dev/null | jq -r '.State // "stopped"')
+        [[ "$state" == "running" ]] && any_running=true && break
+    done
 
-	if $any_running; then
-		bash "$MEDIA_DIR/launch.sh" down "$target"
-		if [[ "$target" == "hub" ]]; then
-			pkill -f "jellyfin-mpv-shim" >/dev/null 2>&1 || true
-		fi
-	else
-		bash "$MEDIA_DIR/launch.sh" up "$target"
-		if [[ "$target" == "hub" ]]; then
-			sleep 8
-			/usr/bin/env jellyfin-mpv-shim >/dev/null 2>&1 &
-		fi
-	fi
+    if $any_running; then
+        bash "$MEDIA_DIR/launch.sh" down "$target"
+        if [[ "$target" == "hub" ]]; then
+            pkill -f "jellyfin-mpv-shim" >/dev/null 2>&1 || true
+        fi
+    else
+        bash "$MEDIA_DIR/launch.sh" up "$target"
+        if [[ "$target" == "hub" ]]; then
+            sleep 8
+            /usr/bin/env jellyfin-mpv-shim >/dev/null 2>&1 &
+        fi
+    fi
 }
 
 _is_running() {
-	for svc in "$@"; do
-		local state
-		state=$(docker compose -f "$COMPOSE_FILE" ps --format json "$svc" 2>/dev/null | jq -r '.State // "stopped"')
-		[[ "$state" != "running" ]] && return 1
-	done
-	return 0
+    for svc in "$@"; do
+        local state
+        state=$(docker compose -f "$COMPOSE_FILE" ps --format json "$svc" 2>/dev/null | jq -r '.State // "stopped"')
+        [[ "$state" != "running" ]] && return 1
+    done
+    return 0
 }
 
 module_parse <<MODULES
@@ -64,10 +64,10 @@ MODULES
 handle_toggle_hub() { _toggle hub "${HUB[@]}"; }
 handle_toggle_scraper() { _toggle scraper "${SCRAPER[@]}"; }
 handle_open_hub() { _is_running "${HUB[@]}" && bash "$MEDIA_DIR/open.sh" "${HUB[@]}"; }
-handle_open_index()     { _is_running prowlarr    && bash "$MEDIA_DIR/open.sh" prowlarr; }
-handle_open_movie()     { _is_running radarr     && bash "$MEDIA_DIR/open.sh" radarr; }
-handle_open_tv()        { _is_running sonarr     && bash "$MEDIA_DIR/open.sh" sonarr; }
-handle_open_downloader(){ _is_running qbittorrent && bash "$MEDIA_DIR/open.sh" qbittorrent; }
-handle_open_subtitle()  { _is_running bazarr     && bash "$MEDIA_DIR/open.sh" bazarr; }
+handle_open_index() { _is_running prowlarr && bash "$MEDIA_DIR/open.sh" prowlarr; }
+handle_open_movie() { _is_running radarr && bash "$MEDIA_DIR/open.sh" radarr; }
+handle_open_tv() { _is_running sonarr && bash "$MEDIA_DIR/open.sh" sonarr; }
+handle_open_downloader() { _is_running qbittorrent && bash "$MEDIA_DIR/open.sh" qbittorrent; }
+handle_open_subtitle() { _is_running bazarr && bash "$MEDIA_DIR/open.sh" bazarr; }
 
 module_loop

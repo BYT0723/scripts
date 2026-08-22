@@ -42,110 +42,110 @@ volume_status=$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)\].*/\1/')
 idletimeout=30
 
 _lock() {
-	i3lock \
-		-i "$wallpaper" \
-		--slideshow-interval 60 \
-		--slideshow-random-selection \
-		-F \
-		--color=$back$backAlpha \
-		--insidever-color=$base02$alpha \
-		--insidewrong-color=$base02$alpha \
-		--inside-color=$base02$alpha \
-		--ringver-color=$green$ringAlpha \
-		--ringwrong-color=$red$ringAlpha \
-		--ringver-color=$green$ringAlpha \
-		--ringwrong-color=$red$ringAlpha \
-		--ring-color=$blue$ringAlpha \
-		--line-uses-ring \
-		--keyhl-color=$magenta$alpha \
-		--bshl-color=$orange$alpha \
-		--separator-color=$base01$alpha \
-		--verif-color=$green \
-		--wrong-color=$red \
-		--layout-color=$blue \
-		--date-color=$blue \
-		--time-color=$blue \
-		--clock \
-		--indicator \
-		--ignore-empty-password \
-		--time-str="%H:%M:%S" \
-		--date-str="%A, %Y-%m-%d" \
-		--verif-text="Verifying..." \
-		--wrong-text="Auth Failed" \
-		--noinput="Press Password!" \
-		--lock-text="Locking..." \
-		--lockfailed="Lock Failed" \
-		--time-size=50 \
-		--date-font="Noto Sans CJK SC" \
-		--date-size=20 \
-		--radius=160 \
-		--ring-width=10 \
-		--pass-media-keys \
-		--pass-screen-keys \
-		--pass-volume-keys $@ &
-	sleep 1
-	xset dpms force standby
+    i3lock \
+        -i "$wallpaper" \
+        --slideshow-interval 60 \
+        --slideshow-random-selection \
+        -F \
+        --color=$back$backAlpha \
+        --insidever-color=$base02$alpha \
+        --insidewrong-color=$base02$alpha \
+        --inside-color=$base02$alpha \
+        --ringver-color=$green$ringAlpha \
+        --ringwrong-color=$red$ringAlpha \
+        --ringver-color=$green$ringAlpha \
+        --ringwrong-color=$red$ringAlpha \
+        --ring-color=$blue$ringAlpha \
+        --line-uses-ring \
+        --keyhl-color=$magenta$alpha \
+        --bshl-color=$orange$alpha \
+        --separator-color=$base01$alpha \
+        --verif-color=$green \
+        --wrong-color=$red \
+        --layout-color=$blue \
+        --date-color=$blue \
+        --time-color=$blue \
+        --clock \
+        --indicator \
+        --ignore-empty-password \
+        --time-str="%H:%M:%S" \
+        --date-str="%A, %Y-%m-%d" \
+        --verif-text="Verifying..." \
+        --wrong-text="Auth Failed" \
+        --noinput="Press Password!" \
+        --lock-text="Locking..." \
+        --lockfailed="Lock Failed" \
+        --time-size=50 \
+        --date-font="Noto Sans CJK SC" \
+        --date-size=20 \
+        --radius=160 \
+        --ring-width=10 \
+        --pass-media-keys \
+        --pass-screen-keys \
+        --pass-volume-keys $@ &
+    sleep 1
+    xset dpms force standby
 }
 
 _lock_before() {
-	[ "$mpd_status" == "[playing]" ] && mpc -q toggle
-	[ "$volume_status" == "on" ] && amixer set Master off >>/dev/null
-	pkill -STOP -f "mpv.*--player-operation-mode=cplayer" 2>/dev/null
+    [ "$mpd_status" == "[playing]" ] && mpc -q toggle
+    [ "$volume_status" == "on" ] && amixer set Master off >>/dev/null
+    pkill -STOP -f "mpv.*--player-operation-mode=cplayer" 2>/dev/null
 }
 
 _lock_after() {
-	[ "$mpd_status" == "[playing]" ] && mpc -q toggle
-	[ "$volume_status" == "on" ] && amixer set Master on >>/dev/null
-	pkill -CONT -f "mpv.*--player-operation-mode=cplayer" 2>/dev/null
+    [ "$mpd_status" == "[playing]" ] && mpc -q toggle
+    [ "$volume_status" == "on" ] && amixer set Master on >>/dev/null
+    pkill -CONT -f "mpv.*--player-operation-mode=cplayer" 2>/dev/null
 }
 
 _screen_lock_loop() {
-	if command -v xprintidle >/dev/null 2>&1; then
-		while pgrep -x i3lock >/dev/null; do
-			while pgrep -x i3lock >/dev/null && ! xset q 2>/dev/null | grep -q "Monitor is On"; do sleep 1; done
-			pgrep -x i3lock >/dev/null || break
-			while pgrep -x i3lock >/dev/null && [ "$(xprintidle 2>/dev/null)" -lt $((idletimeout * 1000)) ]; do sleep 1; done
-			pgrep -x i3lock >/dev/null || break
-			xdotool key Escape 2>/dev/null
-			sleep 1
-			xset dpms force standby
-		done
-	else
-		system-notify critical "Tool Not Found" "please install xprintidle"
-		while pgrep -x i3lock >/dev/null; do
-			while pgrep -x i3lock >/dev/null && ! xset q 2>/dev/null | grep -q "Monitor is On"; do sleep 1; done
-			pgrep -x i3lock >/dev/null || break
-			sleep $idletimeout
-			xdotool key Escape 2>/dev/null
-			xset dpms force standby
-		done
-	fi
+    if command -v xprintidle >/dev/null 2>&1; then
+        while pgrep -x i3lock >/dev/null; do
+            while pgrep -x i3lock >/dev/null && ! xset q 2>/dev/null | grep -q "Monitor is On"; do sleep 1; done
+            pgrep -x i3lock >/dev/null || break
+            while pgrep -x i3lock >/dev/null && [ "$(xprintidle 2>/dev/null)" -lt $((idletimeout * 1000)) ]; do sleep 1; done
+            pgrep -x i3lock >/dev/null || break
+            xdotool key Escape 2>/dev/null
+            sleep 1
+            xset dpms force standby
+        done
+    else
+        system-notify critical "Tool Not Found" "please install xprintidle"
+        while pgrep -x i3lock >/dev/null; do
+            while pgrep -x i3lock >/dev/null && ! xset q 2>/dev/null | grep -q "Monitor is On"; do sleep 1; done
+            pgrep -x i3lock >/dev/null || break
+            sleep $idletimeout
+            xdotool key Escape 2>/dev/null
+            xset dpms force standby
+        done
+    fi
 }
 
 lock() {
-	_lock_before
-	_lock
-	_screen_lock_loop
-	wait
-	_lock_after
+    _lock_before
+    _lock
+    _screen_lock_loop
+    wait
+    _lock_after
 }
 
 suspend() {
-	_lock_before
-	_lock
-	systemctl suspend
-	_screen_lock_loop
-	wait
-	_lock_after
+    _lock_before
+    _lock
+    systemctl suspend
+    _screen_lock_loop
+    wait
+    _lock_after
 }
 
 case "$1" in
 lock)
-	shift
-	lock $@
-	;;
+    shift
+    lock $@
+    ;;
 suspend)
-	shift
-	suspend
-	;;
+    shift
+    suspend
+    ;;
 esac

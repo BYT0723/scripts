@@ -5,9 +5,9 @@
 # $2 title
 # $3 information
 system-notify() {
-	notify-send -u "$1" " $2" "\n$3"
+    notify-send -u "$1" " $2" "\n$3"
 }
 
 tool-notify() {
-	notify-send -c tools -u "$1" " $2" "\n$3"
+    notify-send -c tools -u "$1" " $2" "\n$3"
 }

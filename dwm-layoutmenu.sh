@@ -9,30 +9,30 @@ source "$ROFI_DIR/scripts/util.sh"
 source "$ROFI_DIR/scripts/lib-module.sh"
 
 layouts=(
-	"[]= Tiled"
-	"[F] Floating"
-	"[M] Monocle"
-	"[@] Spiral"
-	"[\] Dwindle"
-	"H[] Deck"
-	"TTT BStack"
-	"=== BStackHoriz"
-	"HHH Grid"
-	"### NRowGrid"
-	"--- HorizGrid"
-	"::: GapLessGrid"
-	"|M| CenteredMaster"
-	">M> CenteredFloatingMaster"
+    "[]= Tiled"
+    "[F] Floating"
+    "[M] Monocle"
+    "[@] Spiral"
+    "[\] Dwindle"
+    "H[] Deck"
+    "TTT BStack"
+    "=== BStackHoriz"
+    "HHH Grid"
+    "### NRowGrid"
+    "--- HorizGrid"
+    "::: GapLessGrid"
+    "|M| CenteredMaster"
+    ">M> CenteredFloatingMaster"
 )
 
 choice=$(printf "%s\n" "${layouts[@]}" |
-	module_sub_rofi " DWM Layouts" "Select a dwm window layout")
+    module_sub_rofi " DWM Layouts" "Select a dwm window layout")
 
 [ -z "$choice" ] && exit
 
 for i in "${!layouts[@]}"; do
-	if [ "${layouts[$i]}" = "$choice" ]; then
-		echo "$i"
-		exit
-	fi
+    if [ "${layouts[$i]}" = "$choice" ]; then
+        echo "$i"
+        exit
+    fi
 done
