@@ -55,6 +55,7 @@ xw_set() {
 
     local args=(set "--$backend" -g "$rect" --name "$target")
     if [ "$type" = "video" ]; then
+        args+=(--mute)
         [ -n "$rotate" ] && args+=(--rotate "$rotate")
         [ -n "$_WALLPAPER_KEYBINDS" ] && [ -f "$_WALLPAPER_KEYBINDS" ] &&
             args+=(--keybinds "$_WALLPAPER_KEYBINDS")

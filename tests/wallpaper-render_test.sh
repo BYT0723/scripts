@@ -111,6 +111,7 @@ reset_log
 echo "p cycle pause" >"$HOME/.config/dwm/wallpaper.keys"
 WALLPAPER_ROTATION=90 set_wallpaper_to_monitor 0 "$TEST_DIR/clip.mp4"
 assert_has "$(last_call)" '--video' "video type"
+assert_has "$(last_call)" '--mute' "video muted by default"
 assert_has "$(last_call)" '--rotate 90' "rotate passed"
 assert_has "$(last_call)" '--keybinds' "keybinds flag present"
 assert_has "$(last_call)" '--name eDP' "video monitor name"
@@ -124,6 +125,7 @@ rm -f "$HOME/.config/dwm/wallpaper.keys"
 WALLPAPER_ROTATION= set_wallpaper_to_monitor 0 "$TEST_DIR/clip.mp4"
 local_call="$(last_call)"
 assert_has "$local_call" '--video' "video still works"
+assert_has "$local_call" '--mute' "video muted without rotate too"
 if [[ "$local_call" == *"--rotate"* ]]; then
     echo "FAIL: 空 rotate 不应传 --rotate"
     FAIL=1
@@ -154,6 +156,7 @@ reset_log
 WALLPAPER_ROTATION= set_wallpaper_to_group dual "$TEST_DIR/clip.mp4"
 call="$(last_call)"
 assert_has "$call" 'set --video' "group video"
+assert_has "$call" '--mute' "group video muted"
 assert_has "$call" '--name grp_dual' "group target name"
 assert_has "$call" '-g 1920x1080+0+0' "group rect"
 
