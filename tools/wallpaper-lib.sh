@@ -10,11 +10,6 @@ mkdir -p "$cache_wallpaper_dir"
 
 # Create default config if missing
 [ ! -f "$conf" ] && jq -n '{
-    "render": {
-        "video": {
-            "fps": 30
-        }
-    },
     "monitors": [],
     "groups": []
 }' >"$conf"
@@ -29,8 +24,6 @@ mkdir -p "$cache_wallpaper_dir"
 #
 wallpaper_latest="$cache_wallpaper_dir/wallpaper_latest"
 wallpaper_full_latest="${wallpaper_latest}_full"
-wallpaper_pid="$cache_wallpaper_dir/wallpaper_pid"
-wallpaper_full_pid="${wallpaper_pid}_full"
 rotation_cache="$cache_wallpaper_dir/rotation_cache"
 
 # Define the default configuration
@@ -41,6 +34,39 @@ config["random_image_dir"]="~/Pictures"
 config["random_video_dir"]="~/Videos"
 config["random_depth"]=3
 config["duration"]=30
+
+# ---- xwallpaper 渲染接口 (共享给 wallpaper.sh 与 rofi 脚本) ----
+
+# 可选的视频按键配置 (mpv input.conf 格式)
+_WALLPAPER_KEYBINDS="${WALLPAPER_KEYBINDS:-$HOME/.config/dwm/wallpaper.keys}"
+
+# 构造并执行 xwallpaper set 命令。
+# 用法: xw_set <type> <rect> <target> <filepath> [<rotate>]
+# type ∈ image|video|page (page 映射为 xwallpaper 的 web 后端)
+xw_set() {
+    local type="$1"
+    local rect="$2"
+    local target="$3"
+    local filepath="$4"
+    local rotate="${5:-}"
+
+    local backend="$type"
+    [ "$backend" = "page" ] && backend="web"
+
+    local args=(set "--$backend" -g "$rect" --name "$target")
+    if [ "$type" = "video" ]; then
+        [ -n "$rotate" ] && args+=(--rotate "$rotate")
+        [ -n "$_WALLPAPER_KEYBINDS" ] && [ -f "$_WALLPAPER_KEYBINDS" ] &&
+            args+=(--keybinds "$_WALLPAPER_KEYBINDS")
+    fi
+    xwallpaper "${args[@]}" "$filepath"
+}
+
+# 移除一个 target 的壁纸窗口 (monitor 名 / grp_<组名> / Screen)
+xw_clear() {
+    local target="$1"
+    xwallpaper clear -m "$target"
+}
 
 # 若 monitor 尚无配置，用脚本内默认值初始化写入 config
 ensure_monitor_config() {
@@ -260,34 +286,6 @@ find_wallpapers() {
     printf '%s\n' "${files[@]}"
 }
 
-check_command() {
-    local cmd="$1"
-    local friendly_name="$2"
-
-    if ! command -v "$cmd" >/dev/null 2>&1; then
-        error "Command '$cmd' not found. Please install $friendly_name"
-        return 1
-    fi
-    return 0
-}
-
-safe_kill_pidfile() {
-    local pidfile="$1"
-    local signal="${2:-TERM}"
-
-    if [ -f "$pidfile" ]; then
-        local pid=$(cat "$pidfile" 2>/dev/null)
-        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-            kill -"$signal" "$pid" 2>/dev/null
-            sleep 0.1
-            if kill -0 "$pid" 2>/dev/null; then
-                kill -KILL "$pid" 2>/dev/null
-            fi
-        fi
-        rm -f "$pidfile"
-    fi
-}
-
 TERM=${TERMINAL:-"kitty --class float-term -o font_size=8 -o initial_window_width=160c -o initial_window_height=48c"}
 
 handle_error() {
@@ -336,45 +334,37 @@ clean_target() {
     local target="$2"
     shopt -s nullglob
 
-    safe_kill_pidfile "$wallpaper_full_pid"
-    [ -f "$wallpaper_full_latest" ] && rm -f "$wallpaper_full_latest"
-
     case "$type" in
     screen)
-        local f
-        for f in "${wallpaper_pid}"_*; do
-            [ ! -f "$f" ] && continue
-            safe_kill_pidfile "$f"
-            local lf="${f/$wallpaper_pid/$wallpaper_latest}"
-            [ -f "$lf" ] && rm -f "$lf"
-        done
+        xw_clear "Screen"
+        rm -f "$wallpaper_full_latest"
         ;;
     mon)
         local idx="$target"
-        safe_kill_pidfile "${wallpaper_pid}_${idx}"
-        [ -f "${wallpaper_latest}_${idx}" ] && rm -f "${wallpaper_latest}_${idx}"
+        rm -f "${wallpaper_latest}_${idx}"
         local mon_name
         mon_name=$(xrandr --listactivemonitors 2>/dev/null | awk -v i="$idx" 'NR>1 && $1+0==i {print $NF; exit}')
         if [ -n "$mon_name" ]; then
+            xw_clear "$mon_name"
             local grp=$(group_for_monitor "$mon_name" all)
             if [ -n "$grp" ]; then
                 local gs="${grp// /_}"
-                safe_kill_pidfile "${wallpaper_pid}_grp_${gs}"
-                [ -f "${wallpaper_latest}_grp_${gs}" ] && rm -f "${wallpaper_latest}_grp_${gs}"
+                rm -f "${wallpaper_latest}_grp_${gs}"
+                xw_clear "grp_${gs}"
             fi
         fi
         ;;
     grp)
         local gs="${target// /_}"
-        safe_kill_pidfile "${wallpaper_pid}_grp_${gs}"
-        [ -f "${wallpaper_latest}_grp_${gs}" ] && rm -f "${wallpaper_latest}_grp_${gs}"
+        rm -f "${wallpaper_latest}_grp_${gs}"
+        xw_clear "grp_${gs}"
         while IFS= read -r mon_name; do
             [ -z "$mon_name" ] && continue
             local idx
             idx=$(get_monitor_info "$mon_name" 2>/dev/null | awk '{print $1}')
             [ -z "$idx" ] && continue
-            safe_kill_pidfile "${wallpaper_pid}_${idx}"
-            [ -f "${wallpaper_latest}_${idx}" ] && rm -f "${wallpaper_latest}_${idx}"
+            rm -f "${wallpaper_latest}_${idx}"
+            xw_clear "$mon_name"
         done < <(get_group_members "$target")
         ;;
     esac
@@ -387,23 +377,21 @@ clean_latest() {
     shopt -s nullglob
 
     # Clean up full screen wallpaper
-    safe_kill_pidfile "$wallpaper_full_pid"
-    [ -f "$wallpaper_full_latest" ] && rm -f "$wallpaper_full_latest"
+    xw_clear "Screen"
+    rm -f "$wallpaper_full_latest"
 
     local files=()
     if [ -n "$monitor_index" ]; then
-        files=("${wallpaper_pid}_${monitor_index}")
+        files=("${wallpaper_latest}_${monitor_index}")
     else
-        files=("${wallpaper_pid}"_*)
+        files=("${wallpaper_latest}"_*)
     fi
 
     # 遍历每个匹配文件
     for f in "${files[@]}"; do
         [ ! -f "$f" ] && continue
-        safe_kill_pidfile "$f"
         # Remove corresponding latest file
-        local latest_file="${f/$wallpaper_pid/$wallpaper_latest}"
-        [ -f "$latest_file" ] && rm -f "$latest_file"
+        rm -f "$f"
     done
 }
 
