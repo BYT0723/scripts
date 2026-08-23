@@ -95,6 +95,14 @@ reset_log
 echo "== image to monitor =="
 set_wallpaper_to_monitor 0 "$TEST_DIR/img.png"
 assert_has "$(last_call)" 'set --image -g 1920x1080+0+0 --name eDP' "image monitor rect+name"
+# latest 缓存写 filepath (无 rotation)
+assert_has "$(cat "${wallpaper_latest}_0" 2>/dev/null)" "$TEST_DIR/img.png" "image latest cached"
+if grep -q '|' "${wallpaper_latest}_0" 2>/dev/null; then
+    echo "FAIL: image latest 不应含 rotation"
+    FAIL=1
+else
+    echo "ok: image latest 无 rotation"
+fi
 
 # ---- Task 2: 视频壁纸到 monitor (rotate + keybinds) ----
 echo "== video to monitor with rotate =="
@@ -106,6 +114,8 @@ assert_has "$(last_call)" '--video' "video type"
 assert_has "$(last_call)" '--rotate 90' "rotate passed"
 assert_has "$(last_call)" '--keybinds' "keybinds flag present"
 assert_has "$(last_call)" '--name eDP' "video monitor name"
+# latest 缓存写 filepath|rotation
+assert_has "$(cat "${wallpaper_latest}_0" 2>/dev/null)" "$TEST_DIR/clip.mp4|90" "video latest cached with rotation"
 
 # ---- Task 3: 无 rotate 时视频不带 --rotate ----
 echo "== video without rotate =="

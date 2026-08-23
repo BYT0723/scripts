@@ -68,6 +68,29 @@ xw_clear() {
     xwallpaper clear -m "$target"
 }
 
+# 设置壁纸并写状态缓存。旋转角度取全局 WALLPAPER_ROTATION。
+# 用法: xw_apply <type> <rect> <target> <filepath> <latest_file>
+# 成功返回 0；失败打印错误并返回 1。
+xw_apply() {
+    local type="$1"
+    local rect="$2"
+    local target="$3"
+    local filepath="$4"
+    local latest="$5"
+
+    if ! xw_set "$type" "$rect" "$target" "$filepath" "${WALLPAPER_ROTATION:-}"; then
+        error "xwallpaper set failed"
+        return 1
+    fi
+    local rot="${WALLPAPER_ROTATION:-}"
+    if [ "$type" = "image" ]; then
+        echo "$filepath" >"$latest"
+    else
+        echo "$filepath|$rot" >"$latest"
+    fi
+    return 0
+}
+
 # 若 monitor 尚无配置，用脚本内默认值初始化写入 config
 ensure_monitor_config() {
     local monitor="$1"
