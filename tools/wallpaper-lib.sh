@@ -355,7 +355,6 @@ echo_help() {
 clean_target() {
     local type="$1"
     local target="$2"
-    shopt -s nullglob
 
     case "$type" in
     screen)
