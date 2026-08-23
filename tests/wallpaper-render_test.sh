@@ -27,12 +27,13 @@ echo "xwallpaper $*" >>"$XW_MOCK_LOG"
 exit 0
 EOF
 
-# 模拟单 monitor 1920x1080+0+0, 名为 eDP
+# 模拟双 monitor: eDP 1920x1080+0+0, HDMI 1920x1080+1920+0
 cat >"$BIN/xrandr" <<'EOF'
 #!/usr/bin/env bash
 if [[ "$*" == *"--listactivemonitors"* ]]; then
-    echo "Monitors: 1"
+    echo "Monitors: 2"
     echo " 0: +*eDP 1920/344x1080/194+0+0  eDP"
+    echo " 1: +HDMI 1920/344x1080/194+1920+0  HDMI"
 else
     echo "screen 0: 1920x1080 344x194 0"
 fi
@@ -170,6 +171,46 @@ if [[ "$call" == *"--fps"* ]]; then
 else
     echo "ok: 未配置 fps 未传 --fps"
 fi
+
+# ---- Task 7: screen 后设置 monitor 清除 screen ----
+echo "== monitor after screen clears screen =="
+reset_log
+set_wallpaper_to_screen "$TEST_DIR/img.png"
+set_wallpaper_to_monitor 0 "$TEST_DIR/img.png"
+assert_has "$(cat "$XW_MOCK_LOG")" 'clear -m Screen' "monitor set clears screen window"
+if [ -f "$wallpaper_full_latest" ]; then
+    echo "FAIL: full_latest 应被删除"
+    FAIL=1
+else
+    echo "ok: full_latest removed"
+fi
+assert_has "$(last_call)" 'set --image -g 1920x1080+0+0 --name eDP' "monitor applied after screen"
+
+# ---- Task 8: screen 后设置 group 清除 screen ----
+echo "== group after screen clears screen =="
+reset_log
+set_wallpaper_to_screen "$TEST_DIR/img.png"
+set_wallpaper_to_group dual "$TEST_DIR/clip.mp4"
+assert_has "$(cat "$XW_MOCK_LOG")" 'clear -m Screen' "group set clears screen window"
+if [ -f "$wallpaper_full_latest" ]; then
+    echo "FAIL: full_latest 应被删除"
+    FAIL=1
+else
+    echo "ok: full_latest removed"
+fi
+assert_has "$(last_call)" 'set --video -g 1920x1080+0+0 --name grp_dual' "group applied after screen"
+
+# ---- Task 9: screen 清除后其它 monitor 恢复 last (不黑屏) ----
+echo "== other monitor restored after screen removed =="
+echo '{"monitors":{},"groups":{}}' >"$HOME/.config/dwm/wallpaper.json"
+rm -f "${wallpaper_latest}"_[0-9]* "${wallpaper_latest}_grp_"* "$wallpaper_full_latest"
+reset_log
+set_wallpaper_to_monitor 0 "$TEST_DIR/img.png"
+set_wallpaper_to_monitor 1 "$TEST_DIR/img.png"
+set_wallpaper_to_screen "$TEST_DIR/img.png"
+set_wallpaper_to_monitor 0 "$TEST_DIR/img2.png"
+assert_has "$(cat "$XW_MOCK_LOG")" 'set --image -g 1920x1080+1920+0 --name HDMI' "hdmi last restored after screen removed"
+assert_has "$(last_call)" 'set --image -g 1920x1080+0+0 --name eDP' "monitor applied after restore"
 
 echo
 if [ "$FAIL" = "1" ]; then

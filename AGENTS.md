@@ -251,14 +251,17 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | `safe_kill_pidfile()`        | wallpaper-lib.sh (clean_latest, clean_target 内部)                                                                                                                                                           |
 | `handle_error()` / `error()` | wallpaper-lib.sh 内部, rofi/scripts/wallpaper.sh (handle_group)                                                                                                                                              |
 | `clean_latest()`             | 死代码 (已被 clean_target 替代)                                                                                                                                                                              |
-| `clean_target()`             | wallpaper-render.sh (set_wallpaper_to_screen/monitor/group), rofi/scripts/wallpaper.sh (handle_group 禁用/删除/编辑成员)                                                                                     |
+| `clean_target()`             | wallpaper-render.sh (set_wallpaper_to_monitor/group), rofi/scripts/wallpaper.sh (handle_group 禁用/删除/编辑成员)                                                                                             |
+| `xw_clear_all()`             | wallpaper-render.sh (set_wallpaper_to_screen), 只清窗口保留 monitor/group 缓存 (screen 清除后可恢复 last)                                      |
+| `xw_clear_screen_and_restore()` | wallpaper-render.sh (set_wallpaper_to_monitor, set_wallpaper_to_group)                                                                                                                                       |
+| `restore_latest_monitor_group()` | wallpaper-render.sh (set_wallpaper_to_monitor, set_wallpaper_to_group, screen 清除后回退), wallpaper.sh (set_latest); 直接调 xw_apply 不经 set_wallpaper_to_* 避免递归 |
 | `get_screen_size()`          | wallpaper-render.sh, wallpaper-lib.sh (get_monitor_list_text)                                                                                                                                                |
 | `get_monitor_list_text()`    | rofi/scripts/wallpaper.sh (monitor_selection)                                                                                                                                                                |
 | `_json_path_for()`           | wallpaper-lib.sh (pick_config_dir, set_numeric_config 内部)                                                                                                                                                  |
 | `pick_config_dir()`          | rofi/scripts/wallpaper.sh (handle_random_images_path, handle_random_videos_path)                                                                                                                             |
 | `set_numeric_config()`       | rofi/scripts/wallpaper.sh (handle_random_duration, handle_random_depth)                                                                                                                                      |
 | `has_group()`                | wallpaper.sh (apply_wallpaper), wallpaper-lib.sh (get_monitor_dim), rofi/scripts/wallpaper.sh (handle_group)                                                                                                 |
-| `group_names()`              | wallpaper.sh (apply_wallpaper, set_latest), wallpaper-lib.sh (is_group_member, clean_target, get_monitor_list_text), rofi/scripts/wallpaper.sh (handle_group)                                                |
+| `group_names()`              | wallpaper.sh (apply_wallpaper, set_latest), wallpaper-lib.sh (is_group_member, clean_target, xw_clear_all, get_monitor_list_text), rofi/scripts/wallpaper.sh (handle_group)                                    |
 | `get_group_members()`        | wallpaper.sh (apply_wallpaper), wallpaper-lib.sh (is_group_member, get_group_dim, clean_target), wallpaper-render.sh (set_wallpaper_to_group 内部调 get_group_dim), rofi/scripts/wallpaper.sh (handle_group) |
 | `get_group_enabled()`        | wallpaper.sh (set_latest), wallpaper-lib.sh (is_group_member, clean_target), rofi/scripts/wallpaper.sh (handle_group)                                                                                        |
 | `is_group_member()`          | wallpaper.sh (apply_wallpaper, launch_wallpaper daemon)                                                                                                                                                      |
@@ -273,9 +276,9 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | `launch_image_xwinwrap()`    | wallpaper-render.sh (launch_dynamic_wallpaper 内部)              |
 | `launch_page_xwinwrap()`     | wallpaper-render.sh (launch_dynamic_wallpaper 内部)              |
 | `launch_dynamic_wallpaper()` | wallpaper-render.sh (set_wallpaper_to_screen/monitor/group 内部) |
-| `set_wallpaper_to_screen()`  | wallpaper.sh (apply_wallpaper, set_latest)                       |
-| `set_wallpaper_to_monitor()` | wallpaper.sh (apply_wallpaper, set_latest)                       |
-| `set_wallpaper_to_group()`   | wallpaper.sh (apply_wallpaper, set_latest)                       |
+| `set_wallpaper_to_screen()`  | wallpaper.sh (apply_wallpaper, set_latest), 内部调 xw_clear_all 清空所有壁纸窗口后整屏铺图 (保留缓存) |
+| `set_wallpaper_to_monitor()` | wallpaper.sh (apply_wallpaper, set_latest), 内部调 xw_clear_screen_and_restore (与 screen 互斥, 清除后回退 last) |
+| `set_wallpaper_to_group()`   | wallpaper.sh (apply_wallpaper, set_latest), 内部调 xw_clear_screen_and_restore (与 screen 互斥, 清除后回退 last) |
 
 ## 调用链 (Call Chain)
 

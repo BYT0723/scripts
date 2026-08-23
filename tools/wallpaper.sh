@@ -161,27 +161,7 @@ set_latest() {
         set_wallpaper_to_screen "$fp" && return
     fi
 
-    local files=("${wallpaper_latest}"_[0-9]*)
-    for f in "${files[@]}"; do
-        local monitor_index=$(echo "$f" | awk -F '_' '{print $NF}')
-        local mon_name
-        mon_name=$(xrandr --listactivemonitors 2>/dev/null | awk -v i="$monitor_index" 'NR>1 && $1+0==i {print $NF; exit}')
-        is_group_member "$mon_name" && continue
-        IFS='|' read -r fp rot <"$f"
-        WALLPAPER_ROTATION="$rot"
-        set_wallpaper_to_monitor "$monitor_index" "$fp"
-    done
-
-    shopt -s nullglob
-    local grp_files=()
-    for f in "${wallpaper_latest}_grp_"*; do
-        local grp_name="${f#${wallpaper_latest}_grp_}"
-        [ "$(get_group_enabled "$grp_name")" != "true" ] && continue
-        IFS='|' read -r fp rot <"$f"
-        WALLPAPER_ROTATION="$rot"
-        set_wallpaper_to_group "$grp_name" "$fp"
-    done
-    shopt -u nullglob
+    restore_latest_monitor_group
 }
 
 # wallpaper launch_wallpaper
@@ -215,6 +195,9 @@ launch_wallpaper() {
                 last_update[$k]=$now
             done
         fi
+
+        # screen 全屏模式: 与 monitor/group 互斥, daemon 暂停轮换直到退出 screen 模式
+        [ -f "$wallpaper_full_latest" ] && continue
 
         while read -r target; do
             is_group_member "$target" && continue

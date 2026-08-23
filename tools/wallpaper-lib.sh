@@ -64,7 +64,7 @@ xw_set() {
         [ -n "$rotate" ] && args+=(--rotate "$rotate")
         local fps
         fps=$(getConfig render.video.fps)
-        [ -n "$fps" ] && args+=(--fps "$fps")
+        [ -n "$fps" ] && [[ $fps -gt 0 ]] && args+=(--fps "$fps")
         [ -n "$_WALLPAPER_KEYBINDS" ] && [ -f "$_WALLPAPER_KEYBINDS" ] &&
             args+=(--keybinds "$_WALLPAPER_KEYBINDS")
     fi
@@ -75,6 +75,33 @@ xw_set() {
 xw_clear() {
     local target="$1"
     xwallpaper clear -m "$target"
+}
+
+# 清空所有壁纸窗口 (Screen + 所有 monitor + 所有 group), 保留状态缓存以便 screen 清除后恢复 last
+xw_clear_all() {
+    xw_clear "Screen"
+    rm -f "$wallpaper_full_latest"
+
+    local mon
+    while IFS= read -r mon; do
+        [ -z "$mon" ] && continue
+        xw_clear "$mon"
+    done < <(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}')
+
+    local grp
+    while IFS= read -r grp; do
+        [ -z "$grp" ] && continue
+        xw_clear "grp_${grp// /_}"
+    done < <(group_names)
+}
+
+# 设置 monitor/group 壁纸前清除全屏壁纸窗口与缓存; screen 曾激活时回退 monitor/group 的 last 壁纸
+xw_clear_screen_and_restore() {
+    local was_screen=false
+    [ -f "$wallpaper_full_latest" ] && was_screen=true
+    xw_clear "Screen"
+    rm -f "$wallpaper_full_latest"
+    $was_screen && restore_latest_monitor_group
 }
 
 # 设置壁纸并写状态缓存。旋转角度取全局 WALLPAPER_ROTATION。
@@ -98,6 +125,41 @@ xw_apply() {
         echo "$filepath|$rot" >"$latest"
     fi
     return 0
+}
+
+# 从状态缓存恢复所有 monitor/group 的 last 壁纸 (不含 screen)。
+# 用于 set_latest 与 screen 清除后回退 (screen 设置时 xw_clear_all 保留缓存)。
+# 直接调 xw_apply, 不经 set_wallpaper_to_*, 避免递归; 退出时还原 WALLPAPER_ROTATION。
+restore_latest_monitor_group() {
+    local saved_rot="${WALLPAPER_ROTATION:-}"
+    local f mon mon_name grp_name w h x y fp rot
+
+    shopt -s nullglob
+    for f in "${wallpaper_latest}"_[0-9]*; do
+        mon_name=$(xrandr --listactivemonitors 2>/dev/null | awk -v i="${f##*_}" 'NR>1 && $1+0==i {print $NF; exit}')
+        [ -z "$mon_name" ] && continue
+        is_group_member "$mon_name" && continue
+        read _ w h x y < <(get_monitor_info_by_index "${f##*_}")
+        IFS='|' read -r fp rot <"$f"
+        WALLPAPER_ROTATION="$rot"
+        xw_apply "$(detect_file_type "$fp")" "${w}x${h}+${x}+${y}" "$mon_name" "$fp" "$f"
+    done
+
+    for f in "${wallpaper_latest}_grp_"*; do
+        grp_name="${f#${wallpaper_latest}_grp_}"
+        [ "$(get_group_enabled "$grp_name")" != "true" ] && continue
+        while IFS= read -r mon; do
+            [ -z "$mon" ] && continue
+            xw_clear "$mon"
+        done < <(get_group_members "$grp_name")
+        read w h x y <<<"$(get_group_dim "$grp_name" 2>/dev/null)" || continue
+        IFS='|' read -r fp rot <"$f"
+        WALLPAPER_ROTATION="$rot"
+        xw_apply "$(detect_file_type "$fp")" "${w}x${h}+${x}+${y}" "grp_${grp_name// /_}" "$fp" "$f"
+    done
+    shopt -u nullglob
+
+    WALLPAPER_ROTATION="$saved_rot"
 }
 
 # 若 monitor 尚无配置，用脚本内默认值初始化写入 config
