@@ -104,15 +104,20 @@ else
     echo "ok: image latest 无 rotation"
 fi
 
-# ---- Task 2: 视频壁纸到 monitor (rotate + keybinds) ----
+# ---- Task 2: 视频壁纸到 monitor (rotate + keybinds + fps) ----
 echo "== video to monitor with rotate =="
 reset_log
 # 创建 keybinds 文件
 echo "p cycle pause" >"$HOME/.config/dwm/wallpaper.keys"
+# 配置 render.video.fps
+cat >"$HOME/.config/dwm/wallpaper.json" <<'EOF'
+{"monitors":{},"groups":{},"render":{"video":{"fps":30}}}
+EOF
 WALLPAPER_ROTATION=90 set_wallpaper_to_monitor 0 "$TEST_DIR/clip.mp4"
 assert_has "$(last_call)" '--video' "video type"
 assert_has "$(last_call)" '--mute' "video muted by default"
 assert_has "$(last_call)" '--rotate 90' "rotate passed"
+assert_has "$(last_call)" '--fps 30' "fps from render.video.fps"
 assert_has "$(last_call)" '--keybinds' "keybinds flag present"
 assert_has "$(last_call)" '--name eDP' "video monitor name"
 # latest 缓存写 filepath|rotation
@@ -159,6 +164,12 @@ assert_has "$call" 'set --video' "group video"
 assert_has "$call" '--mute' "group video muted"
 assert_has "$call" '--name grp_dual' "group target name"
 assert_has "$call" '-g 1920x1080+0+0' "group rect"
+if [[ "$call" == *"--fps"* ]]; then
+    echo "FAIL: 未配置 fps 时不应传 --fps"
+    FAIL=1
+else
+    echo "ok: 未配置 fps 未传 --fps"
+fi
 
 echo
 if [ "$FAIL" = "1" ]; then

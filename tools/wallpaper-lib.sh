@@ -10,6 +10,11 @@ mkdir -p "$cache_wallpaper_dir"
 
 # Create default config if missing
 [ ! -f "$conf" ] && jq -n '{
+    "render": {
+        "video": {
+            "fps": 30
+        }
+    },
     "monitors": [],
     "groups": []
 }' >"$conf"
@@ -57,6 +62,9 @@ xw_set() {
     if [ "$type" = "video" ]; then
         args+=(--mute)
         [ -n "$rotate" ] && args+=(--rotate "$rotate")
+        local fps
+        fps=$(getConfig render.video.fps)
+        [ -n "$fps" ] && args+=(--fps "$fps")
         [ -n "$_WALLPAPER_KEYBINDS" ] && [ -f "$_WALLPAPER_KEYBINDS" ] &&
             args+=(--keybinds "$_WALLPAPER_KEYBINDS")
     fi
