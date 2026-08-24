@@ -261,11 +261,23 @@ detect_file_type() {
     esac
 }
 
+# 返回视频有效显示尺寸: 编码横屏但带 ±90 rotation 元数据的手机竖拍视频实际为竖屏,
+# 仅读 width,height 会误判方向。
 get_video_dim() {
     local file="$1"
-    ffprobe -v error -select_streams v:0 \
+    local dims w h rot
+    dims=$(ffprobe -v error -select_streams v:0 \
         -show_entries stream=width,height \
-        -of csv=p=0 "$file" 2>/dev/null | tr ',' ' '
+        -of csv=p=0 "$file" 2>/dev/null | tr ',' ' ')
+    [ -n "$dims" ] || return
+    read w h <<<"$dims"
+    rot=$(ffprobe -v error -select_streams v:0 \
+        -show_entries stream_side_data=rotation \
+        -of default=nw=1:nk=1 "$file" 2>/dev/null)
+    case "$rot" in
+    90 | -90 | 270 | -270) echo "$h $w" ;;
+    *) echo "$w $h" ;;
+    esac
 }
 
 # Returns 0 (true) if monitor and video have different orientation (landscape vs portrait)
@@ -321,19 +333,21 @@ get_monitor_dim() {
 }
 
 # Launch mpv preview with r=cycle rotation, q=quit; returns final rotation angle
+# 初始 video-rotate=0 (而非 90): mpv 的 video-rotate 叠加在元数据之上, 硬编码 90 会让竖屏视频初始显示为横屏,
+# 且 watch-later 不写默认值 0 时 fallback 不能回落到 90。返回值与 xwallpaper --rotate 同引擎同语义。
 preview_rotation() {
     local file="$1"
     local tmp=$(mktemp -d)
     local wld="$tmp/watch_later"
     mkdir -p "$wld"
     cat >"$tmp/input.conf" <<'EOF'
-r cycle-values video-rotate "90" "270" "0"
+r cycle-values video-rotate "0" "90" "180" "270"
 q quit
 EOF
     mpv \
         --no-config \
         --no-osc \
-        --video-rotate=90 \
+        --video-rotate=0 \
         --loop \
         --mute \
         --audio-client-name=wallpaper \
@@ -343,12 +357,10 @@ EOF
         --watch-later-options="video-rotate" \
         --autofit=800x600 \
         "$file" &>/dev/null
-    local rotate="90"
-    for f in "$wld"/*; do
-        [ -f "$f" ] && rotate=$(grep "^video-rotate=" "$f" | cut -d= -f2) && break
-    done
+    local rotate
+    rotate=$(grep -h '^video-rotate=' "$wld"/* 2>/dev/null | head -1 | cut -d= -f2)
     rm -rf "$tmp"
-    echo "${rotate:-90}"
+    echo "${rotate:-0}"
 }
 
 find_wallpapers() {
