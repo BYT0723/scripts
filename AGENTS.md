@@ -7,6 +7,7 @@
 
 ```
 dwm-launcher.sh ──sources──► utils/monitor.sh
+                ──windows subcmd──► rofi/scripts/windows-selector.sh (rofi -show window); ──requires─► wmctrl (窗口数统计)
 dwm-status.sh ──sources──► dwm-status-tools.sh ──sources──► dwm-status-print.sh
                                                            utils/weather.sh
                                                            utils/notify.sh
@@ -352,6 +353,7 @@ dwm-launcher.sh (快捷键)
   → rofi/scripts/quicklinks-mode.sh (rofi -show quicklinks 外部脚本模式, ROFI_RETV 分派; )
   → rofi/scripts/emoji.sh
   → rofi/scripts/notification.sh
+  → windows (窗口切换: rofi/scripts/windows-selector.sh, rofi -show window)
 ```
 
 ### 自动主题切换链路
