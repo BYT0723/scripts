@@ -33,6 +33,7 @@ screenshot() { [ -z "$1" ] && /bin/bash "$WORK_DIR"/rofi/scripts/screenshot.sh |
 screencast() { /bin/bash "$WORK_DIR"/rofi/scripts/screencast.sh "$@"; }
 emoji() { /bin/bash "$WORK_DIR"/rofi/scripts/emoji.sh "$@"; }
 wallpaper() { /bin/bash "$WORK_DIR"/rofi/scripts/wallpaper.sh "$@"; }
+windows() { /bin/bash "$WORK_DIR"/rofi/scripts/windows-selector.sh "$@"; }
 
 powermenu() {
     local type=4
@@ -66,6 +67,7 @@ shift
 case "$subcmd" in
 "term") term $@ ;;
 "apps") apps $@ ;;
+"windows") windows $@ ;;
 "powermenu") powermenu $@ ;;
 "modules") modules $@ ;;
 "mpd") mpd $@ ;;
