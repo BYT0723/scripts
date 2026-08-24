@@ -40,7 +40,7 @@ panes() {
     # net traffic monitor pane
     panes+="$(new_pane $black "\x0b^c$white^$(print_speed)")"
     # system monitor pane
-    panes+="$(new_pane $black "\x08$(print_cpu)$(print_temperature)" "\x07$(print_mem)" "\x06$(print_disk)")"
+    panes+="$(new_pane $black "\x08$(print_cpu)$(print_temperature)" "\x07$(print_mem)" "\x06$(print_disk /)")"
 
     panes+="$DWM_STATUS_VERTICAL_SPLIT"
 

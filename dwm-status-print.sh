@@ -10,12 +10,12 @@ icons["notification"]=""
 icons["rss"]=""
 
 print_date() {
-    timeIcons=('' '' '' '' '' '' '' '' '' '' '' '')
-    local hour=$(date '+%l')
     if [ -f "$HOME/.local/state/dwm/status/date-collapse" ]; then
-        date '+'${timeIcons[$((hour % 12))]}' %R'
+        date '+%R'
+        # date '+'${timeIcons[$((hour % 12))]}' %R'
     else
-        date '+ %m/%d(%a) '${timeIcons[$((hour % 12))]}' %R'
+        date '+%m/%d(%a) %R'
+        # date '+ %m/%d(%a) '${timeIcons[$((hour % 12))]}' %R'
         # date '+ %Y-%m-%d(%a) '${timeIcons[$((hour % 12))]}' %R'
     fi
 }
@@ -95,9 +95,9 @@ print_wifi() {
 }
 
 # Disk free space size
-# disk path in variable $disk_root
 print_disk() {
-    read avail usage < <(df -h / | awk 'NR==2 {gsub(/%/,"",$5);print $4" "$5}')
+    local mountpoint=$1
+    read avail usage < <(df -h "${mountpoint}" | awk 'NR==2 {gsub(/%/,"",$5);print $4" "$5}')
     local fg="$white"
 
     [ "$usage" -gt 90 ] && fg="$yellow"
