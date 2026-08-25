@@ -1,13 +1,17 @@
 # Icons initial
 declare -A icons
 icons["cpu"]=""
-icons["temp"]=""
+icons["temp"]=""
 icons["memory"]=""
 icons["disk"]=""
-icons["mail"]=""
-icons["mpd"]=""
-icons["notification"]=""
-icons["rss"]=""
+icons["mail"]=""
+icons["mpd"]=""
+icons["notification"]=""
+icons["rss"]=""
+icons["sing-box"]=""
+icons["volume"]=""
+icons["volume_off"]=""
+icons["volume_mute"]=""
 
 print_date() {
     if [ -f "$HOME/.local/state/dwm/status/date-collapse" ]; then
@@ -21,31 +25,60 @@ print_date() {
 }
 
 print_battery() {
-    [ -z "$(command -v acpi)" ] && system-notify critical "Tool Not Found" "please install acpi" && return
-    [ -z "$(acpi)" ] && return
+    [ -z "$(command -v acpi)" ] && {
+        system-notify critical "Tool Not Found" "please install acpi"
+        return
+    }
 
-    # icon style: 5 (coarse) or 11 (fine granularity)
-    if [ "${BATTERY_ICON_STYLE:-11}" = "11" ]; then
-        battery_icons=('' '' '' '' '' '' '' '' '󰂁' '󰂂' '󰁹')
-        charging_icons=('󰢜' '󰢜' '󰂆' '󰂇' '󰂈' '󰢝' '󰂉' '󰢞' '󰂊' '󰂋' '󰂅')
-    else
-        battery_icons=('' '' '' '' '')
-        charging_icons=('󰢜' '󰂇' '󰂉' '󰂊' '󰂅')
-    fi
-
-    IFS='|' read -r status percent < <(acpi -b | awk -F': |, |%' 'NR==1 {print $2"|"$3}')
-
-    max_idx=$((${#battery_icons[@]} - 1))
-    idx=$(((percent * max_idx + 50) / 100))
+    local status percent fg
+    IFS='|' read -r status percent < <(acpi -b | awk -F': |, |%' 'NR==1 {print $2 "|" $3}')
+    [ -z "$percent" ] && return
 
     if [[ "$status" == "Discharging" ]]; then
-        icon=${battery_icons[$idx]}
-        fg="$white"
+        ((precent >= 20)) && fg="$white" || fg="$red"
     else
-        icon=${charging_icons[$idx]}
-        fg="$yellow"
+        fg="$green"
     fi
-    printf "^c$fg^$icon"
+
+    local x=6 y=9 w=28 h=14 border=2 gap=12
+
+    local rh=$((h * 60 / 100))
+    local rw=2
+
+    local inside_w=$((w - rw - 2 * border))
+    local remain_w=$((inside_w * percent / 100))
+
+    # 端子凸起
+    printf '^r%d,%d,%d,%d^' \
+        "$x" \
+        "$((y + (h - rh) / 2))" \
+        "$rw" \
+        "$rh"
+
+    # 电池主体外框
+    printf '^r%d,%d,%d,%d^' \
+        "$((x + rw))" \
+        "$y" \
+        "$((w - rw))" \
+        "$h"
+
+    # 内部背景
+    printf '^c%s^' "$black"
+    printf '^r%d,%d,%d,%d^' \
+        "$((x + rw + border))" \
+        "$((y + border))" \
+        "$inside_w" \
+        "$((h - 2 * border))"
+
+    # 电量
+    printf '^c%s^' "$fg"
+    printf '^r%d,%d,%d,%d^' \
+        "$((x + rw + border + inside_w - remain_w))" \
+        "$((y + border))" \
+        "$remain_w" \
+        "$((h - 2 * border))"
+
+    printf '^d^^f%d^' "$((w + x + gap))"
 }
 
 print_volume() {
@@ -55,13 +88,13 @@ print_volume() {
 
     if [ "$status" == "off" ]; then
         fg="$red"
-        icon=""
+        icon=${icons[volume_mute]}
     elif [ "$volume" -eq 0 ]; then
         fg="$yellow"
-        icon=""
+        icon=${icons[volume_off]}
     else
         fg="$white"
-        icon=""
+        icon=${icons[volume]}
     fi
     printf "^c$fg^$icon"
     # printf "%s %2d" $icon $volume
@@ -109,18 +142,18 @@ print_disk() {
 print_mem() {
     read mem_usage mem_used < <(
         awk '
-		/MemTotal:/     {total=$2}
-		/MemAvailable:/ {avail=$2}
-		END {
-			used = total - avail
-			usage = 100 * used / total
-			printf "%d %.2fG", usage, used/1024/1024
-		}' /proc/meminfo
+        /MemTotal:/     {total=$2}
+        /MemAvailable:/ {avail=$2}
+        END {
+            used = total - avail
+            usage = 100 * used / total
+            printf "%d %f", usage, used/1024/1024
+        }' /proc/meminfo
     )
     fg="$white"
 
     [ "$mem_usage" -gt 90 ] && fg="$yellow"
-    printf "^c$fg^${icons[memory]} $mem_used"
+    printf "^c$fg^${icons[memory]}%5.2fG" $mem_used
 }
 
 print_cpu() {
@@ -224,12 +257,12 @@ print_rss() {
 }
 
 print_singbox() {
-    pgrep sing-box >/dev/null && printf "^c$white^"
+    pgrep sing-box >/dev/null && printf "^c$white^${icons["sing-box"]}"
 }
 
 print_notification() {
     unread=$(dunstctl count history)
-    ((unread > 0)) && printf "^c$yellow^${icons["notification"]} $unread"
+    ((unread > 0)) && printf "^c$yellow^${icons[notification]} $unread"
 }
 
 print_screencast() {

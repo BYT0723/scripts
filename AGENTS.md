@@ -53,6 +53,12 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 
 ## 函数定义与调用关系
 
+### dwm-status-print.sh
+
+| 函数        | 调用者                                                          |
+| ----------- | --------------------------------------------------------------- |
+| `print_battery()` | dwm-status.sh panes() (status2d 自绘电池: 端子/外框/内背景/电量四段 `^r^` 矩形, `^d^` 复位色 + `^fN^` 前移光标留间距) |
+
 ### utils/notify.sh → system-notify()
 
 被以下脚本调用:
