@@ -331,6 +331,7 @@ auto_daemon() {
         local cur
         cur=$(get_current_theme)
         if [ "$cur" != "$desired" ]; then
+            # 锁屏期间阻塞等待 (避免与 dwm SIGHUP 重启竞态), 解锁后立即切换
             while pgrep -x i3lock >/dev/null 2>&1; do
                 sleep 5
             done
@@ -340,8 +341,12 @@ auto_daemon() {
             sleep 0.5
         fi
 
-        if [ "$next_switch" -gt "$now" ]; then
-            sleep $((next_switch - now))
+        # sleep 计时在挂起(休眠)期间暂停, 一次性睡到切换点会导致唤醒后
+        # 主题切换延迟数小时; 故 60s 内轮询重算, 挂起唤醒后最多 60s 纠正
+        local remain=$((next_switch - now))
+        if [ "$remain" -gt 0 ]; then
+            [ "$remain" -gt 60 ] && remain=60
+            sleep "$remain"
         fi
     done
 }
