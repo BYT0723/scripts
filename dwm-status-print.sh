@@ -35,18 +35,22 @@ print_battery() {
     [ -z "$percent" ] && return
 
     if [[ "$status" == "Discharging" ]]; then
-        ((precent >= 20)) && fg="$white" || fg="$red"
+        ((percent >= 20)) && fg="$white" || fg="$red"
     else
         fg="$green"
     fi
 
-    local x=6 y=9 w=28 h=14 border=2 gap=12
-
-    local rh=$((h * 60 / 100))
-    local rw=2
-
+    local x=6 y=10 w=28 h=12 border=1 padding=1 gap=12
+    # 端子宽高
+    local rw=2 rh=$((h * 60 / 100))
+    # 电池内部宽度
     local inside_w=$((w - rw - 2 * border))
+    # 当前电量宽度
     local remain_w=$((inside_w * percent / 100))
+
+    # 防止低电量时减去 padding 后出现负宽度
+    local fill_w=$((remain_w - 2 * padding))
+    ((fill_w < 0)) && fill_w=0
 
     # 端子凸起
     printf '^r%d,%d,%d,%d^' \
@@ -73,11 +77,12 @@ print_battery() {
     # 电量
     printf '^c%s^' "$fg"
     printf '^r%d,%d,%d,%d^' \
-        "$((x + rw + border + inside_w - remain_w))" \
-        "$((y + border))" \
-        "$remain_w" \
-        "$((h - 2 * border))"
+        "$((x + rw + border + padding + inside_w - remain_w))" \
+        "$((y + border + padding))" \
+        "$fill_w" \
+        "$((h - 2 * border - 2 * padding))"
 
+    # 移动到图标右侧
     printf '^d^^f%d^' "$((w + x + gap))"
 }
 
