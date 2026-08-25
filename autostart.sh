@@ -17,25 +17,40 @@ launch() {
     local policy=${1:-"check"} name=$2
     shift 2
     local cmd="$*"
-    local pf="/tmp/dwm-status/autostart-launch-$name.pid"
+    local dir="/tmp/dwm-status"
+    local pf="$dir/autostart-launch-$name.pid"
     local pid
 
-    # read pid + verify alive
-    [ -f "$pf" ] && pid=$(cat "$pf")
-    [ -n "${pid:-}" ] && kill -0 "$pid" 2>/dev/null || pid=""
+    mkdir -p "$dir"
 
-    case "$policy" in
-    check)
-        [ -z "$pid" ] || return 0
-        ;;
-    restart)
-        [ -n "$pid" ] && kill "$pid" 2>/dev/null
-        sleep 0.1
-        ;;
-    esac
+    # 重入/并发互斥: 同一 name 的检查+启动必须原子, 拿不到锁说明另一实例
+    # 正在处理, 直接跳过 (该实例会完成启动)
+    {
+        flock -n 9 || return 1
 
-    $cmd &>/dev/null &
-    echo $! >"$pf"
+        # read pid + verify alive (空 pid/文件不存在时 kill 失败 → 重置为空)
+        pid=$(cat "$pf" 2>/dev/null)
+        kill -0 "$pid" 2>/dev/null || pid=""
+
+        case "$policy" in
+        check)
+            [ -z "$pid" ] || return 0
+            ;;
+        restart)
+            [ -n "$pid" ] && kill "$pid" 2>/dev/null
+            # 等旧进程退出, 避免新旧实例并存 (最多等 2s)
+            for _ in {1..20}; do
+                [ -n "$pid" ] || break
+                kill -0 "$pid" 2>/dev/null || break
+                sleep 0.1
+            done
+            ;;
+        esac
+
+        # 9>&- 关闭子进程的锁 fd, 防止后台进程继承锁导致永不释放
+        $cmd &>/dev/null 9>&- &
+        echo $! >"$pf"
+    } 9>"$dir/autostart-launch-$name.lock"
 }
 
 desktop_setting() {

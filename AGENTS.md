@@ -305,8 +305,8 @@ screen.sh (DPMS 守护)
 ```
 DWM 启动
   → autostart.sh
-    → picom &
-    → dunst &
+    → picom &                          # launch(): 每 name 独立 flock 锁 (autostart-launch-<name>.lock) 保证
+    → dunst &                          #   检查+启动原子, 重入时后者跳过; restart 轮询等旧进程退出 (≤2s)
     → xautolock -locker "lock.sh lock" &    # 定时锁屏
     → fcitx5 &
     → xsettingsd &                          # XSETTINGS 广播 (theme.sh set_gtk_theme 依赖)
