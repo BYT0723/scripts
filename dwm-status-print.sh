@@ -40,7 +40,7 @@ print_battery() {
         fg="$green"
     fi
 
-    local x=6 y=10 w=28 h=12 border=1 padding=1 gap=12
+    local x=6 y=10 w=18 h=10 border=1 padding=1 gap=12
     # 端子宽高
     local rw=2 rh=$((h * 60 / 100))
     # 电池内部宽度
