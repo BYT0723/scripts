@@ -135,6 +135,7 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | `_lock()`             | lock() / suspend() → 所有 powermenu 脚本 / screen.sh(LOCKER) |
 | `_lock_after()`       | lock() / suspend() → 所有 powermenu 脚本                     |
 | `_screen_lock_loop()` | lock() / suspend() → 所有 powermenu 脚本                     |
+| `_standby()`          | `_screen_lock_loop()` 两分支共用 (Escape 清输入 + sleep 1 + force standby) |
 | `lock()`              | screen.sh 的 LOCKER / `lock.sh lock` CLI                     |
 | `suspend()`           | `lock.sh suspend` CLI                                        |
 
@@ -439,7 +440,8 @@ calendar-lunar|󰃚|Lunar Calendar|
 - `tools/calendar.sh:3` source 路径已修复为 `$(dirname "$0")/../utils/notify.sh`
 - `tools/screen.sh:16` LOCKER 路径已改为 `$(dirname "$0")/lock.sh lock`，不再依赖 `$TOOLS_DIR`
 - `tools/screen.sh` 排除静默播放应用由硬编码 `wallpaper` 改为顶部 `EXCLUDE_APPS` 数组，`_jq_exclude_apps()` 按 jq 前缀（`info.props` / `properties`）动态生成 `!=` 条件，空数组时输出 `true` 兜底（无排除）；PipeWire 与 PulseAudio 双后端共用
-- `tools/lock.sh` 的 `_screen_lock_loop` 在 xprintidle 缺失时有 fallback (sleep 30s 代替空闲检测)
+- `tools/lock.sh` 的 `_screen_lock_loop` 在 xinput 缺失时有 fallback (sleep $idletimeout 代替键盘 idle 检测)
+- `tools/lock.sh` 的 `_screen_lock_loop` 灭屏判定已从 xprintidle 改为**键盘 idle 判定**（`xinput test-xi2 --root` 后台监听 RawKeyPress/RawKeyRelease，awk 写时间戳到 `/tmp/dwm-lock-lastkey.$$`，主循环 `$(<file)` 读最后一行 + `printf '%(%s)T'` 算 idle，10s 无键盘输入才 standby）：原 xprintidle 方案被鼠标传感器漂移卡死——实测 Logitech G304 无线鼠标静止时指针持续大幅漂移（约 50-100px/s，20s 漂移近 1000px），XScreenSaver idle 永不达标 → 锁屏唤醒后永不 standby（同时 xset 自动 DPMS 900s 也永不触发），位移阈值也无法区分真实移动与漂移。锁屏交互仅键盘（输密码），鼠标移动对锁屏无意义，故键盘 idle 语义正确且彻底免疫鼠标漂移；输密码不再被打断。注意 `xdotool`（XTEST）事件**不能唤醒 DPMS**（模拟测试须用 `xset dpms force on`），但会记录进 keylog（XTEST 虚拟设备事件）；`xset dpms force standby` 后 `xset q` 状态是 `Monitor is in Standby` 而非 `Off`
 - `tools/theme.sh` 旧 Firefox 切换方案（`set_firefox_theme` + `_get_darkreader_shortcut`，xdotool 模拟 Dark Reader 快捷键）已删除：Dark Reader 的 `extension-settings.json` 快捷键实际为空串，jq 的 `//` 不兜底空串 → `xdotool key ""` 从未生效；且依赖 Firefox 窗口存在、/tmp 状态文件易漂移。现由 `set_gtk_theme()` 双通道替代
 - **Firefox content 亮暗由 portal 决定而非 GTK**：Firefox 的 `prefers-color-scheme` 走 `nsLookAndFeel::ComputeColorSchemeSetting()` → xdg-desktop-portal 的 `color-scheme`（gsettings `org.gnome.desktop.interface color-scheme`），且 Firefox 将 portal 返回的 `0 (default)` 硬映射为 light（nsLookAndFeel.cpp case 0）。因此 `set_gtk_theme()` 必须同时写 gsettings（prefer-dark/prefer-light），仅广播 GTK 主题名不足以切换 Firefox content scheme
 - `tools/theme.sh apply` 的退出码已修复：auto 关闭时末尾 `[ ... ]` 返回 1 导致 apply 成功但 exit 1，现显式 `exit 0`

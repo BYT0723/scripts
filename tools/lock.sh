@@ -39,7 +39,7 @@ wallpaper=$(find "$wallpaperDir" -maxdepth 1 -type f -regextype posix-extended -
 mpd_status=$(mpc status | awk 'NR==2 {print $1}')
 volume_status=$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)\].*/\1/')
 
-idletimeout=30
+idletimeout=10
 
 _lock() {
     i3lock \
@@ -99,25 +99,39 @@ _lock_after() {
     pkill -CONT -f "mpv.*--player-operation-mode=cplayer" 2>/dev/null
 }
 
+_standby() {
+    xdotool key Escape 2>/dev/null
+    sleep 1
+    xset dpms force standby
+}
+
 _screen_lock_loop() {
-    if command -v xprintidle >/dev/null 2>&1; then
+    if command -v xinput >/dev/null 2>&1; then
+        # 锁屏交互仅键盘(输密码), 按键盘 idle 判定灭屏; 鼠标传感器漂移(如 G304 静止持续发 Motion)不计活动
+        local keylog=/tmp/dwm-lock-lastkey.$$
+        (xinput test-xi2 --root 2>/dev/null | awk 'BEGIN{print systime(); fflush()} /RawKeyPress|RawKeyRelease/{print systime(); fflush()}' > "$keylog") &
+        kpid=$!
+        trap 'kill $kpid 2>/dev/null' EXIT
         while pgrep -x i3lock >/dev/null; do
             while pgrep -x i3lock >/dev/null && ! xset q 2>/dev/null | grep -q "Monitor is On"; do sleep 1; done
             pgrep -x i3lock >/dev/null || break
-            while pgrep -x i3lock >/dev/null && [ "$(xprintidle 2>/dev/null)" -lt $((idletimeout * 1000)) ]; do sleep 1; done
+            local last
+            while pgrep -x i3lock >/dev/null; do
+                sleep 1
+                last=$(<"$keylog")
+                last=${last##*$'\n'}
+                [ $(( $(printf '%(%s)T' -1) - ${last:-0} )) -ge $idletimeout ] && break
+            done
             pgrep -x i3lock >/dev/null || break
-            xdotool key Escape 2>/dev/null
-            sleep 1
-            xset dpms force standby
+            _standby
         done
     else
-        system-notify critical "Tool Not Found" "please install xprintidle"
+        system-notify critical "Tool Not Found" "please install xinput"
         while pgrep -x i3lock >/dev/null; do
             while pgrep -x i3lock >/dev/null && ! xset q 2>/dev/null | grep -q "Monitor is On"; do sleep 1; done
             pgrep -x i3lock >/dev/null || break
             sleep $idletimeout
-            xdotool key Escape 2>/dev/null
-            xset dpms force standby
+            _standby
         done
     fi
 }
