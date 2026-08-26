@@ -4,10 +4,10 @@ icons["cpu"]=""
 icons["temp"]=""
 icons["memory"]=""
 icons["disk"]=""
-icons["mail"]=""
-icons["mpd"]=""
-icons["notification"]=""
-icons["rss"]=""
+icons["mail"]="󰇮"
+icons["mpd"]=""
+icons["notification"]=""
+icons["rss"]=""
 icons["sing-box"]=""
 icons["volume"]=""
 icons["volume_off"]=""
@@ -40,7 +40,7 @@ print_battery() {
         fg="$green"
     fi
 
-    local x=6 y=10 w=18 h=10 border=1 padding=1 gap=12
+    local x=8 y=11 w=18 h=10 border=1 padding=1
     # 端子宽高
     local rw=2 rh=$((h * 60 / 100))
     # 电池内部宽度
@@ -82,8 +82,7 @@ print_battery() {
         "$fill_w" \
         "$((h - 2 * border - 2 * padding))"
 
-    # 移动到图标右侧
-    printf '^d^^f%d^' "$((w + x + gap))"
+    printf '^d^^f%d^' "$((w + 2 * x))"
 }
 
 print_volume() {
