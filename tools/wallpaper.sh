@@ -46,18 +46,13 @@ random_wallpaper() {
     mapfile -t file_array <<<"$files"
 
     # Exclude current wallpaper to avoid showing the same one again
-    local cache_file=""
-    local monitor_index=$(xrandr --listactivemonitors 2>/dev/null | awk -v name="$monitor" 'NR>1 && $NF==name {gsub(":","",$1); print $1; exit}')
-    if [ -n "$monitor_index" ]; then
-        cache_file="${wallpaper_latest}_${monitor_index}"
-    elif has_group "$monitor"; then
-        cache_file="${wallpaper_latest}_grp_${monitor// /_}"
-    elif [ "$monitor" = "Screen" ]; then
-        cache_file="$wallpaper_full_latest"
-    fi
+    # 当前壁纸状态由 xwallpaper 持久化, 经 `state` (name\ttype\tpath\trot) 查询
+    local list_name="$monitor"
+    has_group "$monitor" && list_name="grp_${monitor// /_}"
+    local current_file
+    current_file=$(xwallpaper state 2>/dev/null | awk -F'\t' -v n="$list_name" '$1==n {print $3; exit}')
 
-    if [ -n "$cache_file" ] && [ -f "$cache_file" ]; then
-        local current_file=$(head -1 "$cache_file" | cut -d'|' -f1)
+    if [ -n "$current_file" ]; then
         local filtered=()
         local f
         for f in "${file_array[@]}"; do
@@ -154,25 +149,19 @@ apply_wallpaper() {
     [ -n "$monitor_index" ] && set_wallpaper_to_monitor "$monitor_index" "$file"
 }
 
-set_latest() {
-    if [ -f "$wallpaper_full_latest" ]; then
-        IFS='|' read -r fp rot <"$wallpaper_full_latest"
-        WALLPAPER_ROTATION="$rot"
-        set_wallpaper_to_screen "$fp" && return
-    fi
-
-    restore_latest_monitor_group
-}
-
 # wallpaper launch_wallpaper
 launch_wallpaper() {
-    sleep $wallpaper_launch_delay
+    sleep ${wallpaper_launch_delay:-1}
 
-    # kill last daemon
+    # 移除旧的 wallpaper.sh 轮换实例 (避免多个轮换 daemon 并行)
     script=$(readlink -f "$0")
     pgrep -f "$script" | grep -vx "$$" | xargs -r kill
 
-    set_latest
+    {
+        pkill -x xwallpaper
+        while pgrep -x xwallpaper >/dev/null; do sleep 0.1; done
+        xwallpaper --daemon
+    } &
 
     declare -A last_update
     local check_interval=60
@@ -197,7 +186,7 @@ launch_wallpaper() {
         fi
 
         # screen 全屏模式: 与 monitor/group 互斥, daemon 暂停轮换直到退出 screen 模式
-        [ -f "$wallpaper_full_latest" ] && continue
+        [ -n "$(xwallpaper state 2>/dev/null | awk -F'\t' '$1=="Screen"')" ] && continue
 
         while read -r target; do
             is_group_member "$target" && continue

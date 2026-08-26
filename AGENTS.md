@@ -48,7 +48,6 @@ rofi/scripts/theme.sh──sources──► rofi/scripts/lib-module.sh, rofi/scr
 # 死代码 (未被任何脚本 source)
 utils/print.sh   — number2icon() 无人调用
 utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
-tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 ```
 
 ## 函数定义与调用关系
@@ -254,38 +253,37 @@ tools/wallpaper-lib.sh:clean_latest() — 已被 clean_target() 替代
 | `get_monitor_dim()`          | wallpaper.sh (get_wallpaper_rotation)                                                                                                                                                                        |
 | `preview_rotation()`         | wallpaper.sh (get_wallpaper_rotation)                                                                                                                                                                        |
 | `find_wallpapers()`          | wallpaper.sh (random_wallpaper)                                                                                                                                                                              |
-| `check_command()`            | wallpaper-render.sh (launch_video_xwinwrap, launch_image_xwinwrap, launch_page_xwinwrap)                                                                                                                                            |
-| `safe_kill_pidfile()`        | wallpaper-lib.sh (clean_latest, clean_target 内部)                                                                                                                                                           |
 | `handle_error()` / `error()` | wallpaper-lib.sh 内部, rofi/scripts/wallpaper.sh (handle_group)                                                                                                                                              |
-| `clean_latest()`             | 死代码 (已被 clean_target 替代)                                                                                                                                                                              |
 | `clean_target()`             | wallpaper-render.sh (set_wallpaper_to_monitor/group), rofi/scripts/wallpaper.sh (handle_group 禁用/删除/编辑成员)                                                                                             |
-| `xw_clear_all()`             | wallpaper-render.sh (set_wallpaper_to_screen), 只清窗口保留 monitor/group 缓存 (screen 清除后可恢复 last)                                      |
-| `xw_clear_screen_and_restore()` | wallpaper-render.sh (set_wallpaper_to_monitor, set_wallpaper_to_group)                                                                                                                                       |
-| `restore_latest_monitor_group()` | wallpaper-render.sh (set_wallpaper_to_monitor, set_wallpaper_to_group, screen 清除后回退), wallpaper.sh (set_latest); 直接调 xw_apply 不经 set_wallpaper_to_* 避免递归 |
+| `xw_set()`                   | wallpaper-lib.sh (xw_apply)                                                                                                                                                                                  |
+| `xw_clear()`                 | wallpaper-render.sh (set_wallpaper_to_screen/monitor/group), wallpaper-lib.sh (clean_target, xw_clear_all, xw_clear_screen_and_restore), rofi/scripts/wallpaper.sh (handle_group)                             |
+| `xw_clear_keep()`            | wallpaper-lib.sh (xw_clear_all) — xwallpaper clear --keep, 清窗口保留 last, 供 restore 恢复                                                                                                                  |
+| `xw_clear_all()`             | wallpaper-render.sh (set_wallpaper_to_screen) — 清所有窗口, monitor/group 用 --keep 保留 last (screen 清除后可 restore 恢复)                                                                                  |
+| `xw_clear_screen_and_restore()` | wallpaper-render.sh (set_wallpaper_to_monitor, set_wallpaper_to_group) — screen 曾激活时 clear Screen + `xwallpaper restore` 回退 last                                                                     |
+| `xw_apply()`                 | wallpaper-render.sh (set_wallpaper_to_screen/monitor/group) — 只发 set 命令, 不再写 latest 缓存 (状态由 xwallpaper 持久化)                                                                                    |
 | `get_screen_size()`          | wallpaper-render.sh, wallpaper-lib.sh (get_monitor_list_text)                                                                                                                                                |
 | `get_monitor_list_text()`    | rofi/scripts/wallpaper.sh (monitor_selection)                                                                                                                                                                |
 | `_json_path_for()`           | wallpaper-lib.sh (pick_config_dir, set_numeric_config 内部)                                                                                                                                                  |
 | `pick_config_dir()`          | rofi/scripts/wallpaper.sh (handle_random_images_path, handle_random_videos_path)                                                                                                                             |
 | `set_numeric_config()`       | rofi/scripts/wallpaper.sh (handle_random_duration, handle_random_depth)                                                                                                                                      |
 | `has_group()`                | wallpaper.sh (apply_wallpaper), wallpaper-lib.sh (get_monitor_dim), rofi/scripts/wallpaper.sh (handle_group)                                                                                                 |
-| `group_names()`              | wallpaper.sh (apply_wallpaper, set_latest), wallpaper-lib.sh (is_group_member, clean_target, xw_clear_all, get_monitor_list_text), rofi/scripts/wallpaper.sh (handle_group)                                    |
+| `group_names()`              | wallpaper.sh (apply_wallpaper), wallpaper-lib.sh (is_group_member, clean_target, xw_clear_all, get_monitor_list_text), rofi/scripts/wallpaper.sh (handle_group)                                                |
 | `get_group_members()`        | wallpaper.sh (apply_wallpaper), wallpaper-lib.sh (is_group_member, get_group_dim, clean_target), wallpaper-render.sh (set_wallpaper_to_group 内部调 get_group_dim), rofi/scripts/wallpaper.sh (handle_group) |
-| `get_group_enabled()`        | wallpaper.sh (set_latest), wallpaper-lib.sh (is_group_member, clean_target), rofi/scripts/wallpaper.sh (handle_group)                                                                                        |
+| `get_group_enabled()`        | wallpaper.sh (launch_wallpaper daemon 枚举组), wallpaper-lib.sh (is_group_member, clean_target), rofi/scripts/wallpaper.sh (handle_group)                                                                    |
 | `is_group_member()`          | wallpaper.sh (apply_wallpaper, launch_wallpaper daemon)                                                                                                                                                      |
 | `group_for_monitor()`        | wallpaper.sh (apply_wallpaper), wallpaper-lib.sh (is_group_member, clean_target), rofi/scripts/wallpaper.sh (handle_group)                                                                                   |
 | `get_group_dim()`            | wallpaper-lib.sh (get_monitor_dim, clean_target 内部 get_group_dim 输出 bbox), wallpaper-render.sh (set_wallpaper_to_group)                                                                                  |
+
+> `restore_latest_monitor_group()` 已删除: 由 xwallpaper `restore` 命令替代 (screen 清场时
+> monitor/group 经 `clear --keep` 保留 last, 切回时统一重建)。`clean_latest()` 已删除 (死代码)。
 
 ### tools/wallpaper-render.sh
 
 | 函数                         | 调用者                                                           |
 | ---------------------------- | ---------------------------------------------------------------- |
-| `launch_video_xwinwrap()`    | wallpaper-render.sh (launch_dynamic_wallpaper 内部)              |
-| `launch_image_xwinwrap()`    | wallpaper-render.sh (launch_dynamic_wallpaper 内部)              |
-| `launch_page_xwinwrap()`     | wallpaper-render.sh (launch_dynamic_wallpaper 内部)              |
-| `launch_dynamic_wallpaper()` | wallpaper-render.sh (set_wallpaper_to_screen/monitor/group 内部) |
-| `set_wallpaper_to_screen()`  | wallpaper.sh (apply_wallpaper, set_latest), 内部调 xw_clear_all 清空所有壁纸窗口后整屏铺图 (保留缓存) |
-| `set_wallpaper_to_monitor()` | wallpaper.sh (apply_wallpaper, set_latest), 内部调 xw_clear_screen_and_restore (与 screen 互斥, 清除后回退 last) |
-| `set_wallpaper_to_group()`   | wallpaper.sh (apply_wallpaper, set_latest), 内部调 xw_clear_screen_and_restore (与 screen 互斥, 清除后回退 last) |
+| `set_wallpaper_to_screen()`  | wallpaper.sh (apply_wallpaper, set_latest), 内部调 xw_clear_all 清空所有壁纸窗口后整屏铺图 (monitor/group 经 --keep 保留 last) |
+| `set_wallpaper_to_monitor()` | wallpaper.sh (apply_wallpaper, set_latest), 内部调 xw_clear_screen_and_restore (与 screen 互斥, 清除后 restore 回退 last) |
+| `set_wallpaper_to_group()`   | wallpaper.sh (apply_wallpaper, set_latest), 内部调 xw_clear_screen_and_restore (与 screen 互斥, 清除后 restore 回退 last) |
 
 ## 调用链 (Call Chain)
 
@@ -375,31 +373,37 @@ tools/theme.sh auto (守护进程)
   手动 apply 会关闭 auto（自动调用 auto off）
 ```
 
-### 壁纸状态缓存 (target → cache file)
+### 壁纸状态 (latest) — 由 xwallpaper 持久化
 
-`$monitor` 参数可能为以下三类值，对应不同缓存文件（存储内容均为 `filepath|rotation`）：
+当前壁纸状态已从脚本侧文件 (`~/.cache/wallpaper/wallpaper_latest_*`) 迁移至 xwallpaper
+内部: 每次 `set` 时按窗口 name 持久化, daemon 启动自动恢复。脚本侧不再读写 latest 文件,
+查询当前壁纸统一走 `xwallpaper state` (输出 `name\ttype\tpath\trotation`; `--list` 仅输出名字)。
 
-| 目标类型 | 示例值 | 缓存文件 | 写入者 |
-|----------|--------|----------|--------|
-| 实体显示器名 | `DP-0`, `HDMI-0` | `~/.cache/wallpaper/wallpaper_latest_<xrandr_index>` | `set_wallpaper_to_monitor()` |
-| Group 名 | `landscape`, `portrait` | `~/.cache/wallpaper/wallpaper_latest_grp_<组名>` | `set_wallpaper_to_group()` |
-| 全屏 | `Screen` | `~/.cache/wallpaper/wallpaper_latest_full` | `set_wallpaper_to_screen()` |
+- xwallpaper 状态文件: `$XDG_STATE_HOME/xwallpaper/state` (fallback `~/.local/state/xwallpaper/state`)
+- 行格式: `name\ttype\tpath\trotation\tgeom\tkeep`
+  - `keep=0` — 当前窗口, daemon 启动恢复
+  - `keep=1` — last 保留 (clear --keep 后), `xwallpaper restore` 恢复
+- 脚本层 unique name: 实体 monitor 用 xrandr 名 (如 `eDP`), Group 用 `grp_<组名>`, 全屏用 `Screen`。
+  `xw_set` 统一以 `-g <rect> --name <name>` 创建, xwallpaper 恢复时 name 命中当前 xrandr
+  output 则重解析几何, 否则回退保存的 geom (grp_*/Screen)
+- screen 互斥链: 铺全屏 → `xw_clear_all` 对 monitor/group 走 `clear --keep` 保留 last →
+  切回 monitor/group → `xw_clear_screen_and_restore` clear Screen 后 `xwallpaper restore` 回退
 
-> **规则**: 任何读取/比对当前壁纸的逻辑，必须枚举以上三种目标类型，逐类命中对应缓存文件。monitor 尚无配置时，`ensure_monitor_config()` 用脚本默认值（`config` 数组）初始化写入 `.monitors["<monitor>"]`。
+> **规则**: 脚本侧任何读取/比对当前壁纸的逻辑, 用 `xwallpaper state` 按 name 匹配。
+> monitor 尚无配置时, `ensure_monitor_config()` 用脚本默认值（`config` 数组）初始化写入 `.monitors["<monitor>"]`。
 
 ### 壁纸链路
 
 ```
 wallpaper.sh → source utils/monitor.sh, utils/notify.sh
-  ├─ 图（image） → feh (单屏/全屏/多屏) / nsxiv → xwinwrap (组)
-  ├─ 视频（video）→ mpv → xwinwrap (单屏/全屏/组)
-  ├─ 网页（page）→ surf → tabbed → xwinwrap (单屏/全屏/组)
-  └─ monitor 组 → xwinwrap 按 bbox 跨成员屏铺图/视频/网页
-       ├─ 组名即目标 -m <组> (config: groups.<组>)
-       ├─ rofi 多选创建/编辑/启停
-       ├─ 成员互斥（一屏至多归一组）
-       ├─ daemon 轮询对组成员 skip（手动 only）
-       └─ set_latest 恢复 _grp_<组> 状态
+  ├─ 图（image） / 视频（video） / 网页（page） → xwallpaper 渲染 (全部 -g --name 窗口)
+  ├─ monitor 组 → xwallpaper geom 窗口按 bbox 跨成员屏铺图/视频/网页
+  │    ├─ 组名即目标 (config: groups.<组>), 脚本层 name 为 grp_<组名>
+  │    ├─ rofi 多选创建/编辑/启停
+  │    ├─ 成员互斥（一屏至多归一组）
+  │    ├─ daemon 轮询对组成员 skip（手动 only）
+  │    └─ launch_wallpaper 启动 xwallpaper daemon, 启动时自动恢复 keep=0 状态
+  └─ 状态: xwallpaper 持久化 (state 文件), daemon 重启自愈
 ```
 
 ## 配置文件
@@ -454,6 +458,11 @@ calendar-lunar|󰃚|Lunar Calendar|
 - 隐藏网络无法仅凭 BSSID 连接（802.11 关联握手必须携带真实 SSID，NM 会报 `A 'wireless' setting with a valid SSID is required for hidden access points`）：`handle_network` 检测到选中项为 MAC 时弹 `module_input` 让用户输入真实 SSID，再 `nmcli device wifi connect <ssid> hidden yes bssid <BSSID>`
 - **rofi script mode 多属性必须用 `\x1f` 连接**：正确格式 `text\0icon\x1f<v>\x1finfo\x1f<id>`（仅行文本后一个 `\0`）。曾错误写成 `text\0icon\x1f<v>\0info\x1f<id>`（两个 `\0`）导致选中无反应：rofi 按 C 字符串语义解析属性块（`dmenuscript_parse_entry_extras` 的 `g_strsplit` 遇 `\0` 截断），第二个 `\0` 之后的内容（含 info）不可见 → `ROFI_INFO` 不设置 → 静默返回。测试断言注意：`grep -a` 对含 NUL 文件匹配不可靠、`$'\x00'` bash 展开的字面 NUL 会截断 grep -P 模式，须用单引号模式 `'\x00info'` + `grep -P`
 - **视频 rotation 元数据**：手机竖拍视频编码常为横屏 1920x1080 但带 display matrix rotation=-90/90 元数据（`ffprobe -show_entries stream_side_data=rotation`），实际显示为竖屏 1080x1920。`get_video_dim()` 必须读取该元数据并交换宽高，否则竖屏视频被误判为横屏——应用到竖屏 monitor（xrandr rotate left，如 `HDMI-A-0` 报告 `1080x1920`）时方向误判触发无谓的旋转预览。`preview_rotation()` 初始 `--video-rotate` 由硬编码 `90` 改为 `0`：mpv 的 `video-rotate` 是**叠加**在文件元数据之上的额外旋转（默认 `auto` 自动应用元数据，lavc 实测默认输出 1080x1920、`--video-rotate=90` 叠加后输出 1920x1080），硬编码 `90` 让带元数据旋转的视频初始画面变横屏，且 watch-later 无该行（`video-rotate=0` 为默认值 mpv 不写入）时 fallback 错误回到 `90`。xwallpaper 本机为 libmpv 内嵌版，`--rotate N` 直接映射 mpv `video-rotate`，与预览同引擎同语义，空 rotation 时不传 `--rotate` 由 mpv 自动旋转
+- **壁纸 latest 状态已迁移至 xwallpaper**: 脚本侧 `wallpaper_latest_*` / `wallpaper_full_latest` 缓存文件
+  删除, 由 xwallpaper 按 name 持久化 (`$XDG_STATE_HOME/xwallpaper/state`, `keep` 标志区分当前窗口/last)。
+  脚本侧查询当前壁纸走 `xwallpaper state`。`clear --keep` + `restore` 替代原 screen 清场保留/回退逻辑。
+  **行为变化**: `clean_target` 后若铺 screen 再切回, 之前被普通 clear 的 target 仍可能被 restore 拉回
+  (原实现会删缓存, 现普通 clear 删状态、仅 `--keep` 保留; 实际场景中 clean 后再铺 screen 极罕见, 可接受)。
 - **锁屏 standby 后物理屏 1-2s 亮起（xwallpaper 视频壁纸持续 present 触发驱动 unblank）**：根因是 `xwallpaper --daemon` 的 libmpv（`vo=gpu`+`wid` 直绘）在 X DPMS off 后**持续 present 帧** → amdgpu 驱动把输出 dpms 恢复 On（sysfs 实测 2-3s 回弹，X 层 `xset q` 标志保持 Off/Standby 不变，eDP→HDMI→DP 依次亮）。与键盘幽灵输入、amdgpu REG_WAIT（7.x 回归，lts 6.18.46 无此）、TLP/GPU runtime PM（`control=on` 全程 active）均无关。修复双层：① xwallpaper（源码 `~/Workspace/Github/xwallpaper`）backend 层加 `set_paused` 回调（video → mpv pause），`xw_app_dpms_poll()`（`DPMSInfo` 查询，500ms 节流）在主循环检测电源模式，非 On 即暂停渲染；② `lock.sh _lock_before/_lock_after` 对 `xwallpaper` 进程 `pkill -STOP/-CONT` 双保险。验证：standby 12s sysfs dpms 全程 Off 不回弹
 
 ---

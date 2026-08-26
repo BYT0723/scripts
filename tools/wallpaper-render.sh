@@ -12,7 +12,7 @@ set_wallpaper_to_screen() {
     xw_clear_all
 
     xw_apply "$(detect_file_type "$filepath")" "$screen_size" \
-        "Screen" "$filepath" "$wallpaper_full_latest" || return
+        "Screen" "$filepath" || return
 }
 
 set_wallpaper_to_monitor() {
@@ -31,7 +31,7 @@ set_wallpaper_to_monitor() {
     xw_clear_screen_and_restore
 
     xw_apply "$(detect_file_type "$filepath")" "${width}x${height}+${x}+${y}" \
-        "$mon_name" "$filepath" "${wallpaper_latest}_${monitor_index}" || return
+        "$mon_name" "$filepath" || return
 }
 
 set_wallpaper_to_group() {
@@ -59,5 +59,5 @@ set_wallpaper_to_group() {
     xw_clear_screen_and_restore
 
     xw_apply "$(detect_file_type "$filepath")" "${w}x${h}+${x}+${y}" \
-        "$target" "$filepath" "${wallpaper_latest}_grp_${gs}" || return 1
+        "$target" "$filepath" || return 1
 }

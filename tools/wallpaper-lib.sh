@@ -19,16 +19,9 @@ mkdir -p "$cache_wallpaper_dir"
     "groups": []
 }' >"$conf"
 
-#
-# 壁纸状态缓存: target → cache file 映射
-#   实体显示器名 → ${wallpaper_latest}_<xrandr_index>
-#   Group 名      → ${wallpaper_latest}_grp_<组名>
-#   Screen (全屏) → ${wallpaper_full_latest}
-#   存储格式: filepath|rotation
-#   规则: 任何读取当前壁纸的逻辑，必须枚举以上三种目标类型。
-#
-wallpaper_latest="$cache_wallpaper_dir/wallpaper_latest"
-wallpaper_full_latest="${wallpaper_latest}_full"
+# 当前壁纸状态 (latest) 已由 xwallpaper 持久化管理
+# (state 文件按 name 记录 type/path/rotation/geom, daemon 启动自动恢复)。
+# 本文件仅保留 rotation_cache (文件方向角度缓存, 非当前状态)。
 rotation_cache="$cache_wallpaper_dir/rotation_cache"
 
 # Define the default configuration
@@ -77,89 +70,53 @@ xw_clear() {
     xwallpaper clear -m "$target"
 }
 
-# 清空所有壁纸窗口 (Screen + 所有 monitor + 所有 group), 保留状态缓存以便 screen 清除后恢复 last
+# 移除窗口但保留 last 状态 (xwallpaper clear --keep); restore 命令可将其恢复
+xw_clear_keep() {
+    local target="$1"
+    xwallpaper clear --keep -m "$target"
+}
+
+# 清空所有壁纸窗口 (Screen + 所有 monitor + 所有 group)。
+# monitor/group 用 --keep 保留 last, 供 screen 清除后 restore 恢复
 xw_clear_all() {
     xw_clear "Screen"
-    rm -f "$wallpaper_full_latest"
 
     local mon
     while IFS= read -r mon; do
         [ -z "$mon" ] && continue
-        xw_clear "$mon"
+        xw_clear_keep "$mon"
     done < <(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}')
 
     local grp
     while IFS= read -r grp; do
         [ -z "$grp" ] && continue
-        xw_clear "grp_${grp// /_}"
+        xw_clear_keep "grp_${grp// /_}"
     done < <(group_names)
 }
 
-# 设置 monitor/group 壁纸前清除全屏壁纸窗口与缓存; screen 曾激活时回退 monitor/group 的 last 壁纸
+# 设置 monitor/group 壁纸前清除全屏壁纸窗口; screen 曾激活时 restore 回退被 keep 的 last 壁纸
 xw_clear_screen_and_restore() {
     local was_screen=false
-    [ -f "$wallpaper_full_latest" ] && was_screen=true
+    [ -n "$(xwallpaper state 2>/dev/null | awk -F'\t' '$1=="Screen"')" ] && was_screen=true
     xw_clear "Screen"
-    rm -f "$wallpaper_full_latest"
-    $was_screen && restore_latest_monitor_group
+    $was_screen && xwallpaper restore
 }
 
-# 设置壁纸并写状态缓存。旋转角度取全局 WALLPAPER_ROTATION。
-# 用法: xw_apply <type> <rect> <target> <filepath> <latest_file>
+# 设置壁纸。旋转角度取全局 WALLPAPER_ROTATION。
+# 用法: xw_apply <type> <rect> <target> <filepath>
+# 当前壁纸状态由 xwallpaper 持久化 (daemon 重启自动恢复), 本层不再写缓存文件。
 # 成功返回 0；失败打印错误并返回 1。
 xw_apply() {
     local type="$1"
     local rect="$2"
     local target="$3"
     local filepath="$4"
-    local latest="$5"
 
     if ! xw_set "$type" "$rect" "$target" "$filepath" "${WALLPAPER_ROTATION:-}"; then
         error "xwallpaper set failed"
         return 1
     fi
-    local rot="${WALLPAPER_ROTATION:-}"
-    if [ "$type" = "image" ]; then
-        echo "$filepath" >"$latest"
-    else
-        echo "$filepath|$rot" >"$latest"
-    fi
     return 0
-}
-
-# 从状态缓存恢复所有 monitor/group 的 last 壁纸 (不含 screen)。
-# 用于 set_latest 与 screen 清除后回退 (screen 设置时 xw_clear_all 保留缓存)。
-# 直接调 xw_apply, 不经 set_wallpaper_to_*, 避免递归; 退出时还原 WALLPAPER_ROTATION。
-restore_latest_monitor_group() {
-    local saved_rot="${WALLPAPER_ROTATION:-}"
-    local f mon mon_name grp_name w h x y fp rot
-
-    shopt -s nullglob
-    for f in "${wallpaper_latest}"_[0-9]*; do
-        mon_name=$(xrandr --listactivemonitors 2>/dev/null | awk -v i="${f##*_}" 'NR>1 && $1+0==i {print $NF; exit}')
-        [ -z "$mon_name" ] && continue
-        is_group_member "$mon_name" && continue
-        read _ w h x y < <(get_monitor_info_by_index "${f##*_}")
-        IFS='|' read -r fp rot <"$f"
-        WALLPAPER_ROTATION="$rot"
-        xw_apply "$(detect_file_type "$fp")" "${w}x${h}+${x}+${y}" "$mon_name" "$fp" "$f"
-    done
-
-    for f in "${wallpaper_latest}_grp_"*; do
-        grp_name="${f#${wallpaper_latest}_grp_}"
-        [ "$(get_group_enabled "$grp_name")" != "true" ] && continue
-        while IFS= read -r mon; do
-            [ -z "$mon" ] && continue
-            xw_clear "$mon"
-        done < <(get_group_members "$grp_name")
-        read w h x y <<<"$(get_group_dim "$grp_name" 2>/dev/null)" || continue
-        IFS='|' read -r fp rot <"$f"
-        WALLPAPER_ROTATION="$rot"
-        xw_apply "$(detect_file_type "$fp")" "${w}x${h}+${x}+${y}" "grp_${grp_name// /_}" "$fp" "$f"
-    done
-    shopt -u nullglob
-
-    WALLPAPER_ROTATION="$saved_rot"
 }
 
 # 若 monitor 尚无配置，用脚本内默认值初始化写入 config
@@ -442,11 +399,9 @@ clean_target() {
     case "$type" in
     screen)
         xw_clear "Screen"
-        rm -f "$wallpaper_full_latest"
         ;;
     mon)
         local idx="$target"
-        rm -f "${wallpaper_latest}_${idx}"
         local mon_name
         mon_name=$(xrandr --listactivemonitors 2>/dev/null | awk -v i="$idx" 'NR>1 && $1+0==i {print $NF; exit}')
         if [ -n "$mon_name" ]; then
@@ -454,50 +409,19 @@ clean_target() {
             local grp=$(group_for_monitor "$mon_name" all)
             if [ -n "$grp" ]; then
                 local gs="${grp// /_}"
-                rm -f "${wallpaper_latest}_grp_${gs}"
                 xw_clear "grp_${gs}"
             fi
         fi
         ;;
     grp)
         local gs="${target// /_}"
-        rm -f "${wallpaper_latest}_grp_${gs}"
         xw_clear "grp_${gs}"
         while IFS= read -r mon_name; do
             [ -z "$mon_name" ] && continue
-            local idx
-            idx=$(get_monitor_info "$mon_name" 2>/dev/null | awk '{print $1}')
-            [ -z "$idx" ] && continue
-            rm -f "${wallpaper_latest}_${idx}"
             xw_clear "$mon_name"
         done < <(get_group_members "$target")
         ;;
     esac
-}
-
-clean_latest() {
-    local monitor_index=$1
-
-    # 开启 nullglob，保证通配符为空时不会报错
-    shopt -s nullglob
-
-    # Clean up full screen wallpaper
-    xw_clear "Screen"
-    rm -f "$wallpaper_full_latest"
-
-    local files=()
-    if [ -n "$monitor_index" ]; then
-        files=("${wallpaper_latest}_${monitor_index}")
-    else
-        files=("${wallpaper_latest}"_*)
-    fi
-
-    # 遍历每个匹配文件
-    for f in "${files[@]}"; do
-        [ ! -f "$f" ] && continue
-        # Remove corresponding latest file
-        rm -f "$f"
-    done
 }
 
 get_screen_size() {
