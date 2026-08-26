@@ -50,7 +50,7 @@ conky_launcher() {
     _launch() {
         conky -U -d &
         sleep 0.5
-        xdotool search --class xwinwrap windowlower %@
+        xdotool search --class xwallpaper windowlower %@
     }
 
     case "$action" in
