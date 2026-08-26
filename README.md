@@ -53,7 +53,7 @@
 
 ### T4 — 可选 (缺失时有条件跳过)
 
-`mpc`/`mpd` `networkmanager`/`nm-applet` `fcitx5-im` `lxsession`/`lxpolkit` `udiskie` `bluez`/`bluetoothctl` `newsboat` `yt-dlp` `yazi` `cal`/`ccal` `st` `easyeffects`(默认注释) `conky` `sing-box` `scrcpy`/`android-tools` `xinput`(lock.sh 灭屏判定) `autorandr` `snixembed` `wireless-tools`(`iwgetid`, 状态栏 wifi 名称)
+`mpc`/`mpd` `networkmanager`/`nm-applet` `fcitx5-im` `lxsession`/`lxpolkit` `udiskie` `bluez`/`bluetoothctl` `newsboat` `yt-dlp` `yazi` `cal`/`ccal` `st` `easyeffects`(默认注释) `conky` `sing-box` `scrcpy`/`android-tools` `xprintidle`(lock.sh 有 fallback) `autorandr` `snixembed` `wireless-tools`(`iwgetid`, 状态栏 wifi 名称)
 
 ---
 
@@ -75,7 +75,7 @@
 
 | 脚本                | 功能                               | 依赖                                                        |
 | ------------------- | ---------------------------------- | ----------------------------------------------------------- |
-| `lock.sh`           | i3lock-color 锁屏 + suspend 分发   | i3lock-color / xset / xdotool / amixer / mpc / xinput |
+| `lock.sh`           | i3lock-color 锁屏 + suspend 分发   | i3lock-color / xset / xdotool / amixer / mpc / xprintidle(可选) |
 | `screen.sh`         | DPMS 自动启停守护 (有音频自动亮屏) | xautolock / xset / pw-dump 或 pactl / jq                    |
 | `wallpaper.sh`      | 壁纸引擎 (随机/选择/daemon)        | xwallpaper / ffprobe / mpv(旋转预览) / yazi                  |
 | `wallpaper-lib.sh`  | 壁纸配置/组管理/渲染接口           | xwallpaper / jq / ffprobe / envsubst                        |
