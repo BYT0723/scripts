@@ -3,6 +3,11 @@
 # 依赖: util.sh (需调用方先 source)
 # 调用方需设定: MODULE_THEME ROFI_DIR
 # 可选: MODULE_WIDTH (默认 500) MODULE_FONT
+# 可选数组 (外部 theme-str, 追加在内置之后覆盖 rasi):
+#   MODULE_THEME_STR   → 主菜单 (_module_rofi)
+#   MODULE_SUB_THEME_STR   → 子菜单 (module_sub_rofi)
+#   MODULE_INPUT_THEME_STR → 输入框 (module_input)
+#   MODULE_MULTI_THEME_STR → 多选 (module_multi_rofi)
 # 使用方法见末尾注释
 
 MODULE_WIDTH="${MODULE_WIDTH:-500}"
@@ -46,6 +51,16 @@ _module_status() {
     esac
 }
 
+# 外部 theme-str 数组 → -theme-str 参数对 (未设置时为空, 追加覆盖 rasi)
+_module_theme_str_args() { # src_var 数组 → dest_var 数组 (nameref)
+    local -n src="$1" dest="$2"
+    local s
+    [[ -v src ]] || return 0
+    for s in "${src[@]}"; do
+        dest+=(-theme-str "$s")
+    done
+}
+
 _module_rofi() {
     local extra=()
     if [[ "${MODULE_SEARCH_BAR:-true}" == 'true' ]]; then
@@ -63,11 +78,14 @@ _module_rofi() {
     mesg_safe="${mesg_safe//&/&amp;}"
     local font_str=()
     [[ -n "${MODULE_FONT:-}" ]] && font_str=(-theme-str "* {font: \"${MODULE_FONT}\";}")
+    local theme_str=()
+    _module_theme_str_args MODULE_THEME_STR theme_str
     rofi -theme-str "listview {columns: $_module_col; lines: $_module_row;}" \
         -theme-str 'textbox-prompt-colon {str: "'"${MODULE_NAME}"'";}' \
         -theme-str 'window {width: '$MODULE_WIDTH'px;}' \
         "${extra[@]}" \
         "${font_str[@]}" \
+        "${theme_str[@]}" \
         ${MODULE_ACTIVE:+-a "$MODULE_ACTIVE"} ${MODULE_URGENT:+-u "$MODULE_URGENT"} \
         -dmenu -i \
         -mesg "${mesg_safe}" \
@@ -92,11 +110,14 @@ module_sub_rofi() {
     mesg="${mesg//&/&amp;}"
     local font_str=()
     [[ -n "${MODULE_FONT:-}" ]] && font_str=(-theme-str "* {font: \"${MODULE_FONT}\";}")
+    local theme_str=()
+    _module_theme_str_args MODULE_SUB_THEME_STR theme_str
     rofi -theme-str "listview {columns: 1;}" \
         -theme-str 'textbox-prompt-colon {str: "'"$prompt"'";}' \
         -theme-str 'window {width: '$MODULE_WIDTH'px;}' \
         "${extra[@]}" \
         "${font_str[@]}" \
+        "${theme_str[@]}" \
         -dmenu -i \
         -mesg "$mesg" \
         -theme ${MODULE_THEME} \
@@ -110,6 +131,8 @@ module_input() {
     mesg="${mesg//&/&amp;}"
     local font_str=()
     [[ -n "${MODULE_FONT:-}" ]] && font_str=(-theme-str "* {font: \"${MODULE_FONT}\";}")
+    local theme_str=()
+    _module_theme_str_args MODULE_INPUT_THEME_STR theme_str
     rofi \
         -theme-str 'window {width: '$MODULE_WIDTH'px;}' \
         -theme-str 'mainbox { children: ["inputbar", "message"];}' \
@@ -117,6 +140,7 @@ module_input() {
         -theme-str 'textbox-prompt-colon {str: "'"$prompt"'";}' \
         -theme-str 'entry {padding:10px;background-color:inherit;text-color:inherit;placeholder: "'"$default"'";}' \
         "${font_str[@]}" \
+        "${theme_str[@]}" \
         -dmenu \
         -mesg "$mesg" \
         -theme ${MODULE_THEME} \
@@ -146,12 +170,15 @@ module_multi_rofi() {
     mesg="${mesg//&/&amp;}"
     local font_str=()
     [[ -n "${MODULE_FONT:-}" ]] && font_str=(-theme-str "* {font: \"${MODULE_FONT}\";}")
+    local theme_str=()
+    _module_theme_str_args MODULE_MULTI_THEME_STR theme_str
     rofi -theme-str "listview {columns: 1;}" \
         -theme-str 'textbox-prompt-colon {str: "'"$prompt"'";}' \
         -theme-str 'window {width: '$MODULE_WIDTH'px;}' \
         -theme-str 'inputbar {children: [ "textbox-prompt-colon", "entry"];}' \
         -theme-str 'entry {padding:8px;background-color:inherit;text-color:inherit;}' \
         "${font_str[@]}" \
+        "${theme_str[@]}" \
         -dmenu -i -multi-select \
         -mesg "$mesg" \
         -theme ${MODULE_THEME} \
@@ -204,6 +231,7 @@ module_loop() {
 # MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
 # # MODULE_WIDTH 可选，默认 500
 # MODULE_MAX_LINES=8          # 可选，限制菜单可视行数
+# MODULE_THEME_STR=('window {fullscreen: true;}')  # 可选，覆盖 rasi 定义
 # source "$(dirname "$0")"/util.sh
 # source "$(dirname "$0")"/lib-module.sh
 #

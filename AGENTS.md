@@ -40,7 +40,7 @@ rofi/scripts/sddm.sh       ──sources──► rofi/scripts/lib-module.sh, ro
 rofi/scripts/screenshot.sh  ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/screencast.sh  ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/monitor.sh
 rofi/scripts/media-scraping.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
-rofi/scripts/mpd.sh         ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
+rofi/scripts/mpd.sh         ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh; ──requires─► MPD `readpicture` 协议 (nc / bash /dev/tcp, 环境变量 MPD_HOST/MPD_PORT 默认 localhost:6600); 封面缓存 `~/.cache/dwm/mpd-cover/mpd-cover-<uri-hash>.jpg` (按歌曲 uri cksum 绑定, 命中复用)
 rofi/scripts/sing-box.sh    ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh
 rofi/scripts/scrcpy.sh    ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/theme.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, tools/theme.sh
@@ -172,6 +172,9 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 
 ### rofi/scripts/lib-module.sh
 
+外部 theme-str 数组 (追加在内置 `-theme-str` 之后、`-theme` 之前, 覆盖 rasi 定义, 可选不设):
+`MODULE_THEME_STR`(主菜单 `_module_rofi`) / `MODULE_SUB_THEME_STR`(`module_sub_rofi`) / `MODULE_INPUT_THEME_STR`(`module_input`) / `MODULE_MULTI_THEME_STR`(`module_multi_rofi`); 展开经 `_module_theme_str_args` (nameref 数组 → `-theme-str` 参数对, 未设置零开销). 测试 `tests/lib-module_test.sh`.
+
 | 函数                  | 调用者                                                                                                                                                                                                                                                                                               |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `module_parse()`      | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, theme.sh, yt-dlp-wrapper.sh, wallpaper.sh, scrcpy.sh, mpd.sh (读取注册表)                                                                                                                                                                          |
@@ -187,6 +190,16 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | --------------- | ------------------------------------------------------------ |
 | `_toggle()`     | media-scraping.sh (启停 docker compose 服务)                 |
 | `_is_running()` | media-scraping.sh (Open 前检查容器状态, Toggle 图标状态检查) |
+
+### rofi/scripts/mpd.sh
+
+| 函数                | 调用者                                            |
+| ------------------- | ------------------------------------------------- |
+| `fetch_cover()`     | mpd.sh (主流程 else 分支: 拉取当前歌曲封面 → imagebox 覆盖) |
+| `_mpd_readpicture()` | fetch_cover (单次 readpicture 请求, nc 优先 /dev/tcp fallback) |
+
+> 封面注入: imagebox 用 `filename`+`size`+`squared:false` (icon widget 语义, 不平铺);
+> 勿用 `background-image url(path,height)` — imagebox 宽度大于缩放后图片会平铺重复。cache 按歌曲 uri cksum 命名放 `~/.cache/dwm/mpd-cover/`, 命中复用不重复拉取。
 
 ### theme.sh (tools/)
 
