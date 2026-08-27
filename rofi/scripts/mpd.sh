@@ -3,7 +3,7 @@
 ROFI_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
 
 MODULE_THEME="$ROFI_DIR/applets/type-2/style-3.rasi"
-MODULE_WIDTH=900
+MODULE_WIDTH=800
 MODULE_SEARCH_BAR=false
 
 source "$(dirname "${BASH_SOURCE[0]}")"/util.sh
@@ -111,8 +111,10 @@ else
             "imagebox { enabled: true; width: 200px; expand: false; margin: 0; border-radius: 10px; background-color: transparent; background-image: url(\"$img\", both); }"
             "mainbox { enabled: true; padding: 20px; background-color: transparent; orientation: horizontal; children: [\"imagebox\", \"rightbox\"]; }"
             "rightbox { enabled: true; orientation: vertical; spacing: 10px; margin: 0px; background-color: transparent; children: [\"inputbar\", \"message\", \"listview\"]; }"
-            "element { padding: 20px 0px 20px 5px;}"
-            "element-text { font: \"JetBrains Mono Nerd Font 18\";}"
+            "element { padding: 10px 0px 10px 0px;}"
+            "element-text { font: \"JetBrains Mono Nerd Font 14\";}"
+            "* { font: \"JetBrains Mono Nerd Font 10\";}"
+            "listview {columns: 8; lines: 1; flow: horizontal;}"
         )
     fi
 
