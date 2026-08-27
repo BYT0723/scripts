@@ -165,32 +165,40 @@ uri_hash=$(printf '%s' "song.flac" | cksum | cut -d' ' -f1)
 cached="$XDG_CACHE_HOME/dwm/mpd-cover/mpd-cover-$uri_hash.jpg"
 mkdir -p "$XDG_CACHE_HOME/dwm/mpd-cover"
 
-# 场景 A: cache 不存在 → 拉取 (nc 调用 1 次) 并生成缓存文件
+# 场景 A: cache 不存在 → 异步后台拉取 (nc 在子进程调用) + 立即显示默认图
 rm -f "$cached"
 : >"$NC_COUNT_FILE"
-# 重跑 source 触发主流程拉取
 source "$MOCK_ROFI/scripts/mpd.sh" 2>/dev/null
-assert_eq "$(wc -l <"$NC_COUNT_FILE")" "1" "cache 未命中: 拉取 1 次"
+# 后台子进程拉取, 轮询等待完成
+for _ in $(seq 1 50); do [[ -f "$cached" ]] && break; sleep 0.1; done
+wait 2>/dev/null
+assert_eq "$(wc -l <"$NC_COUNT_FILE")" "1" "cache 未命中: 后台拉取 1 次 (异步)"
 assert_cond "cache 未命中: 生成绑定 uri hash 的缓存文件" "[ -f \"$cached\" ]"
+assert_cond "cache 未命中: 立即显示默认图 (异步不阻塞)" \
+    "[[ \"\${MODULE_THEME_STR[0]:-}\" == *'rofi/images/j.jpg'* ]]"
 
-# 场景 B: cache 已存在 → 不拉取 (nc 调用 0 次)
+# 场景 B: cache 已存在 → 不拉取 (nc 调用 0 次), 显示封面
 : >"$NC_COUNT_FILE"
 source "$MOCK_ROFI/scripts/mpd.sh" 2>/dev/null
+wait 2>/dev/null
 assert_eq "$(wc -l <"$NC_COUNT_FILE")" "0" "cache 命中: 复用不重复拉取 (nc 0 次)"
+assert_cond "cache 命中: 显示封面而非默认图" \
+    "[[ \"\${MODULE_THEME_STR[0]:-}\" == *\"\$cached\"* ]]"
 
 # 场景 C: theme-str 防平铺要素 — 显式约束 imagebox 尺寸 (width/height/expand:false)
 # 防平铺不绑定具体属性: 显式尺寸约束下 rofi 按给定尺寸绘制背景图
-source "$MOCK_ROFI/scripts/mpd.sh" 2>/dev/null
 ts="${MODULE_THEME_STR[0]:-}"
-assert_cond "theme-str: 引用封面路径" "[[ \"\$ts\" == *\"\$cached\"* ]]"
 assert_cond "theme-str: 显式尺寸约束防平铺 (width/height/expand:false)" \
     "[[ \"\$ts\" == *'width: 200px'* ]] && [[ \"\$ts\" == *'height: 200px'* ]] && [[ \"\$ts\" == *'expand: false'* ]]"
 
 # 场景 D: 不同歌曲 → 不同 cache 文件 (hash 绑定)
 MOCK_MPC_FILE_SAVE="$MOCK_MPC_FILE"
 export MOCK_MPC_FILE="another/song.mp3"
-source "$MOCK_ROFI/scripts/mpd.sh" 2>/dev/null
 uri_hash2=$(printf '%s' "another/song.mp3" | cksum | cut -d' ' -f1)
+: >"$NC_COUNT_FILE"
+source "$MOCK_ROFI/scripts/mpd.sh" 2>/dev/null
+for _ in $(seq 1 50); do [[ -f "$XDG_CACHE_HOME/dwm/mpd-cover/mpd-cover-$uri_hash2.jpg" ]] && break; sleep 0.1; done
+wait 2>/dev/null
 assert_cond "不同歌曲: 生成独立 hash 缓存文件" "[ -f \"$XDG_CACHE_HOME/dwm/mpd-cover/mpd-cover-$uri_hash2.jpg\" ]"
 MOCK_MPC_FILE="$MOCK_MPC_FILE_SAVE"
 

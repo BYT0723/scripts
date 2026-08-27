@@ -198,8 +198,9 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `fetch_cover()`     | mpd.sh (主流程 else 分支: 拉取当前歌曲封面 → imagebox 覆盖) |
 | `_mpd_readpicture()` | fetch_cover (单次 readpicture 请求, nc 优先 /dev/tcp fallback) |
 
-> 封面注入: imagebox 用 `filename`+`size`+`squared:false` (icon widget 语义, 不平铺);
-> 勿用 `background-image url(path,height)` — imagebox 宽度大于缩放后图片会平铺重复。cache 按歌曲 uri cksum 命名放 `~/.cache/dwm/mpd-cover/`, 命中复用不重复拉取。
+> 封面注入: imagebox 显式 `width/height` + `expand:false` + `background-image: url(path, both)` 防平铺
+> (both 按宽高自适应, 方形/非方形图都不平铺)。cache 按歌曲 uri cksum 命名放 `~/.cache/dwm/mpd-cover/`, 命中复用不重复拉取。
+> 异步: cache 未命中时立即显示 `rofi/images/j.jpg` 默认图, `( fetch_cover ... & disown )` 后台拉取, 本次打开不阻塞, 下次打开生效。
 
 ### theme.sh (tools/)
 

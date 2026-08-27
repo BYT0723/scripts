@@ -3,7 +3,7 @@
 ROFI_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
 
 MODULE_THEME="$ROFI_DIR/applets/type-2/style-3.rasi"
-MODULE_WIDTH=1000
+MODULE_WIDTH=900
 MODULE_SEARCH_BAR=false
 
 source "$(dirname "${BASH_SOURCE[0]}")"/util.sh
@@ -90,8 +90,8 @@ else
     MODULE_NAME=" ${song:0:30}"
     MODULE_MESG="$(mpc status "%currenttime%/%totaltime%  墳 %volume%")"
 
-    # 封面: 从 MPD 拉取当前歌曲内嵌图 → imagebox 覆盖 (失败时回退 rasi 默认图)
-    # cache 文件名绑定歌曲 uri hash, 命中复用不重复拉取
+    # 封面: 从 MPD 拉取当前歌曲内嵌图 → imagebox 覆盖
+    # cache 命中直接用封面; 未命中先用默认图并后台异步拉取 (下次打开生效)
     MODULE_THEME_STR=()
     song_file=$(mpc -f '%file%' current | head -1)
     if [[ -n "$song_file" ]]; then
@@ -99,16 +99,24 @@ else
         mkdir -p "$cache_dir" 2>/dev/null
         uri_hash=$(printf '%s' "$song_file" | cksum | cut -d' ' -f1)
         cover="$cache_dir/mpd-cover-$uri_hash.jpg"
-        if [[ -f "$cover" ]] || fetch_cover "$song_file" "$cover"; then
-            MODULE_THEME_STR=(
-                "imagebox { enabled: true; width: 200px; height: 200px; expand: false; margin: 0; border-radius: 10px; background-color: transparent; background-image: url(\"$cover\", both); }"
-                "mainbox { enabled: true; padding: 20px; background-color: transparent; orientation: horizontal; children: [\"imagebox\", \"rightbox\"]; }"
-                "rightbox { enabled: true; orientation: vertical; spacing: 10px; margin: 0px; background-color: transparent; children: [\"inputbar\", \"message\", \"listview\"]; }"
-            )
+        img="$cover"
+        if [[ ! -f "$cover" ]]; then
+            img="$ROFI_DIR/images/j.jpg"
+            (
+                fetch_cover "$song_file" "$cover" &
+                disown
+            ) 2>/dev/null
         fi
+        MODULE_THEME_STR=(
+            "imagebox { enabled: true; width: 200px; expand: false; margin: 0; border-radius: 10px; background-color: transparent; background-image: url(\"$img\", both); }"
+            "mainbox { enabled: true; padding: 20px; background-color: transparent; orientation: horizontal; children: [\"imagebox\", \"rightbox\"]; }"
+            "rightbox { enabled: true; orientation: vertical; spacing: 10px; margin: 0px; background-color: transparent; children: [\"inputbar\", \"message\", \"listview\"]; }"
+            "element { padding: 20px 0px 20px 5px;}"
+            "element-text { font: \"JetBrains Mono Nerd Font 18\";}"
+        )
     fi
 
-    play_icon=$([[ "$status" == "playing" ]] && echo "󰏤" || echo "󰐊")
+    play_icon=$([[ "$status" == "playing" ]] && echo "" || echo "")
     play_label=$([[ "$status" == "playing" ]] && echo "Pause" || echo "Play")
 
     # Repeat/Random 高亮索引 (基于注册表行序)
@@ -122,13 +130,13 @@ else
 
     module_parse <<MODULES
 play-pause|${play_icon}|${play_label}|
-stop|󰓛|Stop|
+stop||Stop|
 prev|󰒮|Previous|
 next|󰒭|Next|
 vol-down|󰝞|Down|
 vol-up|󰝝|Up|
-repeat|󰑖|Repeat|
-random||Random|
+repeat||Repeat|
+random||Random|
 MODULES
 
     _handle_play_icon() {
