@@ -76,11 +76,10 @@ xw_clear_keep() {
     xwallpaper clear --keep -m "$target"
 }
 
-# 清空所有壁纸窗口 (Screen + 所有 monitor + 所有 group)。
+# 清空除 Screen 外的所有壁纸窗口 (所有 monitor + 所有 group)。
 # monitor/group 用 --keep 保留 last, 供 screen 清除后 restore 恢复
-xw_clear_all() {
-    xw_clear "Screen"
-
+# (Screen 自身由 set 同名 reload 覆盖, 不在本函数清理范围)
+xw_clear_all_exclude_screen() {
     local mon
     while IFS= read -r mon; do
         [ -z "$mon" ] && continue
@@ -392,36 +391,22 @@ echo_help() {
     echo "      -m <mon> <next|select> apply to specific monitor"
 }
 
-clean_target() {
-    local type="$1"
-    local target="$2"
+# 清掉 group 所有成员 monitor 的独立壁纸窗口 (组与成员互斥)。
+# 不涉及 grp_<组名> 窗口本身 — 调用方按需处理。
+xw_clear_group_members() {
+    local group="$1"
+    while IFS= read -r mon_name; do
+        [ -z "$mon_name" ] && continue
+        xw_clear "$mon_name"
+    done < <(get_group_members "$group")
+}
 
-    case "$type" in
-    screen)
-        xw_clear "Screen"
-        ;;
-    mon)
-        local idx="$target"
-        local mon_name
-        mon_name=$(xrandr --listactivemonitors 2>/dev/null | awk -v i="$idx" 'NR>1 && $1+0==i {print $NF; exit}')
-        if [ -n "$mon_name" ]; then
-            xw_clear "$mon_name"
-            local grp=$(group_for_monitor "$mon_name" all)
-            if [ -n "$grp" ]; then
-                local gs="${grp// /_}"
-                xw_clear "grp_${gs}"
-            fi
-        fi
-        ;;
-    grp)
-        local gs="${target// /_}"
-        xw_clear "grp_${gs}"
-        while IFS= read -r mon_name; do
-            [ -z "$mon_name" ] && continue
-            xw_clear "$mon_name"
-        done < <(get_group_members "$target")
-        ;;
-    esac
+# 真清 group 的壁纸窗口 (grp_<组名> + 所有成员 monitor 独立窗口)。
+# 供 handle_group (禁用/重命名/删除/编辑成员) 使用 — 无后续同名 set, 必须真清。
+clean_group() {
+    local group="$1"
+    xw_clear "grp_${group// /_}"
+    xw_clear_group_members "$group"
 }
 
 get_screen_size() {

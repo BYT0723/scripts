@@ -82,7 +82,7 @@ handle_group() {
         case "$action" in
         *Disable)
             jq --arg n "$group_name" '.groups[$n].enabled = false' "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
-            clean_target "grp" "$group_name"
+            clean_group "$group_name"
             handle_error "info" "Group '$group_name' disabled"
             ;;
         *Enable)
@@ -98,7 +98,7 @@ handle_group() {
             jq --arg old "$group_name" --arg new "$new_name" \
                 '.groups[$new] = .groups[$old] | del(.groups[$old]) | if .monitors[$old] then .monitors[$new] = .monitors[$old] | del(.monitors[$old]) else . end' \
                 "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
-            clean_target "grp" "$group_name"
+            clean_group "$group_name"
             handle_error "info" "Group renamed to '$new_name'"
             ;;
         *"Edit Members")
@@ -116,13 +116,13 @@ handle_group() {
             local members_json=$(printf '%s\n' $selected | jq -Rnc '[inputs]')
             jq --arg n "$group_name" --argjson m "$members_json" \
                 '.groups[$n].members = $m' "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
-            clean_target "grp" "$group_name"
+            clean_group "$group_name"
             handle_error "info" "Group '$group_name' members updated"
             ;;
         *Delete)
             local confirm=$(printf 'Yes\nNo' | module_sub_rofi "󰮄 Delete '$group_name'?" "This cannot be undone")
             [ "$confirm" != "Yes" ] && return
-            clean_target "grp" "$group_name"
+            clean_group "$group_name"
             jq --arg n "$group_name" 'del(.groups[$n])' "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
             handle_error "info" "Group '$group_name' deleted"
             ;;

@@ -9,7 +9,8 @@ set_wallpaper_to_screen() {
     local screen_size
     screen_size=$(get_screen_size) || return
 
-    xw_clear_all
+    # 移除非Screen外的所有monitor / group 壁纸
+    xw_clear_all_exclude_screen
 
     xw_apply "$(detect_file_type "$filepath")" "$screen_size" \
         "Screen" "$filepath" || return
@@ -26,7 +27,14 @@ set_wallpaper_to_monitor() {
     local mon_name
     mon_name=$(xrandr --listactivemonitors 2>/dev/null | awk -v i="$monitor_index" 'NR>1 && $1+0==i {print $NF; exit}')
 
-    clean_target "mon" "$monitor_index"
+    # 若该 monitor 属于某组, 清组窗口 (组与成员互斥); mon_name 自身靠同名 set reload
+    if [ -n "$mon_name" ]; then
+        local grp
+        grp=$(group_for_monitor "$mon_name" all)
+        if [ -n "$grp" ]; then
+            xw_clear "grp_${grp// /_}"
+        fi
+    fi
 
     xw_clear_screen_and_restore
 
@@ -48,13 +56,8 @@ set_wallpaper_to_group() {
     local target="grp_${gs}"
 
     # group 与其成员 monitor 互斥：先清掉成员 monitor 的独立窗口
-    local mon_name
-    while IFS= read -r mon_name; do
-        [ -z "$mon_name" ] && continue
-        xw_clear "$mon_name"
-    done < <(get_group_members "$group")
-
-    clean_target "grp" "$group"
+    # grp_<组名> 自身窗口不手动清 — xwallpaper 对同名 set 走 reload
+    xw_clear_group_members "$group"
 
     xw_clear_screen_and_restore
 
