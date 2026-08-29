@@ -31,7 +31,14 @@ DIR="$XW_MOCK_STATE"
 mkdir -p "$DIR"
 name=""; prev=""
 case "$*" in
-  *--list*|*state*)
+  *--list*)
+    for f in "$DIR"/*.win; do
+      [ -f "$f" ] || continue
+      n="${f##*/}"; n="${n%.win}"
+      printf '%s\n' "$n"
+    done
+    ;;
+  *state*)
     for f in "$DIR"/*.win; do
       [ -f "$f" ] || continue
       n="${f##*/}"; n="${n%.win}"
@@ -230,7 +237,12 @@ set_wallpaper_to_screen "$TEST_DIR/img.png"
 state_has "Screen" "screen active"
 set_wallpaper_to_monitor 0 "$TEST_DIR/img.png"
 assert_has "$(cat "$XW_MOCK_LOG")" 'clear -m Screen' "monitor set clears screen window"
-assert_has "$(cat "$XW_MOCK_LOG")" 'clear --keep -m eDP' "screen clear keeps monitor last"
+if [[ "$(cat "$XW_MOCK_LOG")" == *'clear --keep -m eDP'* ]]; then
+    echo "FAIL: eDP 未 active 不应被 clear --keep (仅清实际存在窗口)"
+    FAIL=1
+else
+    echo "ok: 未 active 的 eDP 不被 clear --keep"
+fi
 state_lacks "Screen" "screen window removed after monitor set"
 state_has "eDP" "monitor applied after screen"
 
