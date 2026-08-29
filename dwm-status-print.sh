@@ -1,7 +1,7 @@
 # Icons initial
 declare -A icons
 icons["cpu"]=""
-icons["temp"]=""
+icons["temp"]=""
 icons["memory"]=""
 icons["disk"]=""
 icons["mail"]="󰇮"
@@ -257,6 +257,7 @@ print_mail() {
 
 print_rss() {
     read unread <"$rss_unread_path"
+    [ -z "$unread" ] && return
     (($unread > 0)) && printf "^c$yellow^${icons[rss]} $unread"
 }
 
@@ -270,7 +271,9 @@ print_notification() {
 }
 
 print_screencast() {
+    local pid_f="/tmp/screencaster_pid"
     local pid
+    [ ! -f "$pid_f" ] && return
     read -r pid </tmp/screencaster_pid 2>/dev/null || return
     kill -0 "$pid" 2>/dev/null && printf "^c$red^󰑊"
 }
