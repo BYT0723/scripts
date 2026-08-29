@@ -54,24 +54,19 @@ launch() {
 }
 
 desktop_setting() {
+    # 窗口合成器 picom (window composer)
+    launch check picom "picom --config $HOME/.config/dwm/picom.conf"
     # 状态栏信息
     /bin/bash $WORK_DIR/dwm-status.sh reboot
-    # systray sni
-    launch check snixembed "snixembed"
-    # 壁纸(不使用launch_monitor是因为wallpaper每次启动都要使用新的instance, 移除旧的实例)
-    # wallpaper.sh内部实现了
+    # wallpaper management (xwallpaper daemon + bash random deamon)
     /bin/bash "$TOOLS_DIR"/wallpaper.sh -r &
-    # 屏保
-    launch restart screen "/bin/bash $TOOLS_DIR/screen.sh"
-    # 自动主题切换 (auto=false 时立即退出)
-    launch restart theme-auto "/bin/bash $TOOLS_DIR/theme.sh auto"
 }
 
 application_launch() {
-    # 窗口合成器 picom (window composer)
-    launch check picom "picom --config $HOME/.config/dwm/picom.conf"
     # XSETTINGS 守护 (GTK 主题/字体广播, Firefox 亮暗跟随依赖)
     launch check xsettingsd "xsettingsd"
+    # systray sni
+    launch check snixembed "snixembed"
     # 启动通知
     launch check dunst "dunst"
     # network manager 网络管理bar icon
@@ -82,6 +77,10 @@ application_launch() {
     launch restart udiskie "udiskie -sn"
     # polkit (require lxsession or lxsession-gtk3) 鉴权
     launch check lxpolkit "lxpolkit"
+    # 屏保
+    launch restart screen "/bin/bash $TOOLS_DIR/screen.sh"
+    # 自动主题切换 (auto=false 时立即退出)
+    launch restart theme-auto "/bin/bash $TOOLS_DIR/theme.sh auto"
     # conky (system monitor)
     ((CONKY_AUTOSTART > 0)) && /bin/bash $WORK_DIR/dwm-launcher.sh conky start
     # 音频控制 (暂时先关闭，已有独立功放，不需要ee)
@@ -111,4 +110,4 @@ check_autorandr_xsetup() {
 keyboard_setting
 desktop_setting
 application_launch
-check_autorandr_xsetup &
+check_autorandr_xsetup
