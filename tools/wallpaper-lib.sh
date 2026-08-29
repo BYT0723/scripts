@@ -79,26 +79,22 @@ xw_clear_keep() {
 # 清空除 Screen 外的所有壁纸窗口 (所有 monitor + 所有 group)。
 # monitor/group 用 --keep 保留 last, 供 screen 清除后 restore 恢复
 # (Screen 自身由 set 同名 reload 覆盖, 不在本函数清理范围)
+# 以 `xwallpaper --list` 实际 active 窗口为准, 不遍历 xrandr/config 枚举 (避免空打不存在 name)
 xw_clear_all_exclude_screen() {
-    local mon
-    while IFS= read -r mon; do
-        [ -z "$mon" ] && continue
-        xw_clear_keep "$mon"
-    done < <(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}')
-
-    local grp
-    while IFS= read -r grp; do
-        [ -z "$grp" ] && continue
-        xw_clear_keep "grp_${grp// /_}"
-    done < <(group_names)
+    local name
+    while IFS= read -r name; do
+        [ -z "$name" ] && continue
+        [ "$name" = "Screen" ] && continue
+        xw_clear_keep "$name"
+    done < <(xwallpaper --list 2>/dev/null)
 }
 
 # 设置 monitor/group 壁纸前清除全屏壁纸窗口; screen 曾激活时 restore 回退被 keep 的 last 壁纸
+# 仅当 Screen 窗口实际存在时才 clear+restore (避免空打不存在 name)
 xw_clear_screen_and_restore() {
-    local was_screen=false
-    [ -n "$(xwallpaper state 2>/dev/null | awk -F'\t' '$1=="Screen"')" ] && was_screen=true
+    xwallpaper --list 2>/dev/null | grep -qx "Screen" || return
     xw_clear "Screen"
-    $was_screen && xwallpaper restore
+    xwallpaper restore
 }
 
 # 设置壁纸。旋转角度取全局 WALLPAPER_ROTATION。
@@ -219,17 +215,15 @@ detect_file_type() {
 
 # 返回视频有效显示尺寸: 编码横屏但带 ±90 rotation 元数据的手机竖拍视频实际为竖屏,
 # 仅读 width,height 会误判方向。
+# 单次 ffprobe 同时取 dims + rotation (csv 输出第三列为 rotation), 比两次独立调用省一半耗时。
 get_video_dim() {
     local file="$1"
-    local dims w h rot
-    dims=$(ffprobe -v error -select_streams v:0 \
-        -show_entries stream=width,height \
-        -of csv=p=0 "$file" 2>/dev/null | tr ',' ' ')
-    [ -n "$dims" ] || return
-    read w h <<<"$dims"
-    rot=$(ffprobe -v error -select_streams v:0 \
-        -show_entries stream_side_data=rotation \
-        -of default=nw=1:nk=1 "$file" 2>/dev/null)
+    local out w h rot
+    out=$(ffprobe -v error -select_streams v:0 \
+        -show_entries stream=width,height:stream_side_data=rotation \
+        -of csv=p=0 "$file" 2>/dev/null)
+    [ -n "$out" ] || return
+    read w h rot <<<"$(printf '%s' "$out" | tr ',' ' ')"
     case "$rot" in
     90 | -90 | 270 | -270) echo "$h $w" ;;
     *) echo "$w $h" ;;
@@ -393,12 +387,21 @@ echo_help() {
 
 # 清掉 group 所有成员 monitor 的独立壁纸窗口 (组与成员互斥)。
 # 不涉及 grp_<组名> 窗口本身 — 调用方按需处理。
+# 以 `xwallpaper --list` active name 为准, 仅清实际存在的成员独立窗口 (已并入组、无独立窗口的成员自动跳过)
 xw_clear_group_members() {
     local group="$1"
-    while IFS= read -r mon_name; do
-        [ -z "$mon_name" ] && continue
-        xw_clear "$mon_name"
+    local -A members=()
+    local m
+    while IFS= read -r m; do
+        [ -z "$m" ] && continue
+        members["$m"]=1
     done < <(get_group_members "$group")
+
+    local name
+    while IFS= read -r name; do
+        [ -z "$name" ] && continue
+        [ -n "${members[$name]:-}" ] && xw_clear "$name"
+    done < <(xwallpaper --list 2>/dev/null)
 }
 
 # 真清 group 的壁纸窗口 (grp_<组名> + 所有成员 monitor 独立窗口)。

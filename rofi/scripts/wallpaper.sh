@@ -152,7 +152,7 @@ random_depth||Depth|cmd:getConfig -m "$MONITOR" random_depth
 random_images_path||Images|
 random_videos_path||Videos|
 MODULES
-handle_next() { "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" next; }
+handle_next() { ( "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" next & ) ; }
 handle_select() { "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" select; }
 handle_random_switch() { toggleConf wallpaper random number "$MONITOR"; }
 handle_random_type() { toggleConf wallpaper random_type wallpaper_type "$MONITOR"; }

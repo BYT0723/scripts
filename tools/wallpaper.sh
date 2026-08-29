@@ -50,7 +50,7 @@ random_wallpaper() {
     local list_name="$monitor"
     has_group "$monitor" && list_name="grp_${monitor// /_}"
     local current_file
-    current_file=$(xwallpaper state 2>/dev/null | awk -F'\t' -v n="$list_name" '$1==n {print $3; exit}')
+    current_file=$(xwallpaper --state 2>/dev/null | awk -F'\t' -v n="$list_name" '$1==n {print $3; exit}')
 
     if [ -n "$current_file" ]; then
         local filtered=()
@@ -158,9 +158,9 @@ launch_wallpaper() {
     pgrep -f "$script" | grep -vx "$$" | xargs -r kill
 
     {
-        pkill -x xwallpaper
-        while pgrep -x xwallpaper >/dev/null; do sleep 0.1; done
-        xwallpaper --daemon
+        pkill -x xwallpaperd
+        while pgrep -x xwallpaperd >/dev/null; do sleep 0.1; done
+        xwallpaperd
     } &
 
     declare -A last_update
@@ -186,7 +186,7 @@ launch_wallpaper() {
         fi
 
         # screen 全屏模式: 与 monitor/group 互斥, daemon 暂停轮换直到退出 screen 模式
-        [ -n "$(xwallpaper state 2>/dev/null | awk -F'\t' '$1=="Screen"')" ] && continue
+        [ -n "$(xwallpaper --state 2>/dev/null | awk -F'\t' '$1=="Screen"')" ] && continue
 
         while read -r target; do
             is_group_member "$target" && continue

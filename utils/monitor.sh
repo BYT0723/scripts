@@ -13,9 +13,13 @@ get_monitor_info() {
         echo "invalid monitor name"
         exit 1
     fi
-    index=$(xrandr --listactivemonitors | grep "$name" | cut -d ':' -f1)
+    # 单次 xrandr 调用, 避免逐字段 spawn 3 次 (get_group_dim 对每个成员调用, 次数倍增)
+    local line
+    line=$(xrandr --listactivemonitors | grep "$name" | head -1)
+    [ -z "$line" ] && return 1
+    index=$(echo "$line" | cut -d ':' -f1)
 
-    info=$(xrandr --listactivemonitors | grep "$name" | awk '{print $3}')
+    info=$(echo "$line" | awk '{print $3}')
     width=$(echo "$info" | awk -F '/' '{print $1}')
     height=$(echo "$info" | awk -F 'x' '{print $2}' | awk -F '/' '{print $1}')
     read x y < <(echo "$info" | awk -F 'x' '{print $2}' | awk -F '+' '{print $2 " " $3}')
