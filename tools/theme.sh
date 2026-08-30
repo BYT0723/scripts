@@ -85,12 +85,10 @@ set_rofi_theme() {
 }
 
 set_fcitx5_theme() {
-    local mode="$1"
-    [ -z "$mode" ] && return
-
-    local theme
-    theme=$(get_theme_config "$mode" "fcitx5") || return
+    local theme=$(get_theme_config light "fcitx5") || return
+    local dark_theme=$(get_theme_config dark "fcitx5") || return
     [ -z "$theme" ] && return
+    [ -z "$dark_theme" ] && dark_theme=$theme
 
     if [ ! -d "/usr/share/fcitx5/themes/$theme" ]; then
         system-notify normal "Fcitx5 Theme Not Found" "fcitx5 theme \"$theme\" is not found, please make sure the theme exists"
@@ -100,7 +98,16 @@ set_fcitx5_theme() {
     local file="$HOME/.config/fcitx5/conf/classicui.conf"
     [ -f "$file" ] || return
 
+    # fcitx5 经 UseDarkTheme 跟随系统深浅色, 三键与当前相同则无需重复设置/重启 (幂等)
+    local cur_theme cur_dark cur_use
+    cur_theme=$(sed -n 's/^Theme=//p' "$file")
+    cur_dark=$(sed -n 's/^DarkTheme=//p' "$file")
+    cur_use=$(sed -n 's/^UseDarkTheme=//p' "$file")
+    [ "$cur_theme" = "$theme" ] && [ "$cur_dark" = "$dark_theme" ] && [ "$cur_use" = "True" ] && return 0
+
     _ensure_config_line "$file" "^Theme=.*" "Theme=$theme"
+    _ensure_config_line "$file" "^DarkTheme=.*" "DarkTheme=$dark_theme"
+    _ensure_config_line "$file" "^UseDarkTheme=.*" "UseDarkTheme=True"
 
     fcitx5 -r &
     local new_pid
@@ -231,7 +238,7 @@ _do_theme_change() {
     set_kitty_theme "$mode" &
     set_qt_theme "$mode"
     set_gtk_theme "$mode"
-    set_fcitx5_theme "$mode"
+    set_fcitx5_theme
 
     [ -f "$HOME/.Xresources" ] && xrdb -merge "$HOME/.Xresources"
 
