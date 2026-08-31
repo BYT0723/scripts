@@ -125,6 +125,7 @@ declare -A actions=(
     [10,$left]='"$ROFI_SCRIPT_DIR/mpd.sh"'
     [10,$middle]='mpd --kill'
     [10,$right]=_mpd_rmpc
+    [11,$left]='D="$HOME/.local/state/dwm/status"; [[ -f "$D/net-traffic-collapse" ]] && rm -f "$D/net-traffic-collapse" || { mkdir -p "$D" && touch "$D/net-traffic-collapse"; }'
     [11,$right]=_net_speedtest
     [12,$left]='thunderbird -mail &'
     [12,$right]=_mail_aerc

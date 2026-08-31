@@ -9,7 +9,7 @@ icons["mpd"]=""
 icons["notification"]=""
 icons["rss"]=""
 icons["sing-box"]=""
-icons["volume"]=""
+icons["volume"]=""
 icons["volume_off"]=""
 icons["volume_mute"]=""
 
@@ -157,7 +157,7 @@ print_mem() {
     fg="$white"
 
     [ "$mem_usage" -gt 90 ] && fg="$yellow"
-    printf "^c$fg^${icons[memory]}%5.2fG" $mem_used
+    printf "^c$fg^${icons[memory]} %4.1fG" $mem_used
 }
 
 print_cpu() {
@@ -231,23 +231,32 @@ human_speed() {
     local bytes=$1
 
     if ((bytes < 1024)); then
-        printf "%5d B/s" "$bytes"
+        printf "%5dB/s" "$bytes"
     elif ((bytes < 1024000)); then
-        printf "%5.1f K/s" "$(bc -l <<<"$bytes/1024")"
+        printf "%5.1fK/s" "$(bc -l <<<"$bytes/1024")"
     else
-        printf "%5.1f M/s" "$(bc -l <<<"$bytes/1024000")"
+        printf "%5.1fM/s" "$(bc -l <<<"$bytes/1024000")"
     fi
 }
 
 # Network traffic
 print_speed() {
-    read rx <"$traffic_rx_path"
-    read tx <"$traffic_tx_path"
-    # output
-    printf " "
-    human_speed $rx
-    printf "  "
-    human_speed $tx
+    # interface_name / interface_type / interface_ipv4 / ifrxspeed / iftxspeed
+    read iface iftype ipv4 rx tx <"$network_traffic_path"
+    # [[ "$iftype" == "wireless" ]] && printf " " || printf " "
+    # printf "[$ipv4]"
+    # printf " "
+    if [ -f "$HOME/.local/state/dwm/status/net-traffic-collapse" ]; then
+        ((rx > 0)) && printf "" || printf " "
+        printf " "
+        ((tx > 0)) && printf "" || printf " "
+    else
+        ((rx > 0)) && printf " " || printf "  "
+        human_speed $rx
+        printf " "
+        ((tx > 0)) && printf " " || printf "  "
+        human_speed $tx
+    fi
 }
 
 print_mail() {

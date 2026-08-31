@@ -58,8 +58,7 @@ mkdir -p "$cache_dir"
 cpu_usage_path="$cache_dir/cpu_usage"
 weather_path="$HOME/.local/state/dwm/cache/weather"
 weather_forecast_path="$HOME/.local/state/dwm/cache/weather-forecast"
-traffic_rx_path="$cache_dir/network-traffic-rx"
-traffic_tx_path="$cache_dir/network-traffic-tx"
+network_traffic_path="$cache_dir/network-traffic-rx"
 mail_unread_path="$cache_dir/mail-unread"
 rss_unread_path="$cache_dir/rss-unread"
 mpd_status_path="$cache_dir/mpd-status"
@@ -120,7 +119,7 @@ update_cpu_daemon() {
 
 update_traffic_daemon() {
     local interval=${1:-1}
-    local iface last_iface prev_rx prev_tx now_rx now_tx
+    local iface last_iface iftype ipv4 prev_rx prev_tx now_rx now_tx
 
     while true; do
         read iface < <(awk '$2=="00000000"{print $1; exit}' /proc/net/route)
@@ -135,6 +134,8 @@ update_traffic_daemon() {
             read prev_rx </sys/class/net/$iface/statistics/rx_bytes
             read prev_tx </sys/class/net/$iface/statistics/tx_bytes
             last_iface=$iface
+            ipv4=$(ip -4 addr show $iface | awk '/inet / {print $2}' | cut -d/ -f1)
+            [ -d "/sys/class/net/$iface/wireless" ] && iftype="wireless" || iftype="ethernet"
             sleep "$interval"
             continue
         fi
@@ -147,8 +148,7 @@ update_traffic_daemon() {
         read now_rx </sys/class/net/$iface/statistics/rx_bytes
         read now_tx </sys/class/net/$iface/statistics/tx_bytes
 
-        echo $((now_rx >= prev_rx ? (now_rx - prev_rx) / interval : 0)) >"$traffic_rx_path"
-        echo $((now_tx >= prev_tx ? (now_tx - prev_tx) / interval : 0)) >"$traffic_tx_path"
+        echo "$iface $iftype $ipv4 $((now_rx >= prev_rx ? (now_rx - prev_rx) / interval : 0)) $((now_tx >= prev_tx ? (now_tx - prev_tx) / interval : 0))" >"$network_traffic_path"
 
         prev_rx=$now_rx
         prev_tx=$now_tx
