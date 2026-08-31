@@ -45,8 +45,8 @@ print_battery() {
     local rw=2 rh=$((h * 60 / 100))
     # 电池内部宽度
     local inside_w=$((w - rw - 2 * border))
-    # 当前电量宽度
-    local remain_w=$((inside_w * percent / 100))
+    # 当前电量宽度 (四舍五入)
+    local remain_w=$(((inside_w * percent + 50) / 100))
 
     # 防止低电量时减去 padding 后出现负宽度
     local fill_w=$((remain_w - 2 * padding))
