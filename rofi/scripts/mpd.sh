@@ -9,6 +9,11 @@ MODULE_SEARCH_BAR=false
 source "$(dirname "${BASH_SOURCE[0]}")"/util.sh
 source "$(dirname "${BASH_SOURCE[0]}")"/lib-module.sh
 
+# cover 文件校验: 非空且 MIME 为 image/* (空/损坏文件视为无效)
+_cover_valid() { # file
+    [[ -s "$1" ]] && [[ "$(file -b --mime-type "$1" 2>/dev/null)" == image/* ]]
+}
+
 # 单次 readpicture 请求 → 响应写入 outfile (nc 优先, bash /dev/tcp fallback)
 _mpd_readpicture() { # uri offset outfile
     local uri="$1" offset="$2" outfile="$3"
@@ -42,7 +47,12 @@ fetch_cover() { # uri outfile
         [[ "$offset" -gt 5000000 ]] && break
     done
     rm -rf "$tmpd"
-    [[ "$size" =~ ^[0-9]+$ ]] && [[ "$size" -gt 0 ]] && [[ "$(wc -c <"$out" 2>/dev/null)" -ge "$size" ]] && return 0
+    if [[ "$size" =~ ^[0-9]+$ ]] && [[ "$size" -gt 0 ]] &&
+        [[ "$(wc -c <"$out" 2>/dev/null)" -ge "$size" ]] &&
+        _cover_valid "$out"; then
+        return 0
+    fi
+    rm -f "$out"
     return 1
 }
 
@@ -90,7 +100,7 @@ else
     MODULE_NAME=" ${song:0:30}"
     MODULE_MESG="$(mpc status "%currenttime%/%totaltime%  墳 %volume%")"
 
-    # 封面: 从 MPD 拉取当前歌曲内嵌图 → imagebox 覆盖
+    # 封面: 从 MPD 拉取当前歌曲内嵌图 → icon-cover 注入 (icon widget size 强制 1:1)
     # cache 命中直接用封面; 未命中先用默认图并后台异步拉取 (下次打开生效)
     MODULE_THEME_STR=()
     song_file=$(mpc -f '%file%' current | head -1)
@@ -100,20 +110,21 @@ else
         uri_hash=$(printf '%s' "$song_file" | cksum | cut -d' ' -f1)
         cover="$cache_dir/mpd-cover-$uri_hash.jpg"
         img="$cover"
-        if [[ ! -f "$cover" ]]; then
-            img="$ROFI_DIR/images/j.jpg"
+        if ! _cover_valid "$cover"; then
+            rm -f "$cover"
+            img="$ROFI_DIR/images/flowers-2.png"
             (
                 fetch_cover "$song_file" "$cover" &
                 disown
             ) 2>/dev/null
         fi
         MODULE_THEME_STR=(
-            "imagebox { enabled: true; width: 200px; expand: false; margin: 0; border-radius: 10px; background-color: transparent; background-image: url(\"$img\", both); }"
-            "mainbox { enabled: true; padding: 20px; background-color: transparent; orientation: horizontal; children: [\"imagebox\", \"rightbox\"]; }"
-            "rightbox { enabled: true; orientation: vertical; spacing: 10px; margin: 0px; background-color: transparent; children: [\"inputbar\", \"message\", \"listview\"]; }"
-            "element { padding: 10px 0px 10px 0px;}"
-            "element-text { font: \"JetBrains Mono Nerd Font 14\";}"
-            "* { font: \"JetBrains Mono Nerd Font 10\";}"
+            "icon-cover { enabled: true; filename: \"$img\"; size: 200; expand: false; margin: 0; border-radius: 20px; background-color: transparent; }"
+            "mainbox { enabled: true; padding: 20px; background-color: transparent; orientation: horizontal; children: [\"icon-cover\", \"rightbox\"]; }"
+            "rightbox { enabled: true; orientation: vertical; spacing: 20px; margin: 10px; background-color: transparent; children: [\"inputbar\", \"message\", \"listview\"]; }"
+            "element { padding: 10px 0px 10px 8px;}"
+            "element-text { font: \"JetBrains Mono Nerd Font 18\";}"
+            "* { font: \"JetBrains Mono Nerd Font 12\";}"
             "listview {columns: 8; lines: 1; flow: horizontal;}"
         )
     fi

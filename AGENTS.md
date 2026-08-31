@@ -195,12 +195,15 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 
 | 函数                | 调用者                                            |
 | ------------------- | ------------------------------------------------- |
-| `fetch_cover()`     | mpd.sh (主流程 else 分支: 拉取当前歌曲封面 → imagebox 覆盖) |
+| `fetch_cover()`     | mpd.sh (主流程 else 分支: 拉取当前歌曲封面 → icon-cover 注入) |
 | `_mpd_readpicture()` | fetch_cover (单次 readpicture 请求, nc 优先 /dev/tcp fallback) |
+| `_cover_valid()`    | fetch_cover (成功校验), mpd.sh 主流程 (cache 命中校验) — 非空 + `file` MIME `image/*`; 空/损坏文件视为无效, 失败时 `rm -f` 删除避免残留空缓存 |
 
-> 封面注入: imagebox 显式 `width/height` + `expand:false` + `background-image: url(path, both)` 防平铺
-> (both 按宽高自适应, 方形/非方形图都不平铺)。cache 按歌曲 uri cksum 命名放 `~/.cache/dwm/mpd-cover/`, 命中复用不重复拉取。
-> 异步: cache 未命中时立即显示 `rofi/images/j.jpg` 默认图, `( fetch_cover ... & disown )` 后台拉取, 本次打开不阻塞, 下次打开生效。
+> 封面注入: 用 rofi `icon` widget (`icon-cover`, `filename` + `size: 200` + `squared` 默认 true 强制 1:1 正方形) —
+> 不能用 `imagebox`: 它不是真实 widget (rofi 静默当 `box`), `height` 属性被忽略 (box_get_desired_height 只累计 children),
+> 无法保证 1:1。cache 按歌曲 uri cksum 命名放 `~/.cache/dwm/mpd-cover/`, 命中复用不重复拉取。
+> 异步: cache 未命中时立即显示 `rofi/images/flowers-2.png` 默认图 (透明背景 Nerd Font flowers 图标), `( fetch_cover ... & disown )` 后台拉取, 本次打开不阻塞, 下次打开生效。
+> 校验: 主流程 cache 命中判断 `_cover_valid` (不存在/空/损坏均视为 miss) → `rm -f` + 默认图 + 重新异步拉取; fetch_cover 失败同样删除输出, 不留空文件。
 
 ### theme.sh (tools/)
 

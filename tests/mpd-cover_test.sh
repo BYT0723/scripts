@@ -33,7 +33,7 @@ mkdir -p "$HOME" "$XDG_CACHE_HOME"
 
 # ---- 搭 mock ROFI_DIR 结构 (mpd.sh source util.sh/lib-module.sh 依赖 $0 所在目录) ----
 MOCK_ROFI="$TEST_DIR/rofi"
-mkdir -p "$MOCK_ROFI/scripts" "$MOCK_ROFI/applets/type-5"
+mkdir -p "$MOCK_ROFI/scripts" "$MOCK_ROFI/applets/type-5" "$MOCK_ROFI/images"
 cp "$SCRIPT" "$MOCK_ROFI/scripts/mpd.sh"
 
 # mock util.sh (icon() 等, 空实现即可 — fetch_cover 不依赖)
@@ -52,6 +52,17 @@ cat >"$MOCK_ROFI/applets/type-5/style-2.rasi" <<'EOF'
 * { USE_ICON = NO; }
 EOF
 
+# 真实 PNG: 70 字节, 分 3 块模拟分块拉取 (24+24+22)
+MOCK_PNG="$TEST_DIR/px.png"
+printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' \
+    | base64 -d >"$MOCK_PNG"
+MOCK_CHUNK1="$TEST_DIR/px-chunk1.bin"
+MOCK_CHUNK2="$TEST_DIR/px-chunk2.bin"
+MOCK_CHUNK3="$TEST_DIR/px-chunk3.bin"
+dd if="$MOCK_PNG" of="$MOCK_CHUNK1" bs=1 count=24 2>/dev/null
+dd if="$MOCK_PNG" of="$MOCK_CHUNK2" bs=1 skip=24 count=24 2>/dev/null
+dd if="$MOCK_PNG" of="$MOCK_CHUNK3" bs=1 skip=48 count=22 2>/dev/null
+
 FAKE_BIN="$TEST_DIR/bin"
 mkdir -p "$FAKE_BIN"
 
@@ -67,10 +78,10 @@ else
     first="${MOCK_NC_RESP:-full}"
 fi
 case "$first" in
-chunk1) printf 'OK MPD 0.24.0\nsize: 12\ntype: image/jpeg\nbinary: 4\nAAAA' ;;
-chunk2) printf 'OK MPD 0.24.0\nsize: 12\ntype: image/jpeg\nbinary: 4\nBBBB' ;;
-chunk3) printf 'OK MPD 0.24.0\nsize: 12\ntype: image/jpeg\nbinary: 4\nCCCC' ;;
-full) printf 'OK MPD 0.24.0\nsize: 8\ntype: image/png\nbinary: 8\nPNGDATA!' ;;
+chunk1) printf 'OK MPD 0.24.0\nsize: 70\ntype: image/png\nbinary: 24\n'; cat "$MOCK_CHUNK1" ;;
+chunk2) printf 'OK MPD 0.24.0\nsize: 70\ntype: image/png\nbinary: 24\n'; cat "$MOCK_CHUNK2" ;;
+chunk3) printf 'OK MPD 0.24.0\nsize: 70\ntype: image/png\nbinary: 22\n'; cat "$MOCK_CHUNK3" ;;
+full) printf 'OK MPD 0.24.0\nsize: 70\ntype: image/png\nbinary: 70\n'; cat "$MOCK_PNG" ;;
 noimg) printf 'OK MPD 0.24.0\nsize: 0\n' ;;
 fail) printf 'OK MPD 0.24.0\n' ;;
 *) printf 'OK MPD 0.24.0\n' ;;
@@ -78,7 +89,7 @@ esac
 exit 0
 EOF
 chmod +x "$FAKE_BIN/nc"
-export NC_LOG
+export NC_LOG MOCK_PNG MOCK_CHUNK1 MOCK_CHUNK2 MOCK_CHUNK3
 
 # ---- mock mpc: 按参数返回 (mpd.sh source 时多次调用) ----
 # 注意: shell 已剥离引号, $* 为空格连接的无引号参数
@@ -108,8 +119,8 @@ export MOCK_NC_SEQ_FILE="$TEST_DIR/nc-seq"
 OUT="$TEST_DIR/cover.jpg"
 fetch_cover "song.flac" "$OUT"
 unset MOCK_NC_SEQ_FILE
-assert_eq "$(cat "$OUT" 2>/dev/null)" "AAAABBBBCCCC" "分块: 3 chunk 拼接正确 (offset 递增)"
-assert_eq "$(wc -c <"$OUT" 2>/dev/null)" "12" "分块: 拼接后 12 字节"
+assert_cond "分块: 3 chunk 拼接后与真实 PNG 完全一致" "cmp -s \"$OUT\" \"$MOCK_PNG\""
+assert_eq "$(wc -c <"$OUT" 2>/dev/null)" "70" "分块: 拼接后 70 字节"
 
 # ---- Task 2: 单块完整 ----
 printf 'full\n' >"$TEST_DIR/nc-seq"
@@ -118,7 +129,7 @@ OUT2="$TEST_DIR/cover2.jpg"
 fetch_cover "song.flac" "$OUT2" && rc=0 || rc=1
 unset MOCK_NC_SEQ_FILE
 assert_eq "$rc" "0" "单块: 成功返回 0"
-assert_eq "$(cat "$OUT2" 2>/dev/null)" "PNGDATA!" "单块: 数据完整 (binary: 8)"
+assert_cond "单块: 数据与真实 PNG 完全一致" "cmp -s \"$OUT2\" \"$MOCK_PNG\""
 
 # ---- Task 3: 无内嵌封面 (size: 0) → 返回 1 ----
 printf 'noimg\n' >"$TEST_DIR/nc-seq"
@@ -154,7 +165,8 @@ NC_COUNT_FILE="$TEST_DIR/nc-count.txt"
 cat >"$FAKE_BIN/nc" <<'EOF'
 #!/usr/bin/env bash
 echo x >>"$NC_COUNT_FILE"
-printf 'OK MPD 0.24.0\nsize: 8\ntype: image/jpeg\nbinary: 8\nPNGDATA!'
+printf 'OK MPD 0.24.0\nsize: 70\ntype: image/png\nbinary: 70\n'
+cat "$MOCK_PNG"
 EOF
 chmod +x "$FAKE_BIN/nc"
 export NC_COUNT_FILE
@@ -169,13 +181,13 @@ mkdir -p "$XDG_CACHE_HOME/dwm/mpd-cover"
 rm -f "$cached"
 : >"$NC_COUNT_FILE"
 source "$MOCK_ROFI/scripts/mpd.sh" 2>/dev/null
-# 后台子进程拉取, 轮询等待完成
-for _ in $(seq 1 50); do [[ -f "$cached" ]] && break; sleep 0.1; done
+# 后台子进程拉取, 轮询等待完整落盘 (cmp 全量匹配)
+for _ in $(seq 1 50); do cmp -s "$cached" "$MOCK_PNG" && break; sleep 0.1; done
 wait 2>/dev/null
 assert_eq "$(wc -l <"$NC_COUNT_FILE")" "1" "cache 未命中: 后台拉取 1 次 (异步)"
 assert_cond "cache 未命中: 生成绑定 uri hash 的缓存文件" "[ -f \"$cached\" ]"
 assert_cond "cache 未命中: 立即显示默认图 (异步不阻塞)" \
-    "[[ \"\${MODULE_THEME_STR[0]:-}\" == *'rofi/images/j.jpg'* ]]"
+    "[[ \"\${MODULE_THEME_STR[0]:-}\" == *'rofi/images/flowers-2.png'* ]]"
 
 # 场景 B: cache 已存在 → 不拉取 (nc 调用 0 次), 显示封面
 : >"$NC_COUNT_FILE"
@@ -185,11 +197,11 @@ assert_eq "$(wc -l <"$NC_COUNT_FILE")" "0" "cache 命中: 复用不重复拉取 
 assert_cond "cache 命中: 显示封面而非默认图" \
     "[[ \"\${MODULE_THEME_STR[0]:-}\" == *\"\$cached\"* ]]"
 
-# 场景 C: theme-str 防平铺要素 — 显式约束 imagebox 尺寸 (width/height/expand:false)
-# 防平铺不绑定具体属性: 显式尺寸约束下 rofi 按给定尺寸绘制背景图
+# 场景 C: icon-cover 1:1 约束 — size 定义正方形边长 (rofi icon 默认 squared=true 强制 1:1)
+# 用 icon 而非 imagebox: imagebox 非真实 widget (静默变 box), height 属性被忽略无法保证 1:1
 ts="${MODULE_THEME_STR[0]:-}"
-assert_cond "theme-str: 显式尺寸约束防平铺 (width/height/expand:false)" \
-    "[[ \"\$ts\" == *'width: 200px'* ]] && [[ \"\$ts\" == *'height: 200px'* ]] && [[ \"\$ts\" == *'expand: false'* ]]"
+assert_cond "theme-str: icon-cover 用 filename+size (squared 默认 1:1)" \
+    "[[ \"\$ts\" == *'icon-cover'* ]] && [[ \"\$ts\" == *'filename:'* ]] && [[ \"\$ts\" == *'size: 200'* ]] && [[ \"\$ts\" == *'expand: false'* ]]"
 
 # 场景 D: 不同歌曲 → 不同 cache 文件 (hash 绑定)
 MOCK_MPC_FILE_SAVE="$MOCK_MPC_FILE"
@@ -197,10 +209,26 @@ export MOCK_MPC_FILE="another/song.mp3"
 uri_hash2=$(printf '%s' "another/song.mp3" | cksum | cut -d' ' -f1)
 : >"$NC_COUNT_FILE"
 source "$MOCK_ROFI/scripts/mpd.sh" 2>/dev/null
-for _ in $(seq 1 50); do [[ -f "$XDG_CACHE_HOME/dwm/mpd-cover/mpd-cover-$uri_hash2.jpg" ]] && break; sleep 0.1; done
+# 等异步 fetch 完整落盘 (cmp 全量匹配) — 避免 -f 早退, 且确保 D 的 fetch 在 E 计数前结束
+for _ in $(seq 1 50); do
+    cmp -s "$XDG_CACHE_HOME/dwm/mpd-cover/mpd-cover-$uri_hash2.jpg" "$MOCK_PNG" && break
+    sleep 0.1
+done
 wait 2>/dev/null
 assert_cond "不同歌曲: 生成独立 hash 缓存文件" "[ -f \"$XDG_CACHE_HOME/dwm/mpd-cover/mpd-cover-$uri_hash2.jpg\" ]"
 MOCK_MPC_FILE="$MOCK_MPC_FILE_SAVE"
+
+# 场景 E: cache 存在但为空 (拉取失败遗留) → 视为 miss, 删除并重新拉取
+export MOCK_MPC_FILE="song.flac"
+: >"$cached"
+: >"$NC_COUNT_FILE"
+source "$MOCK_ROFI/scripts/mpd.sh" 2>/dev/null
+for _ in $(seq 1 50); do cmp -s "$cached" "$MOCK_PNG" && break; sleep 0.1; done
+wait 2>/dev/null
+assert_cond "空 cache: 重新拉取后为有效 PNG" "cmp -s \"$cached\" \"$MOCK_PNG\""
+assert_eq "$(wc -l <"$NC_COUNT_FILE")" "1" "空 cache: 触发重新拉取 (nc 1 次)"
+assert_cond "空 cache: 立即显示默认图" \
+    "[[ \"\${MODULE_THEME_STR[0]:-}\" == *'rofi/images/flowers-2.png'* ]]"
 
 if ((FAIL)); then
     echo "== 有失败用例 =="
