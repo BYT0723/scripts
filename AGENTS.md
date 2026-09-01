@@ -12,8 +12,9 @@ dwm-status.sh ──sources──► dwm-status-tools.sh ──sources──► 
                                                            utils/weather.sh
                                                            utils/notify.sh
 dwm-statuscmd.sh ──sources──► utils/notify.sh
-tools/theme.sh ──sources──► utils/notify.sh
+tools/theme.sh ──sources──► utils/notify.sh, tools/monitor-brightness.sh
                 ──requires─► xsettingsd, dconf (gsettings), curl (GTK/portal 双通道广播 / auto 日出日落)
+tools/monitor-brightness.sh ──sources──► 无外部脚本; ──sourced by── tools/theme.sh
 
 tools/lock.sh ──sources──► utils/notify.sh
               ◄──sourced by── rofi/powermenu/type-{1..6}/powermenu.sh
@@ -207,13 +208,23 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 
 ### theme.sh (tools/)
 
-| 函数                 | 调用者                                                                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `_do_theme_change()` | tools/theme.sh (apply / auto_daemon)                                                                                                             |
-| `set_gtk_theme()`    | tools/theme.sh (_do_theme_change: 写 gtk2/3/4 持久配置 + 运行时双通道广播 — xsettingsd GTK 主题名 / gsettings color-scheme 同步 portal)                     |
-| `get_auto_config()`  | tools/theme.sh (auto_daemon, auto on/off, apply)                                                                                                 |
-| `get_sun_times()`    | tools/theme.sh (auto_daemon), rofi/scripts/theme.sh (get_sun_message → MODULE_MESG 日出日落显示; 内置 `~/.local/state/dwm/cache/sun-times` 缓存) |
-| `auto_daemon()`      | tools/theme.sh (auto 守护进程循环)                                                                                                               |
+| 函数                      | 调用者                                                                                                                                           |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `_do_theme_change()`      | tools/theme.sh (apply / auto_daemon)                                                                                                             |
+| `set_monitor_brightness()`| tools/theme.sh (_do_theme_change, 后台执行) — 按主题切换设置亮度: brightnessctl 遍历 backlight 设备 + monitor_brightness 逐 active monitor 设 DDC 硬件亮度; brightness 缺失/非数字/>100 早退 |
+| `set_gtk_theme()`         | tools/theme.sh (_do_theme_change: 写 gtk2/3/4 持久配置 + 运行时双通道广播 — xsettingsd GTK 主题名 / gsettings color-scheme 同步 portal)                     |
+| `get_auto_config()`       | tools/theme.sh (auto_daemon, auto on/off, apply)                                                                                                 |
+| `get_sun_times()`         | tools/theme.sh (auto_daemon), rofi/scripts/theme.sh (get_sun_message → MODULE_MESG 日出日落显示; 内置 `~/.local/state/dwm/cache/sun-times` 缓存) |
+| `auto_daemon()`           | tools/theme.sh (auto 守护进程循环)                                                                                                               |
+
+### tools/monitor-brightness.sh
+
+| 函数                 | 调用者                                                                                                                       |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `get_brightness()`   | toggle_monitor (xrandr --verbose 读 Brightness)                                                                              |
+| `toggle_monitor()`   | 无 (未绑定快捷键; state 文件 `~/.local/state/dwm/status/monitor-<output>` 持久化原亮度, 开/关切换置黑/恢复)                  |
+| `get_ddc_bus()`      | monitor_brightness (xrandr CONNECTOR_ID ↔ ddcutil drm_connector_id 匹配整数总线号, DP 走 aux 总线不能直接读 ddc symlink)      |
+| `monitor_brightness()`| theme.sh (set_monitor_brightness) — ddcutil setvcp 10 硬件亮度 (value 省略时 getvcp 读当前值)                                 |
 
 ### rofi/scripts/theme.sh
 

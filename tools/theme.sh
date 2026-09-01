@@ -4,6 +4,7 @@ WORK_DIR=$(dirname "$(dirname "${BASH_SOURCE[0]}")")
 THEME_CONF="$HOME/.config/dwm/theme.json"
 
 source "$WORK_DIR/utils/notify.sh"
+source "$WORK_DIR/tools/monitor-brightness.sh"
 
 # ---------- helpers ----------
 
@@ -38,6 +39,23 @@ get_bg_fg_colors() {
 }
 
 # ---------- setters ----------
+set_monitor_brightness() {
+    local mode="$1"
+    [ -z "$mode" ] && return
+
+    local brightness
+    brightness=$(get_theme_config "$mode" "brightness") || return
+    [[ $brightness =~ ^[0-9]+$ ]] || return
+    ((brightness <= 100)) || return
+
+    while read -r dev; do
+        brightnessctl -d "$dev" set "${brightness}%"
+    done < <(brightnessctl -l 2>/dev/null | awk -F"'" '/of class .backlight.:/ {print $2}')
+
+    while read -r monitor; do
+        monitor_brightness "$monitor" "$brightness"
+    done < <(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}')
+}
 
 set_dwm_theme() {
     local mode="$1"
@@ -233,6 +251,7 @@ _do_theme_change() {
     local mode="$1"
     [ -z "$mode" ] && return
 
+    set_monitor_brightness "$mode" &
     set_dwm_theme "$mode"
     set_rofi_theme "$mode"
     set_kitty_theme "$mode" &
