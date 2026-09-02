@@ -29,6 +29,7 @@ get_sun_message() {
 module_parse <<MODULES
 toggle| |Toggle|str:$(get_cur)
 auto|󰃡 |Auto (sunrise/sunset)|str:$([ "$(get_auto_stat)" = "true" ] && echo "" || echo "")
+monitor_brightness|󰃠 |Monitor Brightness
 rise_offset| |Rise offset|str:$(get_rise)m
 set_offset| |Set offset|str:$(get_set)m
 conf|󱔏 |Edit config|
@@ -51,6 +52,80 @@ handle_auto() {
     else
         /bin/bash "$WORK_DIR/tools/theme.sh" auto on
     fi
+}
+handle_monitor_brightness() {
+    local monitor brightness value last original chosen yad_fd yad_pid tmpdir fifo status
+
+    # 循环: 调完一个显示器后回到选择, 可连续调节多个, ESC 退出
+    while true; do
+        chosen=$(while read -r monitor; do
+            printf "󰍹 %-32s %4s\n" "$monitor" "$(read_brightness "$monitor")"
+        done < <(
+            xrandr --listactivemonitors 2>/dev/null |
+                awk 'NR > 1 {print $NF}'
+        ) | module_sub_rofi "󰃠 Monitor Brightness" "Control brightness of monitors")
+        [ -z "$chosen" ] && break
+
+        read -r _ monitor brightness <<<"$chosen"
+        original="$brightness"
+        [[ -z "$brightness" ]] && brightness=50
+
+        # FIFO + 后台 pid ($!) 替代 coproc: bash 读完全部输出后可能清理 coproc 的
+        # YAD_PID (wait 时为空 → 退出码误判), 后台 pid 稳定; 循环内 $last 记录最终值
+        # (最后一次 read 读到 EOF 时会把 $value 清空)
+        tmpdir=$(mktemp -d) || return
+        fifo="$tmpdir/out"
+        mkfifo "$fifo" || { rm -rf "$tmpdir"; return; }
+        yad \
+            --scale \
+            --title="Monitor Brightness" \
+            --text="$monitor" \
+            --min-value=0 \
+            --max-value=100 \
+            --value="$brightness" \
+            --step=2 \
+            --print-partial >"$fifo" 2>/dev/null &
+        yad_pid=$!
+        exec {yad_fd}<"$fifo"
+
+        while IFS= read -r value <&"$yad_fd"; do
+            last="$value"
+            if [[ $monitor =~ ^eDP ]]; then
+                # eDP brightnessctl 响应即时, 逐值应用保持实时反馈
+                set_brightness "$monitor" "$value"
+            else
+                # DDC/CI 单次调用 ~200ms, 拖动时积压会大幅滞后:
+                # 丢弃积压值, 滑动暂停 30ms 后只应用最新值
+                while IFS= read -t 0.03 -r value <&"$yad_fd"; do
+                    last="$value"
+                done
+                set_brightness "$monitor" "$last"
+            fi
+        done
+        exec {yad_fd}<&-
+        rm -rf "$tmpdir"
+
+        wait "$yad_pid"
+        status=$?
+
+        if ((status == 0)); then
+            # OK: 以硬件实际亮度为准 (eDP brightnessctl / DDC getvcp),
+            # 读取失败时回退循环内最后读到的值
+            value=$(read_brightness "$monitor")
+            [ -n "$value" ] || value="$last"
+            [ -n "$value" ] || continue
+            jq \
+                --arg monitor "$monitor" \
+                --argjson brightness "$value" \
+                --arg mode "$(get_cur)" \
+                '.[$mode].brightness[$monitor] = $brightness' \
+                "$THEME_CONF" >"${THEME_CONF}.tmp" &&
+                mv "${THEME_CONF}.tmp" "$THEME_CONF"
+        else
+            # 取消/ESC: 恢复原亮度
+            set_brightness "$monitor" "$original"
+        fi
+    done
 }
 
 _handle_offset() {

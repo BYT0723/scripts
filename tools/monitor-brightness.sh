@@ -100,3 +100,25 @@ monitor_brightness() {
             sed -n 's/.*current value = *\([0-9][0-9]*\),.*/\1/p'
     fi
 }
+
+# 读取单块显示器当前亮度百分比 (eDP → brightnessctl, 其他 → DDC getvcp)
+read_brightness() {
+    local output="$1"
+    if [[ $output =~ ^eDP ]]; then
+        local v
+        v=$(brightnessctl -m | cut -d',' -f4)
+        printf '%s' "${v%\%}"
+    else
+        monitor_brightness "$output"
+    fi
+}
+
+# 设置单块显示器亮度百分比 (eDP → brightnessctl, 其他 → DDC setvcp)
+set_brightness() {
+    local output="$1" value="$2"
+    if [[ $output =~ ^eDP ]]; then
+        brightnessctl set "${value}%" >/dev/null
+    else
+        monitor_brightness "$output" "$value"
+    fi
+}

@@ -211,7 +211,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | 函数                      | 调用者                                                                                                                                           |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `_do_theme_change()`      | tools/theme.sh (apply / auto_daemon)                                                                                                             |
-| `set_monitor_brightness()`| tools/theme.sh (_do_theme_change, 后台执行) — 按主题切换设置亮度: brightnessctl 遍历 backlight 设备 + monitor_brightness 逐 active monitor 设 DDC 硬件亮度; brightness 缺失/非数字/>100 早退 |
+| `set_monitor_brightness()`| tools/theme.sh (_do_theme_change, 后台执行) — 逐 active monitor 读配置 `brightness.<monitor>` (per-monitor 独立), 缺失/非数字/>100 fallback 50, 经 set_brightness 分发 (eDP → brightnessctl, 其他 → ddcutil setvcp) |
 | `set_gtk_theme()`         | tools/theme.sh (_do_theme_change: 写 gtk2/3/4 持久配置 + 运行时双通道广播 — xsettingsd GTK 主题名 / gsettings color-scheme 同步 portal)                     |
 | `get_auto_config()`       | tools/theme.sh (auto_daemon, auto on/off, apply)                                                                                                 |
 | `get_sun_times()`         | tools/theme.sh (auto_daemon), rofi/scripts/theme.sh (get_sun_message → MODULE_MESG 日出日落显示; 内置 `~/.local/state/dwm/cache/sun-times` 缓存) |
@@ -224,15 +224,18 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `get_brightness()`   | toggle_monitor (xrandr --verbose 读 Brightness)                                                                              |
 | `toggle_monitor()`   | 无 (未绑定快捷键; state 文件 `~/.local/state/dwm/status/monitor-<output>` 持久化原亮度, 开/关切换置黑/恢复)                  |
 | `get_ddc_bus()`      | monitor_brightness (xrandr CONNECTOR_ID ↔ ddcutil drm_connector_id 匹配整数总线号, DP 走 aux 总线不能直接读 ddc symlink)      |
-| `monitor_brightness()`| theme.sh (set_monitor_brightness) — ddcutil setvcp 10 硬件亮度 (value 省略时 getvcp 读当前值)                                 |
+| `monitor_brightness()`| read_brightness/set_brightness (eDP 分支之外) — ddcutil setvcp 10 硬件亮度 (value 省略时 getvcp 读当前值)                     |
+| `read_brightness()`  | rofi/scripts/theme.sh (handle_monitor_brightness 选单读取 / OK 后读实际亮度) — 单块显示器当前亮度百分比: eDP → brightnessctl -m, 其他 → monitor_brightness getvcp |
+| `set_brightness()`    | tools/theme.sh (set_monitor_brightness), rofi/scripts/theme.sh (handle_monitor_brightness) — 单块显示器亮度: eDP → brightnessctl set, 其他 → monitor_brightness setvcp |
 
 ### rofi/scripts/theme.sh
 
-| 函数                | 调用者                                                                               |
-| ------------------- | ------------------------------------------------------------------------------------ |
-| `handle_toggle()`   | theme.sh (→ `tools/theme.sh apply light\|dark` 翻转)                                 |
-| `handle_auto()`     | theme.sh (→ `tools/theme.sh auto on/off`)                                            |
-| `get_sun_message()` | theme.sh (调 `get_sun_times` → 格式化 MODULE_MESG; 网络失败则 fallback 为无时间后缀) |
+| 函数                        | 调用者                                                                               |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| `handle_toggle()`           | theme.sh (→ `tools/theme.sh apply light\|dark` 翻转)                                 |
+| `handle_auto()`             | theme.sh (→ `tools/theme.sh auto on/off`)                                            |
+| `handle_monitor_brightness()` | theme.sh (注册表 → 循环连续调节多显示器: yad 滑块经 FIFO+后台 pid 实时预览, OK 保存 theme.json / 取消恢复, 调完回到 monitor 选择处 ESC 退出; 亮度读写复用 monitor-brightness.sh 的 read_brightness/set_brightness; eDP 逐值即时, DDC 走 `read -t 0.03` drain 丢弃积压只应用最新值) |
+| `get_sun_message()`         | theme.sh (调 `get_sun_times` → 格式化 MODULE_MESG; 网络失败则 fallback 为无时间后缀) |
 
 ### tools/yt-dlp.sh
 
@@ -500,6 +503,8 @@ calendar-lunar|󰃚|Lunar Calendar|
 - **rofi `next` 卡顿已修复**: 原 `xwallpaper` CLI 为单进程架构, 每次裸调用约 0.2s (X 连接+库加载), 一次 `next` 链路需串行 4-6 次 clear/restore/set (~1.5s)。原 `handle_next` 同步执行导致 rofi 要等 next 跑完才重开 (点 Next 后空白 1.5s)。修复两层: ① 脚本层 `handle_next` 改 `( tools/wallpaper.sh -m ... next & )` 后台执行, rofi 立即重开; ② xwallpaper 改为 **client+daemon 架构** (`xwallpaperd` 常驻, CLI 经 IPC 通信, 实测 `--list`/`--state`/`clear` 从 ~0.2s 降至 ~0.001s, group next 从 0.97s 降至 0.4s, 大图 set 从 0.6-1s 降至 0.16s)。另修复 `xwallpaper state` → `--state` 拼写 (3 处), 此前排除当前壁纸逻辑一直失效会重复抽同一张。
 - **锁屏 standby 后物理屏 1-2s 亮起（xwallpaper 视频壁纸持续 present 触发驱动 unblank）**：根因是 `xwallpaper --daemon` 的 libmpv（`vo=gpu`+`wid` 直绘）在 X DPMS off 后**持续 present 帧** → amdgpu 驱动把输出 dpms 恢复 On（sysfs 实测 2-3s 回弹，X 层 `xset q` 标志保持 Off/Standby 不变，eDP→HDMI→DP 依次亮）。与键盘幽灵输入、amdgpu REG_WAIT（7.x 回归，lts 6.18.46 无此）、TLP/GPU runtime PM（`control=on` 全程 active）均无关。修复双层：① xwallpaper（源码 `~/Workspace/Github/xwallpaper`）backend 层加 `set_paused` 回调（video → mpv pause），`xw_app_dpms_poll()`（`DPMSInfo` 查询，500ms 节流）在主循环检测电源模式，非 On 即暂停渲染；② `lock.sh _lock_before/_lock_after` 对 `xwallpaper` 进程 `pkill -STOP/-CONT` 双保险。验证：standby 12s sysfs dpms 全程 Off 不回弹
 - **首次开机 HDMI 视频壁纸黑屏（swapchain 创建失败 → mpv 丢 video track）**：开机早期 GPU/GL（RADV/amdgpu Vulkan 栈）未就绪时，`vo=gpu` 的 swapchain 创建失败（`VK_ERROR_INITIALIZATION_FAILED`），mpv `write_video` 里 `vo_reconfig2<0` → `error_on_track` **禁用视频 track**（日志 `deselect track 0`/`Video: no video`）——窗口在、restore 显示 `ok`、只有音频在播、画面黑。**restore_pending 重试对此无效**（窗口 active 不算 pending）；**mpv 自身不重试**（reconfig 失败即禁 track）。为何 xwinwrap+mpv 无此问题：独立 mpv 进程启动晚（fork/exec/加载），建 swapchain 时 GPU 已就绪。修复（xwallpaper 已提交）：backend 加 `retry()` 回调（video 查 mpv `video` 属性，无视频则重新 `loadfile` 重建渲染路径），daemon 启动后 2 分钟窗口内 **0.5s 节拍**轮询，reload 间 **1.5s 防堆积**（`load_file` 统一记 `last_load_ms`，含首次 loadfile 防竞态），GPU 就绪后 ≤1.5s 出视频。诊断方法（临时）：`XW_DEBUG_DAEMON=1 xwallpaper --daemon` 手动启动，restore/自愈日志打 stderr，mpv 日志写 `/tmp/xw-mpv-<winid>.log` + IPC socket `/tmp/xw-mpv-<winid>.sock`（`get_property video` 查有无视频 track）
+- **rofi/scripts/theme.sh handle_monitor_brightness 保存值/退出码失效已修复**: 原实现 `coproc YAD` + `wait "$YAD_PID"` 取 yad 退出码区分 OK/取消, 但 bash 读完全部 coproc 输出后可能清理 `YAD_PID`（实测 wait 时已空 → 报错 status≠0 → 误走恢复分支）; 且 `while read` 最后一次 read 读到 EOF 时会把 `$value` **清空**, 循环外 `$value` 必空（OK 也空）。重构为 **FIFO + 后台 pid (`$!`, 稳定)**, 循环内用 `$last` 记录最终值; OK 后从硬件读取实际亮度（eDP brightnessctl / DDC getvcp）作为保存值, 读取失败回退 `$last`。回归测试 `tests/rofi-theme-monitor-brightness_test.sh`（awk 提取函数 + mock yad/xrandr/brightnessctl; 因脚本顶层 `module_loop` 阻塞无法整体 source）
+- **DDC 显示器滑块拖动滞后已优化**：yad `--print-partial` 拖动时逐像素输出值, 原实现每个值都调 `ddcutil setvcp`（~200ms/次）, 大幅拖动会积压上百次调用排队, 松手后仍持续处理（实测 100 值 → ~20s）; eDP 的 `brightnessctl set` 即时无此问题。现循环按显示器类型分流: eDP 逐值即时应用, DDC 用内层 `read -t 0.03` 丢弃积压值、滑动暂停后只应用最新值（实测 100 值 → 1 次 setvcp, ~1s）。回归测试场景 C（mock ddcutil detect/setvcp + DisplayPort-0 monitor, 断言 setvcp 只调 1 次且为最新值）
 
 ---
 

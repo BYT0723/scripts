@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # monitor-brightness.sh + theme.sh set_monitor_brightness 回归测试:
-#   A. brightness 缺失 / 非数字 / >100 → 早退, 不触发任何命令
-#   B. 正常设置: brightnessctl 遍历 backlight 设备 + ddcutil 仅对 DDC 显示器设硬件亮度 (无 DDC 面板跳过)
+#   A. brightness 缺失 / 非数字 / >100 → fallback 50, per-monitor 设置
+#   B. 正常设置: eDP → brightnessctl set, 其他 → ddcutil setvcp (per-monitor 独立亮度)
 #   C. toggle_monitor 开/关切换 (含 state 目录自动创建)
 # 运行: bash tests/monitor-brightness_test.sh
 
@@ -94,29 +94,29 @@ reset_log() { : >"$MOCK_LOG"; }
 cleanup() { rm -rf "$TEST_DIR"; }
 trap cleanup EXIT
 
-# ---- A: 早退分支 (不触发任何命令) ----
+# ---- A: 缺失/非法 → fallback 50 (per-monitor 设置) ----
 set_theme '{"light":{}}'
 set_monitor_brightness light
-check "brightness 缺失 → 无命令调用" "[ ! -s \"\$MOCK_LOG\" ]"
+check "brightness 缺失 → fallback 50 (eDP)" "grep -q '^brightnessctl set 50%\$' \"\$MOCK_LOG\""
+check "brightness 缺失 → fallback 50 (DDC)" "grep -q '^ddcutil --bus 9 setvcp 10 50\$' \"\$MOCK_LOG\""
 
 reset_log
 set_theme '{"light":{"brightness":"abc"}}'
 set_monitor_brightness light
-check "brightness 非数字 → 无命令调用" "[ ! -s \"\$MOCK_LOG\" ]"
+check "brightness 非数字 → fallback 50" "grep -q '^brightnessctl set 50%\$' \"\$MOCK_LOG\""
 
 reset_log
 set_theme '{"light":{"brightness":150}}'
 set_monitor_brightness light
-check "brightness >100 → 无命令调用" "[ ! -s \"\$MOCK_LOG\" ]"
+check "brightness >100 → fallback 50" "grep -q '^brightnessctl set 50%\$' \"\$MOCK_LOG\""
 
-# ---- B: 正常设置 ----
+# ---- B: per-monitor 正常设置 ----
 reset_log
-set_theme '{"dark":{"brightness":30}}'
+set_theme '{"dark":{"brightness":{"eDP":30,"DisplayPort-0":40}}}'
 set_monitor_brightness dark
-check "遍历 backlight 设备设置亮度" "grep -q '^brightnessctl -d amdgpu_bl1 set 30%\$' \"\$MOCK_LOG\""
-check "跳过非 backlight 设备 (leds 类)" "! grep -q capslock \"\$MOCK_LOG\""
-check "DDC 显示器设置硬件亮度" "grep -q '^ddcutil --bus 9 setvcp 10 30\$' \"\$MOCK_LOG\""
-check "仅 DDC 显示器调用 setvcp (无 DDC 面板跳过)" "[ \"\$(grep -c setvcp \"\$MOCK_LOG\")\" = 1 ]"
+check "eDP 用 brightnessctl 设置 30%" "grep -q '^brightnessctl set 30%\$' \"\$MOCK_LOG\""
+check "DDC 显示器用 ddcutil 设置 40%" "grep -q '^ddcutil --bus 9 setvcp 10 40\$' \"\$MOCK_LOG\""
+check "仅 DDC 显示器调用 setvcp (eDP 不走 DDC)" "[ \"\$(grep -c setvcp \"\$MOCK_LOG\")\" = 1 ]"
 
 # ---- C: toggle_monitor ----
 reset_log

@@ -10,7 +10,8 @@ source "$WORK_DIR/tools/monitor-brightness.sh"
 
 get_theme_config() {
     local mode="$1" key="$2"
-    jq -r ".[\"$mode\"][\"$key\"] // empty" "$THEME_CONF"
+    jq -r --arg mode "$mode" --arg key "$key" \
+        '.[$mode] | getpath($key | split("."))? // empty' "$THEME_CONF"
 }
 
 _ensure_config_line() {
@@ -44,16 +45,11 @@ set_monitor_brightness() {
     [ -z "$mode" ] && return
 
     local brightness
-    brightness=$(get_theme_config "$mode" "brightness") || return
-    [[ $brightness =~ ^[0-9]+$ ]] || return
-    ((brightness <= 100)) || return
-
-    while read -r dev; do
-        brightnessctl -d "$dev" set "${brightness}%"
-    done < <(brightnessctl -l 2>/dev/null | awk -F"'" '/of class .backlight.:/ {print $2}')
-
     while read -r monitor; do
-        monitor_brightness "$monitor" "$brightness"
+        brightness=$(get_theme_config "$mode" "brightness.$monitor")
+        [[ $brightness =~ ^[0-9]+$ ]] || brightness=50
+        ((brightness <= 100)) || brightness=50
+        set_brightness "$monitor" "$brightness"
     done < <(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}')
 }
 
