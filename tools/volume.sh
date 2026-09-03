@@ -4,10 +4,13 @@ source "$(dirname "$0")/../utils/notify.sh"
 
 [ -z "$(command -v amixer)" ] && system-notify critical "Tool Not Found" "please install amixer" && exit
 
+exec 9>"/run/user/$UID/volume-control.lock"
+flock -x 9
+
 case "$1" in
 'toggle') amixer sset Master toggle ;;
-'up') amixer -qM set Master 2%+ umute ;;
-'down') amixer -qM set Master 2%- umute ;;
+'up') amixer -qM set Master 2%+ ;;
+'down') amixer -qM set Master 2%- ;;
 esac
 
 read -r volume status < <(amixer get Master | awk 'END{split($0,a,"[][]"); gsub(/%/,"",a[2]); print a[2], a[4]}')
