@@ -351,7 +351,7 @@ DWM 启动
     → bash keyboard.sh &
     → bash wallpaper.sh &
     → bash dwm-status.sh &                  # 状态栏
-    → bash screen.sh &                      # DPMS 守护 (PipeWire 用 pw-dump 检测 node state, PA fallback 用 pactl)
+    → bash screen.sh &                      # DPMS 守护 (parec 录默认输出判响度, 有声不熄屏)
     → bash brightness.sh &
     → bash tools/theme.sh auto &           # 自动主题切换 (auto=false 时立即退出)
 ```
@@ -485,7 +485,7 @@ calendar-lunar|󰃚|Lunar Calendar|
 
 - `tools/calendar.sh:3` source 路径已修复为 `$(dirname "$0")/../utils/notify.sh`
 - `tools/screen.sh:16` LOCKER 路径已改为 `$(dirname "$0")/lock.sh lock`，不再依赖 `$TOOLS_DIR`
-- `tools/screen.sh` 排除静默播放应用由硬编码 `wallpaper` 改为顶部 `EXCLUDE_APPS` 数组，`_jq_exclude_apps()` 按 jq 前缀（`info.props` / `properties`）动态生成 `!=` 条件，空数组时输出 `true` 兜底（无排除）；PipeWire 与 PulseAudio 双后端共用
+- `tools/screen.sh` 的 `_has_active_audio()` 现改为**录默认输出判响度**（原 pw-dump 按 media.role/tlength 过滤流的方案已丢弃，总会遗漏播放流致误锁屏；`EXCLUDE_APPS`/`SCREEN_AUDIO_MODE`/`_jq_exclude_apps()`/pw-dump 双后端均已删除）：`parec --device "$(pactl get-default-sink).monitor"` 定长采 150ms (head -c 截断触发 SIGPIPE) → ffmpeg volumedetect → max_volume 超阈值即认为有活动音频。注意 **raw `pw-record` 解析不到本机 `*.monitor` 节点会静默回落到默认麦克风（录到输入而非输出），必须用走 pulse 层的 `parec`**；且 sink monitor 采的是 sink 音量衰减后的信号（本机 Fosi 30% 音量衰减约 25dB+），阈值取 -78 dB（真静音底约 -91 dB，静音时返回 none）
 - `tools/lock.sh` 的 `_screen_lock_loop` 在 xprintidle 缺失时有 fallback (sleep 30s 代替空闲检测)
 - `tools/theme.sh` 旧 Firefox 切换方案（`set_firefox_theme` + `_get_darkreader_shortcut`，xdotool 模拟 Dark Reader 快捷键）已删除：Dark Reader 的 `extension-settings.json` 快捷键实际为空串，jq 的 `//` 不兜底空串 → `xdotool key ""` 从未生效；且依赖 Firefox 窗口存在、/tmp 状态文件易漂移。现由 `set_gtk_theme()` 双通道替代
 - **Firefox content 亮暗由 portal 决定而非 GTK**：Firefox 的 `prefers-color-scheme` 走 `nsLookAndFeel::ComputeColorSchemeSetting()` → xdg-desktop-portal 的 `color-scheme`（gsettings `org.gnome.desktop.interface color-scheme`），且 Firefox 将 portal 返回的 `0 (default)` 硬映射为 light（nsLookAndFeel.cpp case 0）。因此 `set_gtk_theme()` 必须同时写 gsettings（prefer-dark/prefer-light），仅广播 GTK 主题名不足以切换 Firefox content scheme

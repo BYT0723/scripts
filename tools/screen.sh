@@ -5,24 +5,11 @@ dpms_sleep_time=900
 dpms_suspend_time=1200
 dpms_off_time=1800
 duration=600
-SCREEN_AUDIO_MODE="video"
 SCREEN_DEBUG_NOTIFY=0
-EXCLUDE_APPS=(xwallpaper)
 LOCKER="$(dirname "$0")/lock.sh lock"
 current_hash=$(md5sum "$0" | awk '{print $1}')
 
 state=0
-
-command -v pw-dump &>/dev/null && _audio_backend="pipewire" || _audio_backend="pulseaudio"
-
-_jq_exclude_apps() {
-    local prefix="$1" out="" app
-    for app in "${EXCLUDE_APPS[@]}"; do
-        [ -n "$out" ] && out="$out and "
-        out+=".$prefix[\"application.name\"] != \"$app\""
-    done
-    printf '%s' "${out:-true}"
-}
 
 _screensaver() {
     if [ "$1" = on ]; then
@@ -47,52 +34,30 @@ _screensaver() {
 }
 
 _has_active_audio() {
-    if [ "$_audio_backend" = "pipewire" ]; then
-        local _inner _exclude
-        if [ "$SCREEN_AUDIO_MODE" = "any" ]; then
-            _inner='
-                (
-                    (.info.props["application.name"] != "Firefox" and .info.props["application.name"] != "Chromium")
-                    or (.info.props["pulse.attr.tlength"] != null and .info.props["pulse.attr.tlength"] > 20000)
-                )
-            '
-        else
-            _inner='
-                (
-                    .info.props["media.role"] == "video"
-                    or (
-                        (.info.props["application.name"] == "Firefox" or .info.props["application.name"] == "Chromium")
-                        and .info.props["pulse.attr.tlength"] != null
-                        and .info.props["pulse.attr.tlength"] > 20000
-                    )
-                )
-            '
-        fi
-        _exclude=$(_jq_exclude_apps 'info.props')
-        pw-dump 2>/dev/null | jq -e "
-            [.[] | select(
-                .type == \"PipeWire:Interface:Node\"
-                and $_exclude
-                and .info.state == \"running\"
-                and $_inner
-            )] | length > 0
-        " >/dev/null 2>&1
-    else
-        if [ "$SCREEN_AUDIO_MODE" = "any" ]; then
-            pactl -f json list sink-inputs | jq -e "
-                map(select($(_jq_exclude_apps 'properties') and .corked == false)) | length > 0
-            " >/dev/null 2>&1
-        else
-            pactl -f json list sink-inputs | jq -e ".[] | select(
-                $(_jq_exclude_apps 'properties') and
-                .corked == false and (
-                    .properties[\"media.role\"] == \"video\" or
-                    .properties[\"application.name\"] == \"Firefox\" or
-                    .properties[\"application.name\"] == \"Chromium\"
-                )
-            )" >/dev/null 2>&1
-        fi
-    fi
+    local rate=48000 channels=2 duration_ms=150 threshold=-78 bytes sink result
+
+    # parec 与 pactl 同包 (pulse 客户端); 缺失则视为无音频检测, 屏保按默认行为启用
+    command -v parec >/dev/null 2>&1 || return 1
+    sink="$(pactl get-default-sink)" || return 1
+    bytes=$((rate * duration_ms / 1000 * channels * 2)) # 150ms 的 s16 双声道字节数
+
+    # 必须走 pulse 层的 parec 而非 raw pw-record: 本机 pw-record 解析不到 *.monitor
+    # 节点, 会静默回落到默认麦克风 (录的是输入而非输出)。monitor 采的是 sink 音量
+    # 衰减后的信号 (本机 Fosi 30% 音量衰减约 25dB), 故阈值取 -78: 低于典型响度、
+    # 高于真静音底 (~-91 dB)。
+    result=$(
+        parec --device="${sink}.monitor" --format=s16le \
+            --rate "$rate" --channels "$channels" --raw 2>/dev/null |
+            head -c "$bytes" |
+            ffmpeg -hide_banner -nostats -loglevel info \
+                -f s16le -ar "$rate" -ac "$channels" \
+                -i pipe:0 -af volumedetect -f null - 2>&1 |
+            awk '/max_volume:/ { v = $(NF - 1); if (v ~ /^-?[0-9.]+$/) print v; exit }' # 值在行尾 "-<值> dB"; -inf 视为无音量
+    )
+    [[ -n "$result" ]] || return 1 # 纯静音 max_volume 为 -inf, 无数值视为无活动音频
+
+    awk -v volume="$result" -v threshold="$threshold" \
+        'BEGIN { exit !(volume > threshold) }'
 }
 
 daemon() {

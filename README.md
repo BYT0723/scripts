@@ -76,7 +76,7 @@
 | 脚本                | 功能                               | 依赖                                                        |
 | ------------------- | ---------------------------------- | ----------------------------------------------------------- |
 | `lock.sh`           | i3lock-color 锁屏 + suspend 分发   | i3lock-color / xset / xdotool / amixer / mpc / xprintidle(可选) |
-| `screen.sh`         | DPMS 自动启停守护 (有音频自动亮屏) | xautolock / xset / pw-dump 或 pactl / jq                    |
+| `screen.sh`         | DPMS 自动启停守护 (有音频自动亮屏) | xautolock / xset / parec / ffmpeg / pactl              |
 | `wallpaper.sh`      | 壁纸引擎 (随机/选择/daemon)        | xwallpaper / ffprobe / mpv(旋转预览) / yazi                  |
 | `wallpaper-lib.sh`  | 壁纸配置/组管理/渲染接口           | xwallpaper / jq / ffprobe / envsubst                        |
 | `wallpaper-render.sh` | xwallpaper 渲染层 (screen/monitor/group) | xwallpaper                                        |
