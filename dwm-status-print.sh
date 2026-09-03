@@ -12,6 +12,8 @@ icons["sing-box"]=""
 icons["volume"]=""
 icons["volume_off"]=""
 icons["volume_mute"]=""
+icons["traffic_rx"]=""
+icons["traffic_tx"]=""
 
 print_date() {
     if [ -f "$HOME/.local/state/dwm/status/date-collapse" ]; then
@@ -139,7 +141,7 @@ print_disk() {
 
     [ "$usage" -gt 90 ] && fg="$yellow"
     # output
-    printf "^c$fg^${icons[disk]} $avail"
+    printf "^c$fg^${icons[disk]}  $avail"
 }
 
 # Memory usage
@@ -167,7 +169,7 @@ print_cpu() {
     ((cpu_usage >= 80)) && fg="$yellow"
 
     # output
-    printf "^c$fg^${icons[cpu]}%3d%%" "$cpu_usage"
+    printf "^c$fg^${icons[cpu]} %3d%%" "$cpu_usage"
 }
 
 cpu_temperature_filepath=""
@@ -243,18 +245,19 @@ human_speed() {
 print_speed() {
     # interface_name / interface_type / interface_ipv4 / ifrxspeed / iftxspeed
     read iface iftype ipv4 rx tx <"$network_traffic_path"
-    # [[ "$iftype" == "wireless" ]] && printf " " || printf " "
-    # printf "[$ipv4]"
-    # printf " "
+
     if [ -f "$HOME/.local/state/dwm/status/net-traffic-collapse" ]; then
-        ((rx > 0)) && printf "" || printf " "
+        [[ "$iftype" == "wireless" ]] && printf " " || printf " "
+        # printf "[$ipv4]"
         printf " "
-        ((tx > 0)) && printf "" || printf " "
+        ((rx > 0)) && printf "${icons[traffic_rx]}" || printf " "
+        printf " "
+        ((tx > 0)) && printf "${icons[traffic_tx]}" || printf " "
     else
-        ((rx > 0)) && printf " " || printf "  "
+        ((rx > 0)) && printf "${icons[traffic_rx]} " || printf "  "
         human_speed $rx
         printf " "
-        ((tx > 0)) && printf " " || printf "  "
+        ((tx > 0)) && printf "${icons[traffic_tx]} " || printf "  "
         human_speed $tx
     fi
 }
