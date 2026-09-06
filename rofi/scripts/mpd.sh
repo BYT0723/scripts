@@ -15,12 +15,14 @@ _cover_valid() { # file
 }
 
 # 单次 readpicture 请求 → 响应写入 outfile (nc 优先, bash /dev/tcp fallback)
+# -q0 而非 -q1: nc 在 stdin EOF 后须等 N 秒才退出, MPD 收到 close 不主动断连,
+# -q1 让每块白白多等 1s (fetch_cover 分块拉取时 N 块 ≈ N 秒; 实测 30KB 封面 4 块 4.1s → 88ms)
 _mpd_readpicture() { # uri offset outfile
     local uri="$1" offset="$2" outfile="$3"
     local host="${MPD_HOST:-127.0.0.1}" port="${MPD_PORT:-6600}"
     if command -v nc >/dev/null 2>&1; then
         { printf 'readpicture "%s" %s\nclose\n' "$uri" "$offset"; } |
-            timeout 5 nc -q1 "$host" "$port" >"$outfile" 2>/dev/null
+            timeout 5 nc -q0 "$host" "$port" >"$outfile" 2>/dev/null
     else
         exec 3<>"/dev/tcp/$host/$port" || return 1
         printf 'readpicture "%s" %s\nclose\n' "$uri" "$offset" >&3
@@ -41,7 +43,9 @@ fetch_cover() { # uri outfile
         bin=$(grep -ao 'binary: [0-9]*' "$tmpd/c" | tail -1 | cut -d' ' -f2)
         [[ "$bin" =~ ^[0-9]+$ ]] && [[ "$bin" -gt 0 ]] || break
         off=$(grep -abo 'binary:' "$tmpd/c" | tail -1 | cut -d: -f1)
-        dd if="$tmpd/c" bs=1 skip=$((off + 8 + ${#bin} + 1)) count="$bin" >>"$out" 2>/dev/null
+        # bs=1 逐字节 skip+拷贝 O(n) 字节级 syscall, 大封面累积 O(n²) 极慢; iflag=skip_bytes,count_bytes 精确 seek+块拷贝
+        dd if="$tmpd/c" iflag=skip_bytes,count_bytes bs=4096 \
+            skip=$((off + 8 + ${#bin} + 1)) count="$bin" >>"$out" 2>/dev/null
         offset=$((offset + bin))
         [[ "$offset" -ge "$size" ]] && break
         [[ "$offset" -gt 5000000 ]] && break
@@ -101,7 +105,7 @@ else
     MODULE_MESG="$(mpc status "%currenttime%/%totaltime%  墳 %volume%")"
 
     # 封面: 从 MPD 拉取当前歌曲内嵌图 → icon-cover 注入 (icon widget size 强制 1:1)
-    # cache 命中直接用封面; 未命中先用默认图并后台异步拉取 (下次打开生效)
+    # cache 命中直接用封面; 未命中同步拉取 (fetch_cover 已优化 ~50ms), 失败回退默认图
     MODULE_THEME_STR=()
     song_file=$(mpc -f '%file%' current | head -1)
     if [[ -n "$song_file" ]]; then
@@ -109,14 +113,12 @@ else
         mkdir -p "$cache_dir" 2>/dev/null
         uri_hash=$(printf '%s' "$song_file" | cksum | cut -d' ' -f1)
         cover="$cache_dir/mpd-cover-$uri_hash.jpg"
-        img="$cover"
-        if ! _cover_valid "$cover"; then
+        img="$ROFI_DIR/images/flowers-2.png"
+        if _cover_valid "$cover"; then
+            img="$cover"
+        else
             rm -f "$cover"
-            img="$ROFI_DIR/images/flowers-2.png"
-            (
-                fetch_cover "$song_file" "$cover" &
-                disown
-            ) 2>/dev/null
+            fetch_cover "$song_file" "$cover" && img="$cover"
         fi
         MODULE_THEME_STR=(
             "icon-cover { enabled: true; filename: \"$img\"; size: 200; expand: false; margin: 0; border-radius: 20px; background-color: transparent; }"

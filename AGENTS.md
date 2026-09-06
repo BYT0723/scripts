@@ -203,8 +203,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 > 封面注入: 用 rofi `icon` widget (`icon-cover`, `filename` + `size: 200` + `squared` 默认 true 强制 1:1 正方形) —
 > 不能用 `imagebox`: 它不是真实 widget (rofi 静默当 `box`), `height` 属性被忽略 (box_get_desired_height 只累计 children),
 > 无法保证 1:1。cache 按歌曲 uri cksum 命名放 `~/.cache/dwm/mpd-cover/`, 命中复用不重复拉取。
-> 异步: cache 未命中时立即显示 `rofi/images/flowers-2.png` 默认图 (透明背景 Nerd Font flowers 图标), `( fetch_cover ... & disown )` 后台拉取, 本次打开不阻塞, 下次打开生效。
-> 校验: 主流程 cache 命中判断 `_cover_valid` (不存在/空/损坏均视为 miss) → `rm -f` + 默认图 + 重新异步拉取; fetch_cover 失败同样删除输出, 不留空文件。
+> 校验: 主流程 cache 命中判断 `_cover_valid` (不存在/空/损坏均视为 miss) → `rm -f` + 同步拉取 (`fetch_cover` 已优化 ~50ms, 原 `( ... & disown )` 后台异步已移除); 拉取失败回退 `rofi/images/flowers-2.png` 默认图 (透明背景 Nerd Font flowers 图标)。fetch_cover 失败同样删除输出, 不留空文件。
 
 ### theme.sh (tools/)
 
@@ -484,6 +483,7 @@ calendar-lunar|󰃚|Lunar Calendar|
 ## 已知问题
 
 - `tools/calendar.sh:3` source 路径已修复为 `$(dirname "$0")/../utils/notify.sh`
+- **mpd.sh fetch_cover 慢已修复**: 根因不是 MPD 网络往返而是客户端每 chunk 固定开销。① `nc -q1` 在 stdin EOF 后须等 1s 才退出，而 MPD 收 `close` 不主动断连 → 每块白白等 1s，readpicture chunk 上限 8192B，N 块 ≈ N 秒（实测 30KB 封面 4 块整函数 4102ms，改 `-q0` 后 88ms；1MB 封面 128 块会到 ~128s）。② `dd bs=1 skip=...` 逐字节跳过+拷贝，块内 skip 从文件头重来，累计 O(n²) 字节级 syscall（1MB 封面 128 块 ~6700 万次单字节 read），改 `iflag=skip_bytes,count_bytes bs=4096`（精确 seek + 块拷贝）。**单连接方案评估后放弃**: bash 无法可靠"恰好读 N 字节且把后续保留在流中"（read 缓冲与 fd 不同步、dd over-read 会吞掉下一响应 header、binary 块无长度外分隔标记），需 python/复杂协议解析，与仓库纯 bash 风格冲突，且 fetch 为低频场景（cache 按 uri 命中后不再拉），`-q0`+iflag 已把 4.1s→48ms，额外收益不足以抵风险。回归测试 `tests/mpd-cover_test.sh`
 - `tools/screen.sh:16` LOCKER 路径已改为 `$(dirname "$0")/lock.sh lock`，不再依赖 `$TOOLS_DIR`
 - `tools/screen.sh` 的 `_has_active_audio()` 现改为**录默认输出判响度**（原 pw-dump 按 media.role/tlength 过滤流的方案已丢弃，总会遗漏播放流致误锁屏；`EXCLUDE_APPS`/`SCREEN_AUDIO_MODE`/`_jq_exclude_apps()`/pw-dump 双后端均已删除）：`parec --device "$(pactl get-default-sink).monitor"` 定长采 150ms (head -c 截断触发 SIGPIPE) → ffmpeg volumedetect → max_volume 超阈值即认为有活动音频。注意 **raw `pw-record` 解析不到本机 `*.monitor` 节点会静默回落到默认麦克风（录到输入而非输出），必须用走 pulse 层的 `parec`**；且 sink monitor 采的是 sink 音量衰减后的信号（本机 Fosi 30% 音量衰减约 25dB+），阈值取 -78 dB（真静音底约 -91 dB，静音时返回 none）
 - `tools/lock.sh` 的 `_screen_lock_loop` 在 xprintidle 缺失时有 fallback (sleep 30s 代替空闲检测)

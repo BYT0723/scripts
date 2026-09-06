@@ -177,22 +177,18 @@ uri_hash=$(printf '%s' "song.flac" | cksum | cut -d' ' -f1)
 cached="$XDG_CACHE_HOME/dwm/mpd-cover/mpd-cover-$uri_hash.jpg"
 mkdir -p "$XDG_CACHE_HOME/dwm/mpd-cover"
 
-# 场景 A: cache 不存在 → 异步后台拉取 (nc 在子进程调用) + 立即显示默认图
+# 场景 A: cache 不存在 → 同步拉取 (fetch 完成才返回) + 立即用真封面
 rm -f "$cached"
 : >"$NC_COUNT_FILE"
 source "$MOCK_ROFI/scripts/mpd.sh" 2>/dev/null
-# 后台子进程拉取, 轮询等待完整落盘 (cmp 全量匹配)
-for _ in $(seq 1 50); do cmp -s "$cached" "$MOCK_PNG" && break; sleep 0.1; done
-wait 2>/dev/null
-assert_eq "$(wc -l <"$NC_COUNT_FILE")" "1" "cache 未命中: 后台拉取 1 次 (异步)"
-assert_cond "cache 未命中: 生成绑定 uri hash 的缓存文件" "[ -f \"$cached\" ]"
-assert_cond "cache 未命中: 立即显示默认图 (异步不阻塞)" \
-    "[[ \"\${MODULE_THEME_STR[0]:-}\" == *'rofi/images/flowers-2.png'* ]]"
+assert_eq "$(wc -l <"$NC_COUNT_FILE")" "1" "cache 未命中: 同步拉取 1 次"
+assert_cond "cache 未命中: 生成绑定 uri hash 的缓存文件" "cmp -s \"$cached\" \"$MOCK_PNG\""
+assert_cond "cache 未命中: 拉取成功立即用真封面 (串行)" \
+    "[[ \"\${MODULE_THEME_STR[0]:-}\" == *\"\$cached\"* ]]"
 
 # 场景 B: cache 已存在 → 不拉取 (nc 调用 0 次), 显示封面
 : >"$NC_COUNT_FILE"
 source "$MOCK_ROFI/scripts/mpd.sh" 2>/dev/null
-wait 2>/dev/null
 assert_eq "$(wc -l <"$NC_COUNT_FILE")" "0" "cache 命中: 复用不重复拉取 (nc 0 次)"
 assert_cond "cache 命中: 显示封面而非默认图" \
     "[[ \"\${MODULE_THEME_STR[0]:-}\" == *\"\$cached\"* ]]"
@@ -209,13 +205,8 @@ export MOCK_MPC_FILE="another/song.mp3"
 uri_hash2=$(printf '%s' "another/song.mp3" | cksum | cut -d' ' -f1)
 : >"$NC_COUNT_FILE"
 source "$MOCK_ROFI/scripts/mpd.sh" 2>/dev/null
-# 等异步 fetch 完整落盘 (cmp 全量匹配) — 避免 -f 早退, 且确保 D 的 fetch 在 E 计数前结束
-for _ in $(seq 1 50); do
-    cmp -s "$XDG_CACHE_HOME/dwm/mpd-cover/mpd-cover-$uri_hash2.jpg" "$MOCK_PNG" && break
-    sleep 0.1
-done
-wait 2>/dev/null
-assert_cond "不同歌曲: 生成独立 hash 缓存文件" "[ -f \"$XDG_CACHE_HOME/dwm/mpd-cover/mpd-cover-$uri_hash2.jpg\" ]"
+assert_cond "不同歌曲: 生成独立 hash 缓存文件" \
+    "cmp -s \"$XDG_CACHE_HOME/dwm/mpd-cover/mpd-cover-$uri_hash2.jpg\" \"$MOCK_PNG\""
 MOCK_MPC_FILE="$MOCK_MPC_FILE_SAVE"
 
 # 场景 E: cache 存在但为空 (拉取失败遗留) → 视为 miss, 删除并重新拉取
@@ -223,11 +214,21 @@ export MOCK_MPC_FILE="song.flac"
 : >"$cached"
 : >"$NC_COUNT_FILE"
 source "$MOCK_ROFI/scripts/mpd.sh" 2>/dev/null
-for _ in $(seq 1 50); do cmp -s "$cached" "$MOCK_PNG" && break; sleep 0.1; done
-wait 2>/dev/null
 assert_cond "空 cache: 重新拉取后为有效 PNG" "cmp -s \"$cached\" \"$MOCK_PNG\""
-assert_eq "$(wc -l <"$NC_COUNT_FILE")" "1" "空 cache: 触发重新拉取 (nc 1 次)"
-assert_cond "空 cache: 立即显示默认图" \
+assert_eq "$(wc -l <"$NC_COUNT_FILE")" "1" "空 cache: 触发同步拉取 (nc 1 次)"
+assert_cond "空 cache: 拉取成功立即用真封面" \
+    "[[ \"\${MODULE_THEME_STR[0]:-}\" == *\"\$cached\"* ]]"
+
+# 场景 F: 拉取失败 (无内嵌图) → 回退默认图, 不残留空 cache
+cat >"$FAKE_BIN/nc" <<'EOF'
+#!/usr/bin/env bash
+printf 'OK MPD 0.24.0\nsize: 0\n'
+EOF
+chmod +x "$FAKE_BIN/nc"
+rm -f "$cached"
+source "$MOCK_ROFI/scripts/mpd.sh" 2>/dev/null
+assert_cond "拉取失败: 无缓存残留" "[ ! -s \"$cached\" ]"
+assert_cond "拉取失败: 显示默认图" \
     "[[ \"\${MODULE_THEME_STR[0]:-}\" == *'rofi/images/flowers-2.png'* ]]"
 
 if ((FAIL)); then
