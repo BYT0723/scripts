@@ -68,6 +68,22 @@ _mpd_rmpc() {
     system-notify normal "Tool Not Found" "please install rmpc"
 }
 
+_mpd_volume() {
+    case "$1" in
+    up)
+        mpc volume +2
+        ;;
+    down)
+        mpc volume -2
+        ;;
+    *)
+        return
+        ;;
+    esac
+    volume=$(mpc volume | grep -oP '\d+(?=%)')
+    notify-send -c tools -h string:x-dunst-stack-tag:mpd-volume -h int:value:"$volume" "  $volume"
+}
+
 _volume_ncpamixer() {
     command -v ncpamixer >/dev/null 2>&1 && {
         _ftopen ncpamixer
@@ -124,6 +140,8 @@ declare -A actions=(
     [9,$middle]='xdg-open https://wttr.in/?T'
     [10,$left]='"$ROFI_SCRIPT_DIR/mpd.sh"'
     [10,$middle]='mpd --kill'
+    [10,$scroll_up]='_mpd_volume up'
+    [10,$scroll_down]='_mpd_volume down'
     [10,$right]=_mpd_rmpc
     [11,$left]='D="$HOME/.local/state/dwm/status"; [[ -f "$D/net-traffic-collapse" ]] && rm -f "$D/net-traffic-collapse" || { mkdir -p "$D" && touch "$D/net-traffic-collapse"; }'
     [11,$right]=_net_speedtest

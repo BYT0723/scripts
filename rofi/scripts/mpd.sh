@@ -63,6 +63,7 @@ fetch_cover() { # uri outfile
 status=$(mpc status "%state%")
 repeat_state=$(mpc status "%repeat%")
 random_state=$(mpc status "%random%")
+single_state=$(mpc status "%single%")
 
 get_current_song() {
     local title artist file
@@ -136,10 +137,12 @@ else
 
     # Repeat/Random 高亮索引 (基于注册表行序)
     active_idx="" urgent_idx=""
-    [[ "$repeat_state" == "on" ]] && active_idx="6"
-    [[ "$repeat_state" == "off" ]] && urgent_idx="6"
-    [[ "$random_state" == "on" ]] && active_idx="${active_idx}${active_idx:+,}7"
-    [[ "$random_state" == "off" ]] && urgent_idx="${urgent_idx}${urgent_idx:+,}7"
+    [[ "$repeat_state" == "on" ]] && active_idx="4"
+    [[ "$repeat_state" == "off" ]] && urgent_idx="4"
+    [[ "$random_state" == "on" ]] && active_idx="${active_idx}${active_idx:+,}5"
+    [[ "$random_state" == "off" ]] && urgent_idx="${urgent_idx}${urgent_idx:+,}5"
+    [[ "$single_state" == "on" ]] && active_idx="${active_idx}${active_idx:+,}6"
+    [[ "$single_state" == "off" ]] && urgent_idx="${urgent_idx}${urgent_idx:+,}6"
     MODULE_ACTIVE="$active_idx"
     MODULE_URGENT="$urgent_idx"
 
@@ -148,10 +151,9 @@ play-pause|${play_icon}|${play_label}|
 stop||Stop|
 prev|󰒮|Previous|
 next|󰒭|Next|
-vol-down|󰝞|Down|
-vol-up|󰝝|Up|
 repeat||Repeat|
 random||Random|
+single|󰬺|Single|
 MODULES
 
     _handle_play_icon() {
@@ -177,20 +179,9 @@ MODULES
             -h string:x-dunst-stack-tag:music_info \
             "$(get_current_song)"
     }
-    handle_vol_down() {
-        mpc volume -20
-        local current=$(mpc volume | cut -d':' -f2 | cut -d' ' -f2 | cut -d'%' -f1)
-        notify-send -c mpd -h string:x-dunst-stack-tag:music_volumn_info \
-            -h int:value:"${current}" "MPD Volume: $current"
-    }
-    handle_vol_up() {
-        mpc volume +20
-        local current=$(mpc volume | cut -d':' -f2 | cut -d' ' -f2 | cut -d'%' -f1)
-        notify-send -c mpd -h string:x-dunst-stack-tag:music_volumn_info \
-            -h int:value:"${current}" "MPD Volume: $current"
-    }
     handle_repeat() { mpc -q repeat; }
     handle_random() { mpc -q random; }
+    handle_single() { mpc -q single; }
 fi
 
 module_loop
