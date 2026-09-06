@@ -13,7 +13,8 @@ icons["volume"]=""
 icons["volume_off"]=""
 icons["volume_mute"]=""
 icons["traffic_rx"]=""
-icons["traffic_tx"]=""
+icons["traffic_tx"]=""
+icons["screencast"]=""
 
 print_date() {
     if [ -f "$HOME/.local/state/dwm/status/date-collapse" ]; then
@@ -234,10 +235,12 @@ human_speed() {
 
     if ((bytes < 1024)); then
         printf "%5dB/s" "$bytes"
-    elif ((bytes < 1024000)); then
+    elif ((bytes < 1048576)); then
         printf "%5.1fK/s" "$(bc -l <<<"$bytes/1024")"
+    elif ((bytes < 1073741824)); then
+        printf "%5.1fM/s" "$(bc -l <<<"$bytes/1048576")"
     else
-        printf "%5.1fM/s" "$(bc -l <<<"$bytes/1024000")"
+        printf "%5.1fG/s" "$(bc -l <<<"$bytes/1073741824")"
     fi
 }
 
@@ -287,5 +290,5 @@ print_screencast() {
     local pid
     [ ! -f "$pid_f" ] && return
     read -r pid </tmp/screencaster_pid 2>/dev/null || return
-    kill -0 "$pid" 2>/dev/null && printf "^c$red^󰑊"
+    kill -0 "$pid" 2>/dev/null && printf "^c$red^${icons[screencast]}"
 }

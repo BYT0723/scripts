@@ -14,7 +14,7 @@ term() {
             h=56c
         }
         kitty --class float-term \
-            -o font_size=8 \
+            -o font_size=10 \
             -o initial_window_width=$w \
             -o initial_window_height=$h \
             tmux new -s "float-term-$RANDOM" -n main \; set destroy-unattached on &
