@@ -63,4 +63,4 @@ handle_open_tv() { _is_running sonarr && bash "$MEDIA_DIR/open.sh" sonarr; }
 handle_open_downloader() { _is_running qbittorrent && bash "$MEDIA_DIR/open.sh" qbittorrent; }
 handle_open_subtitle() { _is_running bazarr && bash "$MEDIA_DIR/open.sh" bazarr; }
 
-module_loop
+while module_loop; do :; done
