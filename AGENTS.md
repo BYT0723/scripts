@@ -286,7 +286,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `handle_error()` / `error()` | wallpaper-lib.sh 内部, rofi/scripts/wallpaper.sh (handle_group)                                                                                                                                              |
 | `xw_clear_group_members()`   | wallpaper-lib.sh (clean_group), wallpaper-render.sh (set_wallpaper_to_group) — 清 group 所有成员 monitor 独立窗口 (组与成员互斥); 以 `xwallpaper --list` active name 为准, 仅清实际存在的成员独立窗口 (已并入组、无独立窗口的成员自动跳过)                                                                                 |
 | `clean_group()`              | rofi/scripts/wallpaper.sh (handle_group 禁用/重命名/删除/编辑成员 — 无后续同名 set, 需真清 grp_<组名> + 成员窗口)                                                                                                |
-| `xw_set()`                   | wallpaper-lib.sh (xw_apply) — 视频分支按 confname 读 `.monitors["<monitor|组名|Screen>"]["video-render"]`: `mute` bool 决定是否 `--mute` (false 不传), `fps>0` 才传 `--fps`; confname 默认同窗口名 target (group 场景由 render 层显式传组名, 见 render.sh) |
+| `xw_set()`                   | wallpaper-lib.sh (xw_apply) — 视频分支按 confname 读 `.monitors["<monitor|组名|Screen>"]["video-render"]`: `volume>0` 传 `--volume N`, `volume=0`/缺省传 `--mute` (0 与 mute 等价), `fps>0` 才传 `--fps`; confname 默认同窗口名 target (group 场景由 render 层显式传组名, 见 render.sh) |
 | `xw_clear()`                 | wallpaper-render.sh (set_wallpaper_to_monitor 清所属组窗口, set_wallpaper_to_group 经 xw_clear_group_members 清成员 monitor), wallpaper-lib.sh (clean_group, xw_clear_all_exclude_screen, xw_clear_screen_and_restore) |
 | `xw_clear_keep()`            | wallpaper-lib.sh (xw_clear_all_exclude_screen) — xwallpaper clear --keep, 清窗口保留 last, 供 restore 恢复                                                                                                  |
 | `xw_clear_all_exclude_screen()` | wallpaper-render.sh (set_wallpaper_to_screen) — 以 `xwallpaper --list` active name 为准清所有 monitor/group 窗口 (Screen 除外, 由 set 同名 reload 覆盖), monitor/group 用 --keep 保留 last (screen 清除后可 restore 恢复); 不再遍历 xrandr/config 枚举 (避免空打不存在 name)                                |
@@ -448,7 +448,7 @@ wallpaper.sh → source utils/monitor.sh, utils/notify.sh
 - `rofi/fonts/` 字体文件
 - `rofi/colors/` `rofi/images/`
 - `~/.config/dwm/quicklinks.json` — quicklinks 书签, `links` 数组元素含 `id`(uuid)、`name`、`url` (icon 字段已废弃移除); 顶层 `searcher` 数组存搜索引擎 `{name, url}`(name 为唯一键, url 用 `{key}` 占位搜索词, 可省略 → 追加 url 末尾), 自定义输入搜索默认用 `searcher[0]`, 支持 `@<name>` 首 token 指定引擎
-- `~/.config/dwm/wallpaper.json` — 壁纸配置, 含 `monitors`(按屏/组名键)、`groups`(成员名单 + enabled 启停); 每个 monitor/组可带可选 `video-render` 对象 `{mute, fps}`: `mute=false` 去掉 `--mute` 播放音频, `fps>0` 传 `--fps`, 缺省/无该字段时 video 静音 + 不传 `--fps`
+- `~/.config/dwm/wallpaper.json` — 壁纸配置, 含 `monitors`(按屏/组名键)、`groups`(成员名单 + enabled 启停); 每个 monitor/组可带可选 `video-render` 对象 `{volume, fps}`: `volume>0` 传 `--volume N` 播放音频, `volume=0`/缺省时传 `--mute` 静音 (0 与 mute 等价), `fps>0` 传 `--fps`
 - `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置，`"auto"` 含 `enabled`(默认 false)、`sun_rise_offset`(日出延迟分钟数)、`sun_set_offset`(日落延迟分钟数)，`"cursor"` 含 `theme`/`size`，`"dpi"` 为 Xft.dpi 值，`light`/`dark` 的 `colorscheme` 引用 `~/.config/dwm/colorschemes/` 下的颜色方案文件
 - `~/.xsettingsd` — `set_gtk_theme()` 维护 `Net/ThemeName`(当前 GTK 主题) 行, 保留其他 XSETTINGS 键, `killall -HUP xsettingsd` 触发 XSETTINGS 重载广播
 

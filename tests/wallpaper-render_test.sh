@@ -165,21 +165,22 @@ set_wallpaper_to_monitor 0 "$TEST_DIR/img.png"
 assert_has "$(last_call)" 'set --image -g 1920x1080+0+0 --name eDP' "image monitor rect+name"
 state_has "eDP" "image latest state written by xwallpaper"
 
-# ---- Task 2: 视频壁纸到 monitor (rotate + keybinds + fps + mute) ----
-echo "== video to monitor with video-render mute:false fps:30 =="
+# ---- Task 2: 视频壁纸到 monitor (rotate + keybinds + fps + volume) ----
+echo "== video to monitor with video-render volume:30 fps:30 =="
 reset_log
 echo "p cycle pause" >"$HOME/.config/dwm/wallpaper.keys"
 cat >"$HOME/.config/dwm/wallpaper.json" <<'EOF'
-{"monitors":{"eDP":{"video-render":{"mute":false,"fps":30}}},"groups":{}}
+{"monitors":{"eDP":{"video-render":{"volume":30,"fps":30}}},"groups":{}}
 EOF
 WALLPAPER_ROTATION=90 set_wallpaper_to_monitor 0 "$TEST_DIR/clip.mp4"
 assert_has "$(last_call)" '--video' "video type"
 if [[ "$(last_call)" == *"--mute"* ]]; then
-    echo "FAIL: mute:false 不应传 --mute"
+    echo "FAIL: volume>0 不应传 --mute"
     FAIL=1
 else
-    echo "ok: mute:false 未传 --mute"
+    echo "ok: volume>0 未传 --mute"
 fi
+assert_has "$(last_call)" '--volume 30' "volume passed from monitor video-render.volume"
 assert_has "$(last_call)" '--rotate 90' "rotate passed"
 assert_has "$(last_call)" '--fps 30' "fps from monitor video-render.fps"
 assert_has "$(last_call)" '--keybinds' "keybinds flag present"
@@ -187,16 +188,22 @@ assert_has "$(last_call)" '--name eDP' "video monitor name"
 assert_has "$(cat "$XW_MOCK_STATE/eDP.win" 2>/dev/null)" "video" "video state type"
 assert_has "$(cat "$XW_MOCK_STATE/eDP.win" 2>/dev/null)" "90" "video state rotation"
 
-# ---- Task 3: 视频 mute:true / 无 video-render 时默认 --mute, 无 fps ----
-echo "== video mute:true without fps =="
+# ---- Task 3: 视频 volume:0 / 无 video-render 时默认 --mute, 无 fps ----
+echo "== video volume:0 without fps =="
 reset_log
 cat >"$HOME/.config/dwm/wallpaper.json" <<'EOF'
-{"monitors":{"eDP":{"video-render":{"mute":true}}},"groups":{}}
+{"monitors":{"eDP":{"video-render":{"volume":0}}},"groups":{}}
 EOF
 WALLPAPER_ROTATION= set_wallpaper_to_monitor 0 "$TEST_DIR/clip.mp4"
 local_call="$(last_call)"
 assert_has "$local_call" '--video' "video still works"
-assert_has "$local_call" '--mute' "video muted when mute:true"
+assert_has "$local_call" '--mute' "video muted when volume:0"
+if [[ "$local_call" == *"--volume"* ]]; then
+    echo "FAIL: volume:0 不应传 --volume"
+    FAIL=1
+else
+    echo "ok: volume:0 未传 --volume"
+fi
 if [[ "$local_call" == *"--fps"* ]]; then
     echo "FAIL: 未配置 fps 时不应传 --fps"
     FAIL=1
@@ -219,11 +226,11 @@ EOF
 WALLPAPER_ROTATION= set_wallpaper_to_monitor 0 "$TEST_DIR/clip.mp4"
 local_call="$(last_call)"
 assert_has "$local_call" '--mute' "default muted when video-render absent"
-if [[ "$local_call" == *"--fps"* ]]; then
-    echo "FAIL: 无 video-render 时不应传 --fps"
+if [[ "$local_call" == *"--volume"* ]]; then
+    echo "FAIL: 无 video-render 时不应传 --volume"
     FAIL=1
 else
-    echo "ok: 无 video-render 未传 --fps"
+    echo "ok: 无 video-render 未传 --volume"
 fi
 
 # ---- Task 4: Screen 全屏 ----
@@ -244,7 +251,7 @@ assert_has "$(last_call)" '--name eDP' "page monitor name"
 # ---- Task 6: group (config 键 = 组名, 窗口名 = grp_<组名>) ----
 echo "== video to group with per-group video-render =="
 cat >"$HOME/.config/dwm/wallpaper.json" <<'EOF'
-{"monitors":{"dual":{"video-render":{"mute":false,"fps":24}}},"groups":{"dual":{"enabled":true,"members":["eDP"]}}}
+{"monitors":{"dual":{"video-render":{"volume":20,"fps":24}}},"groups":{"dual":{"enabled":true,"members":["eDP"]}}}
 EOF
 reset_log
 WALLPAPER_ROTATION= set_wallpaper_to_group dual "$TEST_DIR/clip.mp4"
@@ -253,11 +260,12 @@ assert_has "$call" 'set --video' "group video"
 assert_has "$call" '--name grp_dual' "group target name"
 assert_has "$call" '-g 1920x1080+0+0' "group rect"
 if [[ "$call" == *"--mute"* ]]; then
-    echo "FAIL: group mute:false 不应传 --mute"
+    echo "FAIL: group volume>0 不应传 --mute"
     FAIL=1
 else
-    echo "ok: group mute:false 未传 --mute"
+    echo "ok: group volume>0 未传 --mute"
 fi
+assert_has "$call" '--volume 20' "group volume from group video-render.volume"
 assert_has "$call" '--fps 24' "group fps from group video-render.fps"
 state_has "grp_dual" "group window state"
 
@@ -269,11 +277,11 @@ reset_log
 WALLPAPER_ROTATION= set_wallpaper_to_group dual "$TEST_DIR/clip.mp4"
 call="$(last_call)"
 assert_has "$call" '--mute' "group default muted"
-if [[ "$call" == *"--fps"* ]]; then
-    echo "FAIL: 组无 video-render 时不应传 --fps"
+if [[ "$call" == *"--volume"* ]]; then
+    echo "FAIL: 组无 video-render 时不应传 --volume"
     FAIL=1
 else
-    echo "ok: 组无 video-render 未传 --fps"
+    echo "ok: 组无 video-render 未传 --volume"
 fi
 
 # ---- Task 7: screen 后设置 monitor 清除 screen ----

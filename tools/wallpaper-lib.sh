@@ -51,9 +51,14 @@ xw_set() {
 
     local args=(set "--$backend" -g "$rect" --name "$target")
     if [ "$type" = "video" ]; then
-        local mute fps
-        mute=$(jq -r --arg n "$confname" '.monitors[$n]["video-render"].mute != false' "$conf" 2>/dev/null)
-        [ "$mute" = "true" ] && args+=(--mute)
+        local volume fps
+        # volume 0 与 mute=true 等价 (mpv mute=yes == volume 0 均静音)
+        volume=$(jq -r --arg n "$confname" '.monitors[$n]["video-render"].volume // 0' "$conf" 2>/dev/null)
+        if [[ "$volume" =~ ^[0-9]+$ ]] && [ "$volume" -gt 0 ]; then
+            args+=(--volume "$volume")
+        else
+            args+=(--mute)
+        fi
         [ -n "$rotate" ] && args+=(--rotate "$rotate")
         fps=$(jq -r --arg n "$confname" '.monitors[$n]["video-render"].fps // empty' "$conf" 2>/dev/null)
         [ -n "$fps" ] && [[ $fps -gt 0 ]] && args+=(--fps "$fps")
