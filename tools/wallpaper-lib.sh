@@ -10,13 +10,8 @@ mkdir -p "$cache_wallpaper_dir"
 
 # Create default config if missing
 [ ! -f "$conf" ] && jq -n '{
-    "render": {
-        "video": {
-            "fps": 30
-        }
-    },
-    "monitors": [],
-    "groups": []
+    "monitors": {},
+    "groups": {}
 }' >"$conf"
 
 # 当前壁纸状态 (latest) 已由 xwallpaper 持久化管理
@@ -39,24 +34,28 @@ config["duration"]=30
 _WALLPAPER_KEYBINDS="${WALLPAPER_KEYBINDS:-$HOME/.config/dwm/wallpaper.keys}"
 
 # 构造并执行 xwallpaper set 命令。
-# 用法: xw_set <type> <rect> <target> <filepath> [<rotate>]
+# 用法: xw_set <type> <rect> <target> <filepath> [<rotate>] [<confname>]
 # type ∈ image|video|page (page 映射为 xwallpaper 的 web 后端)
+# target 为 xwallpaper 窗口名 (monitor 名 / grp_<组名> / Screen);
+# confname 为 video-render 配置键 (monitor 名 / 组名 / Screen), 默认同 target。
 xw_set() {
     local type="$1"
     local rect="$2"
     local target="$3"
     local filepath="$4"
     local rotate="${5:-}"
+    local confname="${6:-$target}"
 
     local backend="$type"
     [ "$backend" = "page" ] && backend="web"
 
     local args=(set "--$backend" -g "$rect" --name "$target")
     if [ "$type" = "video" ]; then
-        args+=(--mute)
+        local mute fps
+        mute=$(jq -r --arg n "$confname" '.monitors[$n]["video-render"].mute != false' "$conf" 2>/dev/null)
+        [ "$mute" = "true" ] && args+=(--mute)
         [ -n "$rotate" ] && args+=(--rotate "$rotate")
-        local fps
-        fps=$(getConfig render.video.fps)
+        fps=$(jq -r --arg n "$confname" '.monitors[$n]["video-render"].fps // empty' "$conf" 2>/dev/null)
         [ -n "$fps" ] && [[ $fps -gt 0 ]] && args+=(--fps "$fps")
         [ -n "$_WALLPAPER_KEYBINDS" ] && [ -f "$_WALLPAPER_KEYBINDS" ] &&
             args+=(--keybinds "$_WALLPAPER_KEYBINDS")
@@ -98,7 +97,7 @@ xw_clear_screen_and_restore() {
 }
 
 # 设置壁纸。旋转角度取全局 WALLPAPER_ROTATION。
-# 用法: xw_apply <type> <rect> <target> <filepath>
+# 用法: xw_apply <type> <rect> <target> <filepath> [<confname>]
 # 当前壁纸状态由 xwallpaper 持久化 (daemon 重启自动恢复), 本层不再写缓存文件。
 # 成功返回 0；失败打印错误并返回 1。
 xw_apply() {
@@ -106,8 +105,9 @@ xw_apply() {
     local rect="$2"
     local target="$3"
     local filepath="$4"
+    local confname="${5:-$target}"
 
-    if ! xw_set "$type" "$rect" "$target" "$filepath" "${WALLPAPER_ROTATION:-}"; then
+    if ! xw_set "$type" "$rect" "$target" "$filepath" "${WALLPAPER_ROTATION:-}" "$confname"; then
         error "xwallpaper set failed"
         return 1
     fi

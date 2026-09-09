@@ -61,6 +61,7 @@ set_wallpaper_to_group() {
 
     xw_clear_screen_and_restore
 
+    # confname 用组名 (config 键), 非窗口名 grp_<组名>
     xw_apply "$(detect_file_type "$filepath")" "${w}x${h}+${x}+${y}" \
-        "$target" "$filepath" || return 1
+        "$target" "$filepath" "$group" || return 1
 }
