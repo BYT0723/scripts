@@ -233,6 +233,23 @@ else
     echo "ok: 无 video-render 未传 --volume"
 fi
 
+echo "== video falls back to config[] defaults when video-render absent =="
+reset_log
+config["volume"]=40
+config["fps"]=24
+WALLPAPER_ROTATION= set_wallpaper_to_monitor 0 "$TEST_DIR/clip.mp4"
+config["volume"]=0
+config["fps"]=0
+local_call="$(last_call)"
+assert_has "$local_call" '--volume 40' "config[volume] fallback used"
+assert_has "$local_call" '--fps 24' "config[fps] fallback used"
+if [[ "$local_call" == *"--mute"* ]]; then
+    echo "FAIL: config[volume]>0 时不应传 --mute"
+    FAIL=1
+else
+    echo "ok: config[volume]>0 未传 --mute"
+fi
+
 # ---- Task 4: Screen 全屏 ----
 echo "== image to screen =="
 reset_log

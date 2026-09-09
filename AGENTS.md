@@ -276,7 +276,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | 函数                         | 调用者                                                                                                                                                                                                       |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `getConfig()`                | wallpaper.sh, wallpaper-lib.sh (内部)                                                                                                                                                                        |
-| `ensure_monitor_config()`    | rofi/scripts/wallpaper.sh (主入口选定 monitor 后初始化写入)                                                                                                                                                  |
+| `ensure_monitor_config()`    | rofi/scripts/wallpaper.sh (主入口选定 monitor 后初始化写入) — 遍历 `config` 数组写默认, 跳过 volume/fps (video-render 子对象默认) |
 | `detect_file_type()`         | wallpaper.sh, wallpaper-render.sh                                                                                                                                                                            |
 | `get_video_dim()`            | wallpaper.sh (get_wallpaper_rotation) — 单次 ffprobe 合并取 dims+rotation (csv 第三列), 原两次独立调用省一半耗时                                                                                                                                                                        |
 | `orientation_mismatch()`     | wallpaper.sh (get_wallpaper_rotation)                                                                                                                                                                        |
@@ -286,7 +286,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `handle_error()` / `error()` | wallpaper-lib.sh 内部, rofi/scripts/wallpaper.sh (handle_group)                                                                                                                                              |
 | `xw_clear_group_members()`   | wallpaper-lib.sh (clean_group), wallpaper-render.sh (set_wallpaper_to_group) — 清 group 所有成员 monitor 独立窗口 (组与成员互斥); 以 `xwallpaper --list` active name 为准, 仅清实际存在的成员独立窗口 (已并入组、无独立窗口的成员自动跳过)                                                                                 |
 | `clean_group()`              | rofi/scripts/wallpaper.sh (handle_group 禁用/重命名/删除/编辑成员 — 无后续同名 set, 需真清 grp_<组名> + 成员窗口)                                                                                                |
-| `xw_set()`                   | wallpaper-lib.sh (xw_apply) — 视频分支按 confname 读 `.monitors["<monitor|组名|Screen>"]["video-render"]`: `volume>0` 传 `--volume N`, `volume=0`/缺省传 `--mute` (0 与 mute 等价), `fps>0` 才传 `--fps`; confname 默认同窗口名 target (group 场景由 render 层显式传组名, 见 render.sh) |
+| `xw_set()`                   | wallpaper-lib.sh (xw_apply) — 视频分支按 confname 读 `.monitors["<monitor|组名|Screen>"]["video-render"]`: `volume>0` 传 `--volume N`, `volume=0`/缺省传 `--mute` (0 与 mute 等价), `fps>0` 才传 `--fps`; video-render 缺字段时回退脚本顶部 `config[volume]`/`config[fps]` 默认值; confname 默认同窗口名 target (group 场景由 render 层显式传组名, 见 render.sh) |
 | `xw_clear()`                 | wallpaper-render.sh (set_wallpaper_to_monitor 清所属组窗口, set_wallpaper_to_group 经 xw_clear_group_members 清成员 monitor), wallpaper-lib.sh (clean_group, xw_clear_all_exclude_screen, xw_clear_screen_and_restore) |
 | `xw_clear_keep()`            | wallpaper-lib.sh (xw_clear_all_exclude_screen) — xwallpaper clear --keep, 清窗口保留 last, 供 restore 恢复                                                                                                  |
 | `xw_clear_all_exclude_screen()` | wallpaper-render.sh (set_wallpaper_to_screen) — 以 `xwallpaper --list` active name 为准清所有 monitor/group 窗口 (Screen 除外, 由 set 同名 reload 覆盖), monitor/group 用 --keep 保留 last (screen 清除后可 restore 恢复); 不再遍历 xrandr/config 枚举 (避免空打不存在 name)                                |
@@ -426,7 +426,7 @@ tools/theme.sh auto (守护进程)
   (禁用/重命名/删除/编辑成员, 无后续同名 set) 调用, 用于真清窗口。
 
 > **规则**: 脚本侧任何读取/比对当前壁纸的逻辑, 用 `xwallpaper --state` 按 name 匹配。
-> monitor 尚无配置时, `ensure_monitor_config()` 用脚本默认值（`config` 数组）初始化写入 `.monitors["<monitor>"]`。
+> monitor 尚无配置时, `ensure_monitor_config()` 用脚本默认值（`config` 数组）初始化写入 `.monitors["<monitor>"]`（volume/fps 属 video-render 子对象默认, 不写入顶层）。
 
 ### 壁纸链路
 

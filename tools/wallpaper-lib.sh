@@ -27,6 +27,9 @@ config["random_image_dir"]="~/Pictures"
 config["random_video_dir"]="~/Videos"
 config["random_depth"]=3
 config["duration"]=30
+# video 渲染默认值 (未在 monitor/组的 video-render 配置时回退用; volume=0 等价静音)
+config["volume"]=0
+config["fps"]=0
 
 # ---- xwallpaper 渲染接口 (共享给 wallpaper.sh 与 rofi 脚本) ----
 
@@ -52,8 +55,10 @@ xw_set() {
     local args=(set "--$backend" -g "$rect" --name "$target")
     if [ "$type" = "video" ]; then
         local volume fps
-        # volume 0 与 mute=true 等价 (mpv mute=yes == volume 0 均静音)
-        volume=$(jq -r --arg n "$confname" '.monitors[$n]["video-render"].volume // 0' "$conf" 2>/dev/null)
+        # volume 0 与 mute=true 等价 (mpv mute=yes == volume 0 均静音);
+        # 未配置 video-render 时回退 config["volume"]/config["fps"] 默认值
+        volume=$(jq -r --arg n "$confname" '.monitors[$n]["video-render"].volume // empty' "$conf" 2>/dev/null)
+        [ -z "$volume" ] && volume="${config[volume]:-0}"
         if [[ "$volume" =~ ^[0-9]+$ ]] && [ "$volume" -gt 0 ]; then
             args+=(--volume "$volume")
         else
@@ -61,6 +66,7 @@ xw_set() {
         fi
         [ -n "$rotate" ] && args+=(--rotate "$rotate")
         fps=$(jq -r --arg n "$confname" '.monitors[$n]["video-render"].fps // empty' "$conf" 2>/dev/null)
+        [ -z "$fps" ] && fps="${config[fps]:-0}"
         [ -n "$fps" ] && [[ $fps -gt 0 ]] && args+=(--fps "$fps")
         [ -n "$_WALLPAPER_KEYBINDS" ] && [ -f "$_WALLPAPER_KEYBINDS" ] &&
             args+=(--keybinds "$_WALLPAPER_KEYBINDS")
@@ -126,7 +132,11 @@ ensure_monitor_config() {
     jq -e --arg m "$monitor" '.monitors[$m]' "$conf" >/dev/null 2>&1 && return
 
     local obj
-    obj=$(for k in "${!config[@]}"; do printf '"%s": "%s",' "$k" "${config[$k]}"; done)
+    obj=$(for k in "${!config[@]}"; do
+        # volume/fps 属于 video-render 子对象默认, 非 monitor 顶层字段, 不写入
+        [ "$k" = "volume" ] || [ "$k" = "fps" ] && continue
+        printf '"%s": "%s",' "$k" "${config[$k]}"
+    done)
     obj="{${obj%,}}"
     jq --arg m "$monitor" ".monitors[\$m] = $obj" "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
 }
