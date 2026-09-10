@@ -43,6 +43,7 @@ wallpaper|󰸉|Wallpaper|
 xcolor|󰌁|Color Picker|
 yt-dlp-wrapper|󰎆|YT-DLP Wrapper (downloader)|
 touchpad||Touch Pad|toggle-raw:$WORK_DIR/tools/touchpad.sh status
+screencast|󰑊|Screencast|
 MODULES
 
 # ====== Handlers ======
@@ -91,6 +92,7 @@ handle_theme() { /bin/bash $ROFI_DIR/scripts/theme.sh; }
 handle_xcolor() { /bin/bash $WORK_DIR/tools/color-picker.sh; }
 handle_wallpaper() { /bin/bash $ROFI_DIR/scripts/wallpaper.sh; }
 handle_touchpad() { /bin/bash $WORK_DIR/tools/touchpad.sh toggle; }
+handle_screencast() { /bin/bash $WORK_DIR/dwm-launcher.sh screencast; }
 
 handle_audio_output() {
     local default_sink default_desc line name desc vol
