@@ -91,6 +91,7 @@ _lock_before() {
     [ "$mpd_status" == "[playing]" ] && mpc -q toggle
     [ "$volume_status" == "on" ] && amixer set Master off >>/dev/null
     pkill -STOP -f "mpv.*--player-operation-mode=cplayer" 2>/dev/null
+    pkill -STOP -x xwallpaperd 2>/dev/null
     pkill -STOP -x xwallpaper 2>/dev/null
 }
 
@@ -98,6 +99,7 @@ _lock_after() {
     [ "$mpd_status" == "[playing]" ] && mpc -q toggle
     [ "$volume_status" == "on" ] && amixer set Master on >>/dev/null
     pkill -CONT -f "mpv.*--player-operation-mode=cplayer" 2>/dev/null
+    pkill -CONT -x xwallpaperd 2>/dev/null
     pkill -CONT -x xwallpaper 2>/dev/null
 }
 
