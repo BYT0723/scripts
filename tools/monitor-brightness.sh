@@ -65,21 +65,29 @@ get_ddc_bus() {
 
     ddcutil detect --brief 2>/dev/null |
         awk -v cid="$cid" '
-            /^[[:space:]]*I2C bus:/ {
-                bus = $NF
-            }
-            /^Display [0-9]+$/ {
+            /^[[:space:]]*Display [0-9]+$/ {
                 valid = 1
                 next
             }
-            /^Invalid display/ {
+            /^[[:space:]]*Invalid display/ {
                 valid = 0
                 next
             }
-            valid && /^[[:space:]]*drm_connector_id:/ && $NF == cid {
-                gsub(/^\/dev\/i2c-/, "", bus)
-                print bus
-                exit
+            /^[[:space:]]*I2C bus:/ {
+                bus = $NF
+                sub(/^\/dev\/i2c-/, "", bus)
+                next
+            }
+            # detect 可能把 DDC 可用的显示器误标为 Invalid
+            # (如 DP 经 aux 总线时 slave 0x37 探测失败, 但 getvcp/setvcp 正常):
+            # 优先有效条目, 无命中时回退到 Invalid 条目同 drm_connector_id 的总线
+            /^[[:space:]]*drm_connector_id:/ && $NF == cid {
+                if (valid && valid_bus == "") valid_bus = bus
+                else if (!valid && invalid_bus == "") invalid_bus = bus
+            }
+            END {
+                if (valid_bus != "") print valid_bus
+                else if (invalid_bus != "") print invalid_bus
             }
         '
 }

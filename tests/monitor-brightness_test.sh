@@ -129,4 +129,28 @@ reset_log
 toggle_monitor eDP
 check "toggle 关: 恢复亮度并删除 state" "[ ! -f \"\$HOME/.local/state/dwm/status/monitor-eDP\" ] && grep -q '^xrandr --output eDP --brightness 1.0\$' \"\$MOCK_LOG\""
 
+# ---- D: detect 误标 Invalid display 时回退同 drm_connector_id 总线 ----
+# 真实场景: DP 经 aux 总线时 ddcutil detect 报
+# "This monitor does not support DDC/CI. (I2C slave address x37 is unresponsive.)"
+# 但同 bus 的 getvcp/setvcp 实际可用, get_ddc_bus 不得丢弃该条目
+cat >"$BIN/ddcutil" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1" = "detect" ]; then
+    echo "Invalid display"
+    echo "   I2C bus:          /dev/i2c-9"
+    echo "   DRM connector:    card1-DP-1"
+    echo "   drm_connector_id: 15"
+    echo "   Monitor:          TRG:JQ24F260L:005TRBPFLF7"
+    exit 0
+fi
+echo "ddcutil $*" >>"$MOCK_LOG"
+EOF
+chmod +x "$BIN/ddcutil"
+
+reset_log
+set_theme '{"dark":{"brightness":{"DisplayPort-0":40}}}'
+set_monitor_brightness dark
+check "Invalid display 回退: 仍解析出 bus 并设置亮度" "grep -q '^ddcutil --bus 9 setvcp 10 40\$' \"\$MOCK_LOG\""
+check "Invalid display 回退: get_ddc_bus 返回 9" "[ \"\$(get_ddc_bus DisplayPort-0)\" = 9 ]"
+
 exit $fail
