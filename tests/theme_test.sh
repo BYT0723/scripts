@@ -60,7 +60,7 @@ cat >"$BIN/pkill" <<'EOF'
 echo "pkill $*" >>"$MOCK_LOG"
 EOF
 
-for c in xrdb dunstctl killall xsettingsd fcitx5; do
+for c in xrdb dunstctl killall xsettingsd fcitx5 xrandr brightnessctl ddcutil; do
     cat >"$BIN/$c" <<EOF
 #!/usr/bin/env bash
 echo "$c \$*" >>"\$MOCK_LOG"
@@ -68,6 +68,7 @@ EOF
 done
 chmod +x "$BIN"/*
 export PATH="$BIN:$PATH"
+export THEME_LOCK="$TEST_DIR/theme-auto.lock"
 export MOCK_LOG="$TEST_DIR/log" \
     MOCK_NOW_FILE="$MOCK_NOW_FILE" MOCK_TODAY_FILE="$MOCK_TODAY_FILE" MOCK_LOCK_FILE="$MOCK_LOCK_FILE"
 

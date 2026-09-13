@@ -209,8 +209,18 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 
 | 函数                      | 调用者                                                                                                                                           |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `_do_theme_change()`      | tools/theme.sh (apply / auto_daemon)                                                                                                             |
-| `set_monitor_brightness()`| tools/theme.sh (_do_theme_change, 后台执行) — 逐 active monitor 读配置 `brightness.<monitor>` (per-monitor 独立), 缺失/非数字/>100 fallback 50, 经 set_brightness 分发 (eDP → brightnessctl, 其他 → ddcutil setvcp) |
+| `_do_theme_change()`      | tools/theme.sh (apply / auto_daemon; 第二参 `nobright` 跳过一次性端点亮度) — daemon 翻转只切配色，亮度由每轮插值统一负责；手动 apply 保留端点亮度 (apply 后 auto 关闭) |
+| `set_monitor_brightness()`| tools/theme.sh (_do_theme_change 非 nobright 路径, 后台执行) — 逐 active monitor 读配置 `brightness.<monitor>` (per-monitor 独立), 缺失/非数字/>100 fallback 50, 经 set_brightness 分发 (eDP → brightnessctl, 其他 → ddcutil setvcp) |
+| `_brightness_curve()`     | _brightness_at (插值曲线单点封装，milliscale 直通；以后 ease/太阳高度只换它) |
+| `_brightness_at()`        | _monitor_brightness_at (纯线性插值 from→to，duration≤0 取 to，elapsed 越界钳制) |
+| `_transition_minutes()`   | auto_daemon (读 `auto.dawn/dusk_minutes`，缺失/非法→60，0=关闭渐变) |
+| `_transition_anchor()`    | auto_daemon (读 `auto.transition_anchor` after/center，非法→after) |
+| `_dawn_window()` / `_dusk_window()` | _monitor_brightness_at (过渡窗口起止；after 事件后窗口 / center 对称窗口，非法 anchor 回退 after) |
+| `_theme_at()`             | auto_daemon, _monitor_brightness_at (二值主题判定，锚点无关，配色始终在 rise/set 翻转) |
+| `_monitor_brightness_at()` | apply_transition_brightness (单 monitor 目标亮度：窗口内插值，窗口外取端点，dusk 重叠优先) |
+| `_should_apply_at()` | apply_transition_brightness (是否写亮度谓词：窗口内含终点，或 duration=0 侧的二值对齐；窗口外返回 1) |
+| `apply_transition_brightness()` | auto_daemon (只在过渡窗口内写各 monitor 插值亮度，窗口外不动——手动/OSD 调的不抢回；duration=0 的侧按二值对齐端点；与硬件值差<1 跳过，读不到直接写) |
+| `_auto_lock()`            | auto_daemon (flock 非阻塞单实例守卫，锁路径 `${THEME_LOCK:-/tmp/dwm-status/theme-auto.lock}`；autostart 直起的 daemon 无 pid 文件，重复 `auto on` 靠此不重入；flock 缺失时 fail-open) |
 | `set_gtk_theme()`         | tools/theme.sh (_do_theme_change: 写 gtk2/3/4 持久配置 + 运行时双通道广播 — xsettingsd GTK 主题名 / gsettings color-scheme 同步 portal)                     |
 | `get_auto_config()`       | tools/theme.sh (auto_daemon, auto on/off, apply)                                                                                                 |
 | `get_sun_times()`         | tools/theme.sh (auto_daemon), rofi/scripts/theme.sh (get_sun_message → MODULE_MESG 日出日落显示; 内置 `~/.local/state/dwm/cache/sun-times` 缓存) |
@@ -224,8 +234,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `toggle_monitor()`   | 无 (未绑定快捷键; state 文件 `~/.local/state/dwm/status/monitor-<output>` 持久化原亮度, 开/关切换置黑/恢复)                  |
 | `get_ddc_bus()`      | monitor_brightness (xrandr CONNECTOR_ID ↔ ddcutil drm_connector_id 匹配整数总线号, DP 走 aux 总线不能直接读 ddc symlink)      |
 | `monitor_brightness()`| read_brightness/set_brightness (eDP 分支之外) — ddcutil setvcp 10 硬件亮度 (value 省略时 getvcp 读当前值)                     |
-| `read_brightness()`  | rofi/scripts/theme.sh (handle_monitor_brightness 选单读取 / OK 后读实际亮度) — 单块显示器当前亮度百分比: eDP → brightnessctl -m, 其他 → monitor_brightness getvcp |
-| `set_brightness()`    | tools/theme.sh (set_monitor_brightness), rofi/scripts/theme.sh (handle_monitor_brightness) — 单块显示器亮度: eDP → brightnessctl set, 其他 → monitor_brightness setvcp |
+| `read_brightness()`  | tools/theme.sh (apply_transition_brightness 每轮读当前值比对), rofi/scripts/theme.sh (handle_monitor_brightness 选单读取 / OK 后读实际亮度) — 单块显示器当前亮度百分比: eDP → brightnessctl -m, 其他 → monitor_brightness getvcp |
+| `set_brightness()`    | tools/theme.sh (set_monitor_brightness, apply_transition_brightness), rofi/scripts/theme.sh (handle_monitor_brightness) — 单块显示器亮度: eDP → brightnessctl set, 其他 → monitor_brightness setvcp |
 
 ### rofi/scripts/theme.sh
 
@@ -234,6 +244,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `handle_toggle()`           | theme.sh (→ `tools/theme.sh apply light\|dark` 翻转)                                 |
 | `handle_auto()`             | theme.sh (→ `tools/theme.sh auto on/off`)                                            |
 | `handle_monitor_brightness()` | theme.sh (注册表 → 循环连续调节多显示器: yad 滑块经 FIFO+后台 pid 实时预览, OK 保存 theme.json / 取消恢复, 调完回到 monitor 选择处 ESC 退出; 亮度读写复用 monitor-brightness.sh 的 read_brightness/set_brightness; eDP 逐值即时, DDC 走 `read -t 0.03` drain 丢弃积压只应用最新值) |
+| `handle_dawn()` / `handle_dusk()` | theme.sh (注册表 → `_handle_offset unsigned` 改 `auto.dawn/dusk_minutes`，非负整数，改后重启 auto daemon) |
+| `handle_anchor()`           | theme.sh (注册表 → after/center 翻转 `auto.transition_anchor`，改后重启 auto daemon) |
 | `get_sun_message()`         | theme.sh (调 `get_sun_times` → 格式化 MODULE_MESG; 网络失败则 fallback 为无时间后缀) |
 
 ### tools/yt-dlp.sh
@@ -398,10 +410,14 @@ tools/theme.sh auto (守护进程)
   → get_sun_times() (ipinfo.io/loc + open-meteo daily=sunrise,sunset)
   → get_current_theme() (xrdb -query dwm.col_theme)
   → 日出/日落触发:
-      → _do_theme_change("light"|"dark")
+      → _do_theme_change("light"|"dark", nobright) (只切配色)
       → system-notify low
       → pkill -SIGHUP dwm → dwm restart → loadxrdb 重载配色
-  手动 apply 会关闭 auto（自动调用 auto off）
+  → 每轮 (60s): apply_transition_brightness() 按 `auto.dawn/dusk_minutes` +
+    `auto.transition_anchor` (after 默认 / center) 对各 monitor 线性插值设亮度
+    (配色二值翻转，亮度渐变；锁屏期间两者都跳过)
+  手动 apply 先 auto off 再切主题（防 daemon 间隙 tick 覆盖端点亮度）；
+  auto off 附带 pkill 无 pid 文件的 daemon；daemon 启动 flock 单实例，不重入
 ```
 
 ### 壁纸状态 (latest) — 由 xwallpaper 持久化
@@ -449,7 +465,7 @@ wallpaper.sh → source utils/monitor.sh, utils/notify.sh
 - `rofi/colors/` `rofi/images/`
 - `~/.config/dwm/quicklinks.json` — quicklinks 书签, `links` 数组元素含 `id`(uuid)、`name`、`url` (icon 字段已废弃移除); 顶层 `searcher` 数组存搜索引擎 `{name, url}`(name 为唯一键, url 用 `{key}` 占位搜索词, 可省略 → 追加 url 末尾), 自定义输入搜索默认用 `searcher[0]`, 支持 `@<name>` 首 token 指定引擎
 - `~/.config/dwm/wallpaper.json` — 壁纸配置, 含 `monitors`(按屏/组名键)、`groups`(成员名单 + enabled 启停); 每个 monitor/组可带可选 `video-render` 对象 `{volume, fps}`: `volume>0` 传 `--volume N` 播放音频, `volume=0`/缺省时传 `--mute` 静音 (0 与 mute 等价), `fps>0` 传 `--fps`
-- `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置，`"auto"` 含 `enabled`(默认 false)、`sun_rise_offset`(日出延迟分钟数)、`sun_set_offset`(日落延迟分钟数)，`"cursor"` 含 `theme`/`size`，`"dpi"` 为 Xft.dpi 值，`light`/`dark` 的 `colorscheme` 引用 `~/.config/dwm/colorschemes/` 下的颜色方案文件
+- `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置，`"auto"` 含 `enabled`(默认 false)、`sun_rise_offset`(日出延迟分钟数)、`sun_set_offset`(日落延迟分钟数)、`dawn_minutes`/`dusk_minutes`(亮度过渡分钟数，默认 60，0=关闭渐变)、`transition_anchor`(过渡锚点 `after`(默认，事件后窗口) / `center`(对称窗口))，`"cursor"` 含 `theme`/`size`，`"dpi"` 为 Xft.dpi 值，`light`/`dark` 的 `colorscheme` 引用 `~/.config/dwm/colorschemes/` 下的颜色方案文件
 - `~/.xsettingsd` — `set_gtk_theme()` 维护 `Net/ThemeName`(当前 GTK 主题) 行, 保留其他 XSETTINGS 键, `killall -HUP xsettingsd` 触发 XSETTINGS 重载广播
 
 ## Rofi 模块注册表规范
@@ -491,6 +507,7 @@ calendar-lunar|󰃚|Lunar Calendar|
 - **Firefox content 亮暗由 portal 决定而非 GTK**：Firefox 的 `prefers-color-scheme` 走 `nsLookAndFeel::ComputeColorSchemeSetting()` → xdg-desktop-portal 的 `color-scheme`（gsettings `org.gnome.desktop.interface color-scheme`），且 Firefox 将 portal 返回的 `0 (default)` 硬映射为 light（nsLookAndFeel.cpp case 0）。因此 `set_gtk_theme()` 必须同时写 gsettings（prefer-dark/prefer-light），仅广播 GTK 主题名不足以切换 Firefox content scheme
 - `tools/theme.sh apply` 的退出码已修复：auto 关闭时末尾 `[ ... ]` 返回 1 导致 apply 成功但 exit 1，现显式 `exit 0`
 - `tools/theme.sh auto_daemon` 挂起/锁屏问题已修复：原实现 `sleep $((next_switch - now))` 一次性睡到切换点，但 sleep 计时在挂起(休眠)期间暂停、唤醒后剩余秒数继续走 → 跨挂起的主题切换延迟数小时（例：23:00 睡 8h 到次日 7:00 切换点，挂起 9h 后 8:00 唤醒，sleep 还剩 8h，到 16:00 才重算）。现改为 60s 内轮询（`remain>60` 时 sleep 60，否则精确睡到点），每次醒来重算 desired，挂起唤醒后最多 60s 纠正。锁屏（i3lock）期间仍阻塞不切（避免与 dwm SIGHUP 重启竞态），解锁后下一轮立即重算切换。回归测试 `tests/theme_test.sh`（mock date/sleep/pgrep + 文件驱动时间推进，后台 daemon 无法感知环境变量变更，须用文件 mock 时间/锁屏状态）
+- `tests/theme_test.sh` 必须 mock `xrandr/brightnessctl/ddcutil`：daemon 每轮调 `apply_transition_brightness` → 真 `xrandr --listactivemonitors` 在无显示环境可能枚举出幽灵 monitor（如 `DisplayPort-0`），进而 `read_brightness` 走 `ddcutil detect` 长时间 hang 住导致用例全挂；mock 后 loop 零 monitor 直接 no-op。另须 `export THEME_LOCK` 指向临时路径：flock 单实例守卫下测试 daemon 会与用户 live daemon 争锁秒退，全挂；回归测试 `tests/theme-brightness_test.sh`（纯函数单测 + mock xrandr/读写函数的 `apply_transition_brightness` 集成）
 - `module.sh handle_network` 已改用 `nmcli -t -f BARS,BAND,BSSID,SSID` 解析 WiFi 列表（条目形如 `▂▄▆█ [2.4 GHz] SSID`，无 SSID 的隐藏网络以 BSSID 兜底）：nmcli ≥1.58 在表格输出新增 BAND 列（且 RATE 两 token），旧 `substr+$8` 列位解析会把 RATE 的 "Mbit/s" 当信号条显示
 - 隐藏网络无法仅凭 BSSID 连接（802.11 关联握手必须携带真实 SSID，NM 会报 `A 'wireless' setting with a valid SSID is required for hidden access points`）：`handle_network` 检测到选中项为 MAC 时弹 `module_input` 让用户输入真实 SSID，再 `nmcli device wifi connect <ssid> hidden yes bssid <BSSID>`
 - **rofi script mode 多属性必须用 `\x1f` 连接**：正确格式 `text\0icon\x1f<v>\x1finfo\x1f<id>`（仅行文本后一个 `\0`）。曾错误写成 `text\0icon\x1f<v>\0info\x1f<id>`（两个 `\0`）导致选中无反应：rofi 按 C 字符串语义解析属性块（`dmenuscript_parse_entry_extras` 的 `g_strsplit` 遇 `\0` 截断），第二个 `\0` 之后的内容（含 info）不可见 → `ROFI_INFO` 不设置 → 静默返回。测试断言注意：`grep -a` 对含 NUL 文件匹配不可靠、`$'\x00'` bash 展开的字面 NUL 会截断 grep -P 模式，须用单引号模式 `'\x00info'` + `grep -P`

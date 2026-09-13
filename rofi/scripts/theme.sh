@@ -4,7 +4,7 @@ ROFI_DIR="$(dirname "$(dirname "$0")")"
 WORK_DIR="$(dirname "$ROFI_DIR")"
 
 MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
-MODULE_MAX_LINES=8
+MODULE_MAX_LINES=10
 MODULE_NAME="☀ Theme"
 ITEM_SPACE_WIDTH=34
 
@@ -18,6 +18,9 @@ get_auto_stat() { jq -r '.auto.enabled // false' "$THEME_CONF" 2>/dev/null; }
 get_cur() { cat "$HOME/.local/state/dwm/current-theme" 2>/dev/null; }
 get_rise() { jq -r '.auto.sun_rise_offset // 0' "$THEME_CONF" 2>/dev/null; }
 get_set() { jq -r '.auto.sun_set_offset // 0' "$THEME_CONF" 2>/dev/null; }
+get_dawn() { jq -r '.auto.dawn_minutes // 60' "$THEME_CONF" 2>/dev/null; }
+get_dusk() { jq -r '.auto.dusk_minutes // 60' "$THEME_CONF" 2>/dev/null; }
+get_anchor() { jq -r '.auto.transition_anchor // "after"' "$THEME_CONF" 2>/dev/null; }
 
 get_sun_message() {
     local times sunrise sunset
@@ -32,6 +35,9 @@ auto|󰃡 |Auto (sunrise/sunset)|str:$([ "$(get_auto_stat)" = "true" ] && echo "
 monitor_brightness|󰃠 |Monitor Brightness
 rise_offset| |Rise offset|str:$(get_rise)m
 set_offset| |Set offset|str:$(get_set)m
+dawn| |Dawn duration|str:$(get_dawn)m
+dusk| |Dusk duration|str:$(get_dusk)m
+anchor| |Transition anchor|str:$(get_anchor)
 conf|󱔏 |Edit config|
 MODULES
 
@@ -131,26 +137,50 @@ handle_monitor_brightness() {
     done
 }
 
+_restart_auto_daemon() {
+    [ "$(get_auto_stat)" = "true" ] || return 0
+    local pf="/tmp/dwm-status/autostart-launch-theme-auto.pid"
+    [ -f "$pf" ] && kill "$(cat "$pf")" 2>/dev/null
+    rm -f "$pf"
+    /bin/bash "$WORK_DIR/tools/theme.sh" auto >/dev/null 2>&1 &
+}
+
 _handle_offset() {
-    local field="$1" prompt="$2" getter="$3"
-    local cur val
+    local field="$1" prompt="$2" getter="$3" unsigned="$4"
+    local cur val hint
     cur=$("$getter")
-    val="$(module_input "$prompt" "negative = before, positive = after" "$cur")"
+    hint="negative = before, positive = after"
+    [ "$unsigned" = "unsigned" ] && hint="minutes, 0 = off"
+    val="$(module_input "$prompt" "$hint" "$cur")"
     [ -z "$val" ] && return
-    [[ "$val" =~ ^-?[0-9]+$ ]] || {
-        system-notify normal "Invalid" "must be an integer"
-        return
-    }
-    jq ".$field = $val" "$THEME_CONF" >"${THEME_CONF}.tmp" && mv "${THEME_CONF}.tmp" "$THEME_CONF"
-    if [ "$(get_auto_stat)" = "true" ]; then
-        pf="/tmp/dwm-status/autostart-launch-theme-auto.pid"
-        [ -f "$pf" ] && kill "$(cat "$pf")" 2>/dev/null
-        rm -f "$pf"
-        /bin/bash "$WORK_DIR/tools/theme.sh" auto >/dev/null 2>&1 &
+    if [ "$unsigned" = "unsigned" ]; then
+        [[ "$val" =~ ^[0-9]+$ ]] || {
+            system-notify normal "Invalid" "must be a non-negative integer (0 = off)"
+            return
+        }
+    else
+        [[ "$val" =~ ^-?[0-9]+$ ]] || {
+            system-notify normal "Invalid" "must be an integer"
+            return
+        }
     fi
+    jq ".$field = $val" "$THEME_CONF" >"${THEME_CONF}.tmp" && mv "${THEME_CONF}.tmp" "$THEME_CONF"
+    _restart_auto_daemon
 }
 handle_rise_offset() { _handle_offset "auto.sun_rise_offset" "Rise offset (min)" get_rise; }
 handle_set_offset() { _handle_offset "auto.sun_set_offset" "Set offset (min)" get_set; }
+handle_dawn() { _handle_offset "auto.dawn_minutes" "Dawn duration (min)" get_dawn unsigned; }
+handle_dusk() { _handle_offset "auto.dusk_minutes" "Dusk duration (min)" get_dusk unsigned; }
+handle_anchor() {
+    local cur next
+    cur=$(get_anchor)
+    next="after"
+    [ "$cur" = "after" ] && next="center"
+    jq --arg v "$next" '.auto.transition_anchor = $v' "$THEME_CONF" >"${THEME_CONF}.tmp" &&
+        mv "${THEME_CONF}.tmp" "$THEME_CONF"
+    _restart_auto_daemon
+    system-notify low "Transition anchor" "switched to $next"
+}
 handle_conf() {
     local checksum_before auto_before
     checksum_before=$(md5sum "$THEME_CONF" 2>/dev/null)

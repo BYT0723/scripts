@@ -244,10 +244,14 @@ set_gtk_theme() {
 # ---------- theme apply ----------
 
 _do_theme_change() {
-    local mode="$1"
+    local mode="$1" nobright="$2"
     [ -z "$mode" ] && return
 
-    set_monitor_brightness "$mode" &
+    # daemon 自动翻转时跳过一次性端点亮度 (由每轮插值负责，避免切换瞬间闪到端点)；
+    # 手动 apply 保留端点亮度 (apply 后 auto 关闭，无后续插值)。
+    if [ "$nobright" != "nobright" ]; then
+        set_monitor_brightness "$mode" &
+    fi
     set_dwm_theme "$mode"
     set_rofi_theme "$mode"
     set_kitty_theme "$mode" &
@@ -271,6 +275,144 @@ _do_theme_change() {
 get_auto_config() {
     local key="$1"
     jq -r ".$key // empty" "$THEME_CONF" 2>/dev/null
+}
+
+# ---------- 亮度渐变 (brightness-transition) ----------
+# 插值曲线单点封装: 输入/输出均为 milliscale 0..1000，默认线性直通。
+# 以后 ease / 太阳高度方案只需替换这一个函数。
+_brightness_curve() {
+    printf '%s' "$1"
+}
+
+# 纯线性插值: from → to，按 elapsed/duration 进度。
+# duration<=0 直接取 to；elapsed 越界钳制。
+_brightness_at() {
+    local from="$1" to="$2" elapsed="$3" duration="$4"
+    if [ "$duration" -le 0 ] 2>/dev/null; then
+        printf '%s' "$to"
+        return
+    fi
+    ((elapsed < 0)) && elapsed=0
+    ((elapsed > duration)) && elapsed="$duration"
+    local t=$((elapsed * 1000 / duration))
+    t=$(_brightness_curve "$t")
+    ((t < 0)) && t=0
+    ((t > 1000)) && t=1000
+    printf '%s' $((from + (to - from) * t / 1000))
+}
+
+# 过渡时长配置读取: 缺失/非法 → 60，0 = 关闭渐变
+_transition_minutes() {
+    local v
+    v=$(get_auto_config "auto.$1")
+    [[ $v =~ ^[0-9]+$ ]] || v=60
+    printf '%s' "$v"
+}
+
+# 锚点配置读取: after(默认) | center，非法 → after
+_transition_anchor() {
+    local v
+    v=$(get_auto_config "auto.transition_anchor")
+    [ "$v" = "center" ] || v="after"
+    printf '%s' "$v"
+}
+
+# daemon 单实例守卫：flock 非阻塞拿锁，拿不到返回 1 (调用者直接 exit 0)。
+# 锁 FD (9) 在进程内保持到 daemon 退出。autostart 直起的 daemon 无 pid 文件，
+# `auto on` 的 kill -0 认不出它，并发 on 也有竞态，都靠此兜底。
+# flock 缺失时 fail-open (旧行为：允许运行)。
+_auto_lock() {
+    command -v flock >/dev/null 2>&1 || return 0
+    local lock="$1"
+    mkdir -p "$(dirname "$lock")" 2>/dev/null || return 1
+    exec 9>"$lock" 2>/dev/null || return 1
+    flock -n 9 2>/dev/null || return 1
+}
+
+# 过渡窗口起止 (输出 "start end")，anchor 非法回退 after
+_window_at() {
+    local point="$1" dur="$2" anchor="$3"
+    [ "$anchor" = "center" ] || anchor="after"
+    if [ "$dur" -le 0 ] 2>/dev/null; then
+        printf '%s %s' "$point" "$point"
+    elif [ "$anchor" = "center" ]; then
+        local start=$((point - dur / 2))
+        printf '%s %s' "$start" $((start + dur))
+    else
+        printf '%s %s' "$point" $((point + dur))
+    fi
+}
+
+_dawn_window() { _window_at "$1" "$2" "$3"; }
+
+_dusk_window() { _window_at "$1" "$2" "$3"; }
+
+# 二值主题判定 (锚点无关，配色始终在 rise/set 翻转)
+_theme_at() {
+    local now="$1" rise="$2" set_pt="$3"
+    if [ "$now" -lt "$rise" ] 2>/dev/null; then
+        printf 'dark'
+    elif [ "$now" -lt "$set_pt" ] 2>/dev/null; then
+        printf 'light'
+    else
+        printf 'dark'
+    fi
+}
+
+# 单 monitor 目标亮度: 窗口内插值，窗口外取端点 (dusk 重叠优先)
+_monitor_brightness_at() {
+    local now="$1" rise="$2" set_pt="$3" dawn="$4" dusk="$5" anchor="$6" dark="$7" light="$8"
+    [ "$anchor" = "center" ] || anchor="after"
+    local ds de ss se
+    read ds de <<<"$(_dawn_window "$rise" "$dawn" "$anchor")"
+    read ss se <<<"$(_dusk_window "$set_pt" "$dusk" "$anchor")"
+    if [ "$dusk" -gt 0 ] 2>/dev/null && [ "$now" -ge "$ss" ] && [ "$now" -lt "$se" ]; then
+        _brightness_at "$light" "$dark" $((now - ss)) "$dusk"
+    elif [ "$dawn" -gt 0 ] 2>/dev/null && [ "$now" -ge "$ds" ] && [ "$now" -lt "$de" ]; then
+        _brightness_at "$dark" "$light" $((now - ds)) "$dawn"
+    elif [ "$(_theme_at "$now" "$rise" "$set_pt")" = "light" ]; then
+        printf '%s' "$light"
+    else
+        printf '%s' "$dark"
+    fi
+}
+
+# 是否需要写亮度：过渡窗口内（含终点），或某侧关闭渐变时的二值对齐。
+# 窗口外返回 1（手动/OSD 调的不抢回来）。
+_should_apply_at() {
+    local now="$1" rise="$2" set_pt="$3" dawn="$4" dusk="$5" anchor="$6"
+    local ds de ss se theme
+    read ds de <<<"$(_dawn_window "$rise" "$dawn" "$anchor")"
+    read ss se <<<"$(_dusk_window "$set_pt" "$dusk" "$anchor")"
+    if [ "$dawn" -gt 0 ] 2>/dev/null && [ "$now" -ge "$ds" ] && [ "$now" -le "$de" ]; then return 0; fi
+    if [ "$dusk" -gt 0 ] 2>/dev/null && [ "$now" -ge "$ss" ] && [ "$now" -le "$se" ]; then return 0; fi
+    theme=$(_theme_at "$now" "$rise" "$set_pt")
+    if [ "$theme" = "light" ] && [ "$dawn" -le 0 ] 2>/dev/null; then return 0; fi
+    if [ "$theme" = "dark" ] && [ "$dusk" -le 0 ] 2>/dev/null; then return 0; fi
+    return 1
+}
+
+# 按当前时刻把每块 active monitor 亮度设为插值目标。
+# 只在过渡窗口内写：窗口外完全不动（手动/OSD 调的不抢回来）。
+# 某侧 duration=0 视为该侧关闭渐变，按旧二值语义持续对齐端点。
+# 与当前硬件值差 <1 跳过 (避免 DDC 无谓写入)；读不到当前值时直接写。
+apply_transition_brightness() {
+    local now="$1" rise="$2" set_pt="$3" dawn="$4" dusk="$5" anchor="$6"
+    _should_apply_at "$now" "$rise" "$set_pt" "$dawn" "$dusk" "$anchor" || return 0
+    local monitor dark light target cur diff
+    while read -r monitor; do
+        dark=$(get_theme_config dark "brightness.$monitor")
+        [[ $dark =~ ^[0-9]+$ ]] && ((dark <= 100)) || dark=50
+        light=$(get_theme_config light "brightness.$monitor")
+        [[ $light =~ ^[0-9]+$ ]] && ((light <= 100)) || light=50
+        target=$(_monitor_brightness_at "$now" "$rise" "$set_pt" "$dawn" "$dusk" "$anchor" "$dark" "$light")
+        cur=$(read_brightness "$monitor" 2>/dev/null)
+        if [[ $cur =~ ^[0-9]+$ ]]; then
+            diff=$((target > cur ? target - cur : cur - target))
+            ((diff < 1)) && continue
+        fi
+        set_brightness "$monitor" "$target"
+    done < <(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}')
 }
 
 get_sun_times() {
@@ -313,6 +455,7 @@ get_sun_times() {
 }
 
 auto_daemon() {
+    _auto_lock "${THEME_LOCK:-/tmp/dwm-status/theme-auto.lock}" || exit 0
     local auto
     auto=$(get_auto_config "auto.enabled")
     [ "$auto" = "true" ] || exit 0
@@ -336,17 +479,23 @@ auto_daemon() {
         set_off=$(get_auto_config "auto.sun_set_offset")
         set_off=$((${set_off:-0} * 60))
 
-        local now desired next_switch
+        local now desired next_switch rise set_pt dawn dusk anchor
         now=$(date +%s)
 
-        if [ "$now" -lt "$((sunrise + rise_off))" ]; then
-            desired="dark"
-            next_switch="$((sunrise + rise_off))"
-        elif [ "$now" -lt "$((sunset + set_off))" ]; then
-            desired="light"
-            next_switch="$((sunset + set_off))"
+        rise=$((sunrise + rise_off))
+        set_pt=$((sunset + set_off))
+        dawn=$(_transition_minutes dawn_minutes)
+        dawn=$((dawn * 60))
+        dusk=$(_transition_minutes dusk_minutes)
+        dusk=$((dusk * 60))
+        anchor=$(_transition_anchor)
+
+        desired=$(_theme_at "$now" "$rise" "$set_pt")
+        if [ "$now" -lt "$rise" ]; then
+            next_switch="$rise"
+        elif [ "$now" -lt "$set_pt" ]; then
+            next_switch="$set_pt"
         else
-            desired="dark"
             next_switch="$((next_sunrise + rise_off))"
         fi
 
@@ -357,10 +506,17 @@ auto_daemon() {
             while pgrep -x i3lock >/dev/null 2>&1; do
                 sleep 5
             done
-            _do_theme_change "$desired"
+            # 只切配色不设端点亮度，亮度由下面每轮插值统一负责
+            _do_theme_change "$desired" nobright
             tool-notify low "Auto Theme" "switched to $desired theme"
             pkill -SIGHUP dwm
             sleep 0.5
+        fi
+
+        # 每轮按当前时刻重算插值亮度 (过渡期内自然每 60s 步进)；
+        # 锁屏期间跳过 (解锁后下一轮纠正)
+        if ! pgrep -x i3lock >/dev/null 2>&1; then
+            apply_transition_brightness "$now" "$rise" "$set_pt" "$dawn" "$dusk" "$anchor"
         fi
 
         # sleep 计时在挂起(休眠)期间暂停, 一次性睡到切换点会导致唤醒后
@@ -398,9 +554,10 @@ check)
 apply)
     mode="$2"
     [ -z "$mode" ] && exit 1
+    # 先停 daemon：否则它在切换间隙 tick 一次就会用插值覆盖手动端点亮度
+    [ "$(get_auto_config "auto.enabled")" = "true" ] && "$0" auto off
     _do_theme_change "$mode"
     pkill -SIGHUP dwm
-    [ "$(get_auto_config "auto.enabled")" = "true" ] && "$0" auto off
     exit 0
     ;;
 auto)
@@ -422,6 +579,9 @@ auto)
             mv "${THEME_CONF}.tmp" "$THEME_CONF"
         [ -f "$pf" ] && kill "$(cat "$pf")" 2>/dev/null
         rm -f "$pf"
+        # 兜底无 pid 文件的 daemon (如 autostart 直起的 `theme.sh auto`)：
+        # 行尾锚定只命中 daemon (`...theme.sh auto`)，不命中 `auto off` 自身
+        pkill -f 'theme\.sh auto$' 2>/dev/null
         tool-notify low "Auto Theme" "auto switch disabled"
         ;;
     *) auto_daemon ;;
