@@ -75,7 +75,10 @@ handle_monitor_brightness() {
         # (最后一次 read 读到 EOF 时会把 $value 清空)
         tmpdir=$(mktemp -d) || return
         fifo="$tmpdir/out"
-        mkfifo "$fifo" || { rm -rf "$tmpdir"; return; }
+        mkfifo "$fifo" || {
+            rm -rf "$tmpdir"
+            return
+        }
         yad \
             --scale \
             --title="Monitor Brightness" \
