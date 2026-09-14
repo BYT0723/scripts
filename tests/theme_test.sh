@@ -60,6 +60,12 @@ cat >"$BIN/pkill" <<'EOF'
 echo "pkill $*" >>"$MOCK_LOG"
 EOF
 
+# 缓存缺失阶段不碰真网络: 直接失败, 由测试手写缓存模拟拉取完成
+cat >"$BIN/curl" <<'EOF'
+#!/usr/bin/env bash
+exit 1
+EOF
+
 for c in xrdb dunstctl killall xsettingsd fcitx5 xrandr brightnessctl ddcutil; do
     cat >"$BIN/$c" <<EOF
 #!/usr/bin/env bash
@@ -122,5 +128,25 @@ check "锁屏期间不切换" "! grep -q '^theme_change' \"\$MOCK_LOG\""
 set_locked 0
 /bin/sleep 0.3
 check "解锁后立即切换 (dark→light)" "grep -q '^theme_change light$' \"\$MOCK_LOG\""
+
+# ---- 场景 C: 缓存缺失短重试, 取到缓存后切换 ----
+: >"$MOCK_LOG"
+rm -f "$HOME/.local/state/dwm/cache/sun-times" "$HOME/.local/state/dwm/cache/sun-times.fetching"
+echo dark >"$HOME/.local/state/dwm/current-theme"
+set_now "$(/usr/bin/date -d "$TODAY 07:00" +%s)"
+/bin/sleep 0.3
+check "缓存缺失时短轮询 (sleep 30), 不睡 1800" \
+    "grep -q '^sleep 30$' \"\$MOCK_LOG\" && ! grep -q '^sleep 1800' \"\$MOCK_LOG\""
+check "缓存缺失时不切换" "! grep -q '^theme_change' \"\$MOCK_LOG\""
+
+# 模拟后台拉取完成: 手写缓存 (复用文件头的 SR/SS/SR2), 推到 15:00 应切 light
+printf '%s|%s|%s|%s\n' "$TODAY" "$SR" "$SS" "$SR2" >"$HOME/.local/state/dwm/cache/sun-times"
+set_now "$(/usr/bin/date -d "$TODAY 15:00" +%s)"
+/bin/sleep 0.3
+check "取到缓存后重算并切换 (dark→light)" "grep -q '^theme_change light$' \"\$MOCK_LOG\""
+
+# ---- 静态守卫: auto_daemon 内所有 sleep 必须关闭 flock FD ----
+check "auto_daemon 的 sleep 均带 9>&- (孤儿进程不占锁)" \
+    "[ -z \"\$(awk '/^auto_daemon\(\)/,/^}/' \"$SCRIPT\" | grep -E '^[[:space:]]*sleep' | grep -v '9>&-')\" ]"
 
 exit $fail

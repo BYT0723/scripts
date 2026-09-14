@@ -328,6 +328,8 @@ _transition_anchor() {
 # 锁 FD (9) 在进程内保持到 daemon 退出。autostart 直起的 daemon 无 pid 文件，
 # `auto on` 的 kill -0 认不出它，并发 on 也有竞态，都靠此兜底。
 # flock 缺失时 fail-open (旧行为：允许运行)。
+# 注意：daemon 内所有 sleep / 后台子 shell 必须以 9>&- 启动，不继承此 FD，
+# 否则父 daemon 被 kill 后孤儿进程继续占锁，新 daemon 永远拿不到锁而秒退。
 _auto_lock() {
     command -v flock >/dev/null 2>&1 || return 0
     local lock="$1"
@@ -443,6 +445,7 @@ get_sun_times() {
     mkdir -p "$(dirname "$lock")"
     touch "$lock"
     (
+        exec 9>&- # 见 _auto_lock：不继承 flock 锁
         IFS=, read LAT LON < <(curl -m 2 -fsS https://ipinfo.io/loc) || exit
         local json tz sr1 ss1 sr2
         json=$(curl -m 5 -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&daily=sunrise,sunset&forecast_days=2&timezone=auto") || exit
@@ -472,13 +475,13 @@ auto_daemon() {
         [ "$auto" = "true" ] || exit 0
 
         local times sunrise sunset next_sunrise
-        if times=$(get_sun_times 2>/dev/null); then
-            read sunrise sunset next_sunrise <<<"$times"
-        fi
-        [ -n "$sunrise" ] && [ -n "$sunset" ] && [ -n "$next_sunrise" ] || {
-            sleep 1800
+        if ! times=$(get_sun_times 2>/dev/null); then
+            # 缓存缺失时已触发后台异步拉取, 短轮询等待即可 (.fetching 锁防刷,
+            # 1 分钟内不重复拉); 不能睡 1800: 开机首次无缓存会延迟切换半小时
+            sleep 30 9>&-
             continue
-        }
+        fi
+        read sunrise sunset next_sunrise <<<"$times"
 
         local rise_off set_off
         rise_off=$(get_auto_config "auto.sun_rise_offset")
@@ -511,13 +514,13 @@ auto_daemon() {
         if [ "$cur" != "$desired" ]; then
             # 锁屏期间阻塞等待 (避免与 dwm SIGHUP 重启竞态), 解锁后立即切换
             while pgrep -x i3lock >/dev/null 2>&1; do
-                sleep 5
+                sleep 5 9>&-
             done
             # 只切配色不设端点亮度，亮度由下面每轮插值统一负责
             _do_theme_change "$desired" nobright
             tool-notify low "Auto Theme" "switched to $desired theme"
             pkill -SIGHUP dwm
-            sleep 0.5
+            sleep 0.5 9>&-
         fi
 
         # 每轮按当前时刻重算插值亮度 (过渡期内自然每 60s 步进)；
@@ -531,7 +534,7 @@ auto_daemon() {
         local remain=$((next_switch - now))
         if [ "$remain" -gt 0 ]; then
             [ "$remain" -gt 60 ] && remain=60
-            sleep "$remain"
+            sleep "$remain" 9>&-
         fi
     done
 }
@@ -573,9 +576,9 @@ auto)
     on)
         jq '.auto.enabled = true' "$THEME_CONF" >"${THEME_CONF}.tmp" &&
             mv "${THEME_CONF}.tmp" "$THEME_CONF"
-        local pid
+        pid=""
         [ -f "$pf" ] && pid=$(cat "$pf")
-        [ -n "${pid:-}" ] && kill -0 "$pid" 2>/dev/null && exit 0
+        [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && exit 0
         "$0" auto >/dev/null 2>&1 &
         mkdir -p "$(dirname "$pf")"
         echo $! >"$pf"
