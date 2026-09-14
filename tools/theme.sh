@@ -278,13 +278,20 @@ get_auto_config() {
 }
 
 # ---------- 亮度渐变 (brightness-transition) ----------
-# 插值曲线单点封装: 输入/输出均为 milliscale 0..1000，默认线性直通。
-# 以后 ease / 太阳高度方案只需替换这一个函数。
+# 插值曲线单点封装: 输入/输出均为 milliscale 0..1000，两头快、中间慢
+# (cubic warp s(u)=2u^3-3u^2+2u)：起止斜率约 2 倍、中段约 0.5 倍。
+# 翻转瞬间快速脱离旧端点（dark 配深色 + 高亮度最眨眼的阶段不停留），
+# 中段缓慢巡航，收尾快速贴合新端点；对称单调，中点严格 500。
+# 纯 bash 整数运算（单次除法，四舍五入），无外部依赖。
+# 以后太阳高度方案只需替换这一个函数。
 _brightness_curve() {
-    printf '%s' "$1"
+    local t="$1"
+    ((t < 0)) && t=0
+    ((t > 1000)) && t=1000
+    printf '%s' $(((2000 * t + 2 * t * t * t / 1000 - 3 * t * t + 500) / 1000))
 }
 
-# 纯线性插值: from → to，按 elapsed/duration 进度。
+# 插值: from → to，按 elapsed/duration 进度经 _brightness_curve 缓动后取值。
 # duration<=0 直接取 to；elapsed 越界钳制。
 _brightness_at() {
     local from="$1" to="$2" elapsed="$3" duration="$4"

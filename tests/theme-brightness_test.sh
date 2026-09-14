@@ -15,12 +15,16 @@ check() { # desc cond
 
 source "$SCRIPT"
 
-# ---------- _brightness_curve（线性直通，milliscale） ----------
+# ---------- _brightness_curve（两头快、中间慢 cubic warp，milliscale） ----------
+# 起止约 2 倍速、中段约 0.5 倍速，对称单调，中点严格 500
 check "curve 0→0" '[ "$(_brightness_curve 0)" = "0" ]'
-check "curve 500→500" '[ "$(_brightness_curve 500)" = "500" ]'
+check "curve 250→344（起段快）" '[ "$(_brightness_curve 250)" = "344" ]'
+check "curve 500→500（中点）" '[ "$(_brightness_curve 500)" = "500" ]'
+check "curve 750→656（止段快）" '[ "$(_brightness_curve 750)" = "656" ]'
 check "curve 1000→1000" '[ "$(_brightness_curve 1000)" = "1000" ]'
+check "curve 单调递增" '[ "$(_brightness_curve 250)" -lt "$(_brightness_curve 750)" ]'
 
-# ---------- _brightness_at（纯插值） ----------
+# ---------- _brightness_at（经 _brightness_curve warp 后插值） ----------
 # dark=50 light=80 dur=3600
 check "at t=0 →旧端点" '[ "$(_brightness_at 50 80 0 3600)" = "50" ]'
 check "at t=dur →新端点" '[ "$(_brightness_at 50 80 3600 3600)" = "80" ]'
@@ -31,6 +35,10 @@ check "at 越界钳制下" '[ "$(_brightness_at 50 80 -5 3600)" = "50" ]'
 check "at 反向 dusk 80→50 中点≈65" '[ "$(_brightness_at 80 50 1800 3600)" = "65" ]'
 check "at 反向 t=0 →80" '[ "$(_brightness_at 80 50 0 3600)" = "80" ]'
 check "at 反向 t=dur →50" '[ "$(_brightness_at 80 50 3600 3600)" = "50" ]'
+check "at 1/4 dawn 50→60（线性为57）" '[ "$(_brightness_at 50 80 900 3600)" = "60" ]'
+check "at 3/4 dawn 50→69（线性为72）" '[ "$(_brightness_at 50 80 2700 3600)" = "69" ]'
+check "at 1/4 dusk 80→70（线性为72）" '[ "$(_brightness_at 80 50 900 3600)" = "70" ]'
+check "at 3/4 dusk 80→61（线性为57）" '[ "$(_brightness_at 80 50 2700 3600)" = "61" ]'
 
 # ---------- 窗口计算 ----------
 # rise=10000 dawn=3600
@@ -58,6 +66,8 @@ check "after: dawn结束=light端点" '[ "$(_monitor_brightness_at 13600 10000 2
 check "after: 白天=light端点" '[ "$(_monitor_brightness_at 15000 10000 20000 3600 3600 after 50 80)" = "80" ]'
 check "after: set整点=旧端点80" '[ "$(_monitor_brightness_at 20000 10000 20000 3600 3600 after 50 80)" = "80" ]'
 check "after: dusk中点≈65" '[ "$(_monitor_brightness_at 21800 10000 20000 3600 3600 after 50 80)" = "65" ]'
+check "after: dawn 1/4 →60" '[ "$(_monitor_brightness_at 10900 10000 20000 3600 3600 after 50 80)" = "60" ]'
+check "after: dusk 1/4 →70" '[ "$(_monitor_brightness_at 20900 10000 20000 3600 3600 after 50 80)" = "70" ]'
 check "after: dusk结束=dark端点" '[ "$(_monitor_brightness_at 23600 10000 20000 3600 3600 after 50 80)" = "50" ]'
 check "after: 深夜=dark端点" '[ "$(_monitor_brightness_at 25000 10000 20000 3600 3600 after 50 80)" = "50" ]'
 

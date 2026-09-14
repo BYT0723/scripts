@@ -211,8 +211,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `_do_theme_change()`      | tools/theme.sh (apply / auto_daemon; 第二参 `nobright` 跳过一次性端点亮度) — daemon 翻转只切配色，亮度由每轮插值统一负责；手动 apply 保留端点亮度 (apply 后 auto 关闭) |
 | `set_monitor_brightness()`| tools/theme.sh (_do_theme_change 非 nobright 路径, 后台执行) — 逐 active monitor 读配置 `brightness.<monitor>` (per-monitor 独立), 缺失/非数字/>100 fallback 50, 经 set_brightness 分发 (eDP → brightnessctl, 其他 → ddcutil setvcp) |
-| `_brightness_curve()`     | _brightness_at (插值曲线单点封装，milliscale 直通；以后 ease/太阳高度只换它) |
-| `_brightness_at()`        | _monitor_brightness_at (纯线性插值 from→to，duration≤0 取 to，elapsed 越界钳制) |
+| `_brightness_curve()`     | _brightness_at (插值曲线单点封装，milliscale cubic warp 两头快中间慢，起止约 2 倍速、中段约 0.5 倍速；太阳高度方案以后只换它) |
+| `_brightness_at()`        | _monitor_brightness_at (经 _brightness_curve 缓动后 from→to 插值，duration≤0 取 to，elapsed 越界钳制) |
 | `_transition_minutes()`   | auto_daemon (读 `auto.dawn/dusk_minutes`，缺失/非法→60，0=关闭渐变) |
 | `_transition_anchor()`    | auto_daemon (读 `auto.transition_anchor` after/center，非法→after) |
 | `_dawn_window()` / `_dusk_window()` | _monitor_brightness_at (过渡窗口起止；after 事件后窗口 / center 对称窗口，非法 anchor 回退 after) |
