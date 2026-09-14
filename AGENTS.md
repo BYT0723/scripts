@@ -232,7 +232,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `get_brightness()`   | toggle_monitor (xrandr --verbose 读 Brightness)                                                                              |
 | `toggle_monitor()`   | 无 (未绑定快捷键; state 文件 `~/.local/state/dwm/status/monitor-<output>` 持久化原亮度, 开/关切换置黑/恢复)                  |
-| `get_ddc_bus()`      | monitor_brightness (xrandr CONNECTOR_ID ↔ ddcutil drm_connector_id 匹配整数总线号, DP 走 aux 总线不能直接读 ddc symlink)      |
+| `get_ddc_bus()`      | monitor_brightness (xrandr CONNECTOR_ID ↔ ddcutil drm_connector_id 匹配整数总线号, DP 走 aux 总线不能直接读 ddc symlink; 文件缓存 bus (`~/.local/state/dwm/ddc-bus-<output>`, key 为 active 输出集合) — 单次 detect 约 1.6s 占过渡 tick 主导开销, 集合变化/文件损坏即失效, 失败不写; 必须用文件而非内存: 调用方经 $() 子 shell 调用, 内存写会丢失)      |
 | `monitor_brightness()`| read_brightness/set_brightness (eDP 分支之外) — ddcutil setvcp 10 硬件亮度 (value 省略时 getvcp 读当前值)                     |
 | `read_brightness()`  | tools/theme.sh (apply_transition_brightness 每轮读当前值比对), rofi/scripts/theme.sh (handle_monitor_brightness 选单读取 / OK 后读实际亮度) — 单块显示器当前亮度百分比: eDP → brightnessctl -m, 其他 → monitor_brightness getvcp |
 | `set_brightness()`    | tools/theme.sh (set_monitor_brightness, apply_transition_brightness), rofi/scripts/theme.sh (handle_monitor_brightness) — 单块显示器亮度: eDP → brightnessctl set, 其他 → monitor_brightness setvcp |

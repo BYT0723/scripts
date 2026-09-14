@@ -36,11 +36,28 @@ toggle_monitor() {
     fi
 }
 
+# DDC 总线缓存 (文件): 单次 detect 约 1.6s (占过渡 tick 开销 95%+, 而 getvcp
+# 仅约 30ms), 但 bus 映射只在热插拔时改变。用当前 active 输出集合做 key,
+# 集合变化即失效 (xrandr 枚举约 10ms, 相对 detect 可忽略); 查询失败/文件损坏
+# 时不用也不写缓存。必须用文件而非内存变量: 调用方经 $() 子 shell 调用,
+# 子 shell 里的内存写会丢失; 文件同时惠及 daemon / rofi 滑块 / 单次 CLI。
+# 输出名即文件名 (与 monitor-<output> state 文件同约定); 原子 tmp+mv 写防撕裂。
+_ddc_bus_cache_file() { printf '%s/.local/state/dwm/ddc-bus-%s' "$HOME" "$1"; }
+
 # 返回 ddcutil --bus 可用的整数总线号 (经 xrandr CONNECTOR_ID ↔ ddcutil drm_connector_id 匹配)
 # DP 显示器 DDC/CI 走 aux 总线，故不能直接读 /sys/class/drm/*/ddc 的 symlink
 get_ddc_bus() {
     local output="$1"
-    local cid
+    local mset cf cset cbus bus cid
+    mset=$(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}' | sort | tr '\n' ' ')
+    cf=$(_ddc_bus_cache_file "$output")
+    if [ -f "$cf" ]; then
+        IFS='|' read -r cset cbus <"$cf"
+        if [ -n "$cbus" ] && [ "$cset" = "$mset" ]; then
+            printf '%s' "$cbus"
+            return 0
+        fi
+    fi
 
     cid=$(
         xrandr --props |
@@ -63,7 +80,7 @@ get_ddc_bus() {
 
     [[ -z "$cid" ]] && return 1
 
-    ddcutil detect --brief 2>/dev/null |
+    bus=$(ddcutil detect --brief 2>/dev/null |
         awk -v cid="$cid" '
             /^[[:space:]]*Display [0-9]+$/ {
                 valid = 1
@@ -89,7 +106,10 @@ get_ddc_bus() {
                 if (valid_bus != "") print valid_bus
                 else if (invalid_bus != "") print invalid_bus
             }
-        '
+        ')
+    [[ -z "$bus" ]] && return 1
+    mkdir -p "$(dirname "$cf")" && printf '%s|%s\n' "$mset" "$bus" >"$cf.tmp" && mv "$cf.tmp" "$cf"
+    printf '%s' "$bus"
 }
 
 # 读取 (省略 value) 或设置 (带 value) 显示器硬件亮度 (VCP 0x10)

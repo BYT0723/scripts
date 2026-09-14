@@ -3,6 +3,9 @@
 #   A. brightness 缺失 / 非数字 / >100 → fallback 50, per-monitor 设置
 #   B. 正常设置: eDP → brightnessctl set, 其他 → ddcutil setvcp (per-monitor 独立亮度)
 #   C. toggle_monitor 开/关切换 (含 state 目录自动创建)
+#   E. DDC bus 文件缓存 (detect 只跑一次) + 输出集合 key 失配即失效
+#   F. 真实 $() 调用路径跨子 shell 缓存有效 (内存缓存退化回归守卫)
+#   G. 边缘: 热插拔集合变化 / 损坏文件 / 未知输出 / 无匹配不缓存负结果
 # 运行: bash tests/monitor-brightness_test.sh
 
 SCRIPT="$HOME/.dwm/tools/theme.sh"
@@ -60,6 +63,7 @@ EOF
 cat >"$BIN/ddcutil" <<'EOF'
 #!/usr/bin/env bash
 if [ "$1" = "detect" ]; then
+    echo "ddcutil detect" >>"$MOCK_LOG"
     echo "Display 1"
     echo "	I2C bus: /dev/i2c-9"
     echo "	drm_connector_id: 15"
@@ -136,6 +140,7 @@ check "toggle 关: 恢复亮度并删除 state" "[ ! -f \"\$HOME/.local/state/dw
 cat >"$BIN/ddcutil" <<'EOF'
 #!/usr/bin/env bash
 if [ "$1" = "detect" ]; then
+    echo "ddcutil detect" >>"$MOCK_LOG"
     echo "Invalid display"
     echo "   I2C bus:          /dev/i2c-9"
     echo "   DRM connector:    card1-DP-1"
@@ -147,10 +152,96 @@ echo "ddcutil $*" >>"$MOCK_LOG"
 EOF
 chmod +x "$BIN/ddcutil"
 
+# 场景 A/B 已缓存 bus 且输出集合未变, 不清缓存会直接命中、走不到 fallback 解析分支
+rm -f "$(_ddc_bus_cache_file DisplayPort-0)"
+
 reset_log
 set_theme '{"dark":{"brightness":{"DisplayPort-0":40}}}'
 set_monitor_brightness dark
 check "Invalid display 回退: 仍解析出 bus 并设置亮度" "grep -q '^ddcutil --bus 9 setvcp 10 40\$' \"\$MOCK_LOG\""
 check "Invalid display 回退: get_ddc_bus 返回 9" "[ \"\$(get_ddc_bus DisplayPort-0)\" = 9 ]"
+
+# ---- E: DDC bus 文件缓存 (detect 只跑一次)，key 失配即失效 ----
+rm -f "$(_ddc_bus_cache_file DisplayPort-0)"
+reset_log
+get_ddc_bus DisplayPort-0 >/dev/null
+get_ddc_bus DisplayPort-0 >/dev/null
+check "bus 缓存: 两次查询只 detect 一次" "[ \"\$(grep -c '^ddcutil detect\$' \"\$MOCK_LOG\")\" = 1 ]"
+check "bus 缓存: 两次均返回 9" "[ \"\$(get_ddc_bus DisplayPort-0)\" = 9 ]"
+
+reset_log
+printf 'STALE-SET|7' >"$(_ddc_bus_cache_file DisplayPort-0)" # 模拟热插拔后的旧 key
+check "key 失配失效: 重新 detect 并返回 9" \
+    "[ \"\$(get_ddc_bus DisplayPort-0)\" = 9 ] && [ \"\$(grep -c '^ddcutil detect\$' \"\$MOCK_LOG\")\" = 1 ]"
+
+# ---- F: 真实调用路径经 $() 子 shell, 缓存必须跨调用有效 ----
+# (文件缓存才跨得过子 shell; 若退化回内存变量, 这里会重新 detect 而 FAIL)
+rm -f "$(_ddc_bus_cache_file DisplayPort-0)"
+reset_log
+check "F1 \$() 首次查询返回 9" "[ \"\$(get_ddc_bus DisplayPort-0)\" = 9 ]"
+check "F1 \$() 再次查询命中缓存只 detect 一次" \
+    "[ \"\$(get_ddc_bus DisplayPort-0)\" = 9 ] && [ \"\$(grep -c '^ddcutil detect\$' \"\$MOCK_LOG\")\" = 1 ]"
+
+# ---- G: 缓存边缘 ----
+# G1 真实热插拔: --listactivemonitors 新增输出 → 集合 key 变化 → 重新 detect
+cat >"$BIN/xrandr" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+--listactivemonitors)
+    echo "Monitors: 3"
+    echo " 0: +*eDP 2304/336x1440/210+0+0  eDP"
+    echo " 1: +DisplayPort-0 2560/526x1440/296+1080+0  DisplayPort-0"
+    echo " 2: +HDMI-A-0 1080/597x1920/336+3640+0  HDMI-A-0"
+    ;;
+--props)
+    echo "eDP connected primary 2304x1440+0+0 (normal left inverted right x axis y axis) 336mm x 210mm"
+    echo "	CONNECTOR_ID: 0xe005"
+    echo "DisplayPort-0 connected primary 2560x1440+1080+0 (normal left inverted right x axis y axis) 526mm x 296mm"
+    echo "	CONNECTOR_ID: 15"
+    ;;
+--verbose)
+    echo "eDP connected primary 2304x1440+0+0 (normal left inverted right x axis y axis) 336mm x 210mm"
+    echo "	Brightness: 1.0"
+    echo "DisplayPort-0 connected primary 2560x1440+1080+0 (normal left inverted right x axis y axis) 526mm x 296mm"
+    echo "	Brightness: 0.8"
+    ;;
+--output)
+    echo "xrandr $*" >>"$MOCK_LOG"
+    ;;
+esac
+EOF
+chmod +x "$BIN/xrandr"
+reset_log
+check "G1 热插拔: 集合变化后重 detect 仍返回 9" \
+    "[ \"\$(get_ddc_bus DisplayPort-0)\" = 9 ] && [ \"\$(grep -c '^ddcutil detect\$' \"\$MOCK_LOG\")\" = 1 ]"
+
+# G2 损坏的缓存文件 (无分隔符) 不得采用，必须重新 detect
+printf 'garbage-no-pipe' >"$(_ddc_bus_cache_file DisplayPort-0)"
+reset_log
+check "G2 损坏文件失效: 重新 detect 并返回 9" \
+    "[ \"\$(get_ddc_bus DisplayPort-0)\" = 9 ] && [ \"\$(grep -c '^ddcutil detect\$' \"\$MOCK_LOG\")\" = 1 ]"
+
+# G3 未知输出: CONNECTOR_ID 查不到 → 直接失败，不跑 detect、不写缓存文件
+reset_log
+check "G3 未知输出返回非 0" "! get_ddc_bus NOPE-0 >/dev/null"
+check "G3 未知输出不跑 detect、不留缓存" \
+    "[ \"\$(grep -c '^ddcutil detect\$' \"\$MOCK_LOG\")\" = 0 ] && [ ! -f \"\$HOME/.local/state/dwm/ddc-bus-NOPE-0\" ]"
+
+# G4 detect 无匹配: 不缓存负结果，每次都重试 (场景末尾，无需恢复 mock)
+cat >"$BIN/ddcutil" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1" = "detect" ]; then
+    echo "ddcutil detect" >>"$MOCK_LOG"
+    exit 0
+fi
+echo "ddcutil $*" >>"$MOCK_LOG"
+EOF
+chmod +x "$BIN/ddcutil"
+rm -f "$(_ddc_bus_cache_file DisplayPort-0)"
+reset_log
+check "G4 无匹配返回非 0" "! get_ddc_bus DisplayPort-0 >/dev/null"
+get_ddc_bus DisplayPort-0 >/dev/null 2>&1
+check "G4 无匹配不缓存: 两次都跑 detect" "[ \"\$(grep -c '^ddcutil detect\$' \"\$MOCK_LOG\")\" = 2 ]"
+check "G4 无匹配不留缓存文件" "[ ! -f \"\$(_ddc_bus_cache_file DisplayPort-0)\" ]"
 
 exit $fail
