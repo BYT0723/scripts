@@ -7,7 +7,7 @@ TOOLS_DIR="$WORK_DIR/tools"
 CONKY_AUTOSTART=1
 
 # 显示器布局初始化
-# [ -n "$(command -v autorandr)" ] && autorandr --change
+[ -n "$(command -v autorandr)" ] && autorandr --change
 
 # 启动应用
 # $1 policy           string [check/restart]
@@ -54,29 +54,31 @@ launch() {
 }
 
 desktop_setting() {
-    # 窗口合成器 picom (window composer)
-    launch check picom "picom --config $HOME/.config/dwm/picom.conf"
     # 状态栏信息
     /bin/bash $WORK_DIR/dwm-status.sh reboot
-    # wallpaper management (xwallpaper daemon + bash random deamon)
-    /bin/bash "$TOOLS_DIR"/wallpaper.sh -r &
-}
-
-application_launch() {
+    # 窗口合成器 picom (window composer)
+    launch check picom "picom --config $HOME/.config/dwm/picom.conf"
     # XSETTINGS 守护 (GTK 主题/字体广播, Firefox 亮暗跟随依赖)
     launch check xsettingsd "xsettingsd"
     # systray sni
     launch check snixembed "snixembed"
     # 启动通知
     launch check dunst "dunst"
-    # network manager 网络管理bar icon
+    # polkit (require lxsession or lxsession-gtk3) 鉴权
+    launch check lxpolkit "lxpolkit"
+    # batsignal
+    launch check batsignal "batsignal -I battery"
+}
+
+application_launch() {
+    # network manager 网络管理 systray icon
     launch restart nm-applet "nm-applet"
+    # pluseaudio systray icon
+    launch restart pasystray "pasystray"
     # input method
     launch restart fcitx5 "fcitx5"
     # auto mount
     launch restart udiskie "udiskie -sn"
-    # polkit (require lxsession or lxsession-gtk3) 鉴权
-    launch check lxpolkit "lxpolkit"
     # 屏保
     launch restart screen "/bin/bash $TOOLS_DIR/screen.sh"
     # 自动主题切换 (auto=false 时立即退出)
@@ -85,6 +87,9 @@ application_launch() {
     ((CONKY_AUTOSTART > 0)) && /bin/bash $WORK_DIR/dwm-launcher.sh conky start
     # 音频控制 (暂时先关闭，已有独立功放，不需要ee)
     # launch check easyeffects "easyeffects --service-mode --hide-window"
+
+    # wallpaper management (xwallpaper daemon + bash random deamon)
+    /bin/bash "$TOOLS_DIR"/wallpaper.sh -r &
 }
 
 keyboard_setting() {
