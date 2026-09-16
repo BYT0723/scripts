@@ -2,12 +2,10 @@
 
 source "$(dirname "$0")/dwm-status-tools.sh"
 
-DWM_STATUS_LEFT_RADIUS="^(^"
-DWM_STATUS_RIGHT_RADIUS="^)^"
-DWM_STATUS_VERTICAL_SPLIT="\x7F"
-
 # $1: background color
-# ${@:2} tools...
+# ${@:2} blocks... each argument starts with its block id (\xNN).
+# Grouping and rounded caps live in dwm's config; the pane colour stays here
+# so it keeps following the xrdb theme, and dwm paints the cap with it.
 new_pane() {
     bg=$1
     shift
@@ -18,12 +16,13 @@ new_pane() {
         first_text="${1:4}"
         ;;
     *)
+        first_status_code=""
         first_text="$1"
         ;;
     esac
     shift
 
-    printf "%s" "^b$bg^$first_status_code$DWM_STATUS_LEFT_RADIUS$first_text$@$DWM_STATUS_RIGHT_RADIUS"
+    printf "%s" "$first_status_code^b$bg^$first_text" "$@"
 }
 
 panes() {
@@ -41,8 +40,6 @@ panes() {
     panes+="$(new_pane $black "\x0b^c$white^$(print_speed)")"
     # system monitor pane
     panes+="$(new_pane $black "\x08$(print_cpu)$(print_temperature)" "\x07$(print_mem)" "\x06$(print_disk /)")"
-
-    panes+="$DWM_STATUS_VERTICAL_SPLIT"
 
     # notification pane
     if [[ -n $rss_str || -n $mail_str || -n $notification_str ]]; then
