@@ -17,12 +17,14 @@ icons["traffic_tx"]=""
 icons["screencast"]=""
 
 print_date() {
+    timeIcons=('' '' '' '' '' '' '' '' '' '' '' '')
+    local hour=$(date '+%l')
     if [ -f "$HOME/.local/state/dwm/status/date-collapse" ]; then
-        date '+%R'
-        # date '+'${timeIcons[$((hour % 12))]}' %R'
+        # date '+%R'
+        date '+'${timeIcons[$((hour % 12))]}' %R'
     else
-        date '+%m/%d(%a) %R'
-        # date '+ %m/%d(%a) '${timeIcons[$((hour % 12))]}' %R'
+        # date '+%m/%d(%a) %R'
+        date '+ %m/%d(%a) '${timeIcons[$((hour % 12))]}' %R'
         # date '+ %Y-%m-%d(%a) '${timeIcons[$((hour % 12))]}' %R'
     fi
 }
