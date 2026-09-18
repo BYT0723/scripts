@@ -14,6 +14,7 @@ dwm-status.sh ──sources──► dwm-status-tools.sh ──sources──► 
 dwm-statuscmd.sh ──sources──► utils/notify.sh
 tools/theme.sh ──sources──► utils/notify.sh, tools/monitor-brightness.sh
                 ──requires─► xsettingsd, dconf (gsettings), curl (GTK/portal 双通道广播 / auto 日出日落)
+                ──calls──► tools/wallpaper.sh --theme <mode> (后台, 主题翻转跟随换壁纸)
 tools/monitor-brightness.sh ──sources──► 无外部脚本; ──sourced by── tools/theme.sh
 
 tools/lock.sh ──sources──► utils/notify.sh
@@ -281,6 +282,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `handle_random_depth()`       | wallpaper.sh (模块主菜单: 设置搜索深度)                 |
 | `handle_random_images_path()` | wallpaper.sh (模块主菜单: 选择图片目录)                 |
 | `handle_random_videos_path()` | wallpaper.sh (模块主菜单: 选择视频目录)                 |
+| `handle_random_images_path_dark()` | wallpaper.sh (模块主菜单: 选择深色图片目录 → `random_image_dir_dark`) |
+| `handle_random_videos_path_dark()` | wallpaper.sh (模块主菜单: 选择深色视频目录 → `random_video_dir_dark`) |
 | `handle_group()`              | wallpaper.sh (模块主菜单: 组管理 — 新建/编辑/启停/删除) |
 
 ### tools/wallpaper-lib.sh
@@ -288,6 +291,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | 函数                         | 调用者                                                                                                                                                                                                       |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `getConfig()`                | wallpaper.sh, wallpaper-lib.sh (内部)                                                                                                                                                                        |
+| `get_theme_dir()`            | wallpaper.sh (random_wallpaper, select_wallpaper, theme_wallpaper) — 主题目录解析: light 用 base key, dark 用 `${base}_dark`, 为空 fallback base; theme 缺省读 current-theme |
 | `ensure_monitor_config()`    | rofi/scripts/wallpaper.sh (主入口选定 monitor 后初始化写入) — 遍历 `config` 数组写默认, 跳过 volume/fps (video-render 子对象默认) |
 | `detect_file_type()`         | wallpaper.sh, wallpaper-render.sh                                                                                                                                                                            |
 | `get_video_dim()`            | wallpaper.sh (get_wallpaper_rotation) — 单次 ffprobe 合并取 dims+rotation (csv 第三列), 原两次独立调用省一半耗时                                                                                                                                                                        |
@@ -307,7 +311,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `get_screen_size()`          | wallpaper-render.sh, wallpaper-lib.sh (get_monitor_list_text)                                                                                                                                                |
 | `get_monitor_list_text()`    | rofi/scripts/wallpaper.sh (monitor_selection)                                                                                                                                                                |
 | `_json_path_for()`           | wallpaper-lib.sh (pick_config_dir, set_numeric_config 内部)                                                                                                                                                  |
-| `pick_config_dir()`          | rofi/scripts/wallpaper.sh (handle_random_images_path, handle_random_videos_path)                                                                                                                             |
+| `pick_config_dir()`          | rofi/scripts/wallpaper.sh (handle_random_images_path[_dark], handle_random_videos_path[_dark])                                                                                                                             |
 | `set_numeric_config()`       | rofi/scripts/wallpaper.sh (handle_random_duration, handle_random_depth)                                                                                                                                      |
 | `has_group()`                | wallpaper.sh (apply_wallpaper), wallpaper-lib.sh (get_monitor_dim), rofi/scripts/wallpaper.sh (handle_group)                                                                                                 |
 | `group_names()`              | wallpaper.sh (apply_wallpaper), wallpaper-lib.sh (is_group_member, group_for_monitor, get_monitor_list_text), rofi/scripts/wallpaper.sh (handle_group)                              |
@@ -319,6 +323,14 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 
 > `restore_latest_monitor_group()` 已删除: 由 xwallpaper `restore` 命令替代 (screen 清场时
 > monitor/group 经 `clear --keep` 保留 last, 切回时统一重建)。`clean_latest()` 已删除 (死代码)。
+
+### tools/wallpaper.sh
+
+| 函数 | 调用者 |
+| ---- | ------ |
+| `random_wallpaper()` | wallpaper.sh (`-m next`, launch_wallpaper daemon, theme_wallpaper) — 经 `get_theme_dir` 按当前主题选目录 (第二参可显式传 light/dark); 排除当前壁纸后随机抽取 |
+| `select_wallpaper()` | wallpaper.sh (`-m select`) — 经 `get_theme_dir` 按当前主题定 yazi 起始目录 |
+| `theme_wallpaper()` | wallpaper.sh (`--theme [light\|dark\|auto]` CLI) / tools/theme.sh `_do_theme_change` (后台 hook) — 枚举 active monitors + enabled groups (skip 组员, 坏组跳过), Screen 激活时只切 Screen, 单 target 失败跳过整体恒返回 0 |
 
 ### tools/wallpaper-render.sh
 
@@ -411,6 +423,7 @@ tools/theme.sh auto (守护进程)
   → get_current_theme() (xrdb -query dwm.col_theme)
   → 日出/日落触发:
       → _do_theme_change("light"|"dark", nobright) (只切配色)
+      → (wallpaper.sh --theme <mode> &) 后台跟随换壁纸 (失败不影响切换)
       → system-notify low
       → pkill -SIGHUP dwm → dwm restart → loadxrdb 重载配色
   → 每轮 (60s): apply_transition_brightness() 按 `auto.dawn/dusk_minutes` +
@@ -454,6 +467,9 @@ wallpaper.sh → source utils/monitor.sh, utils/notify.sh
   │    ├─ rofi 多选创建/编辑/启停
   │    ├─ 成员互斥（一屏至多归一组）
   │    ├─ daemon 轮询对组成员 skip（手动 only）
+  │    ├─ 主题色调: light 用 `random_image_dir/random_video_dir`, dark 用 `random_image_dir_dark/random_video_dir_dark`
+  │    │   (dark 空 fallback light, 经 `get_theme_dir` 解析); 主题翻转经 `theme_wallpaper --theme` 跟随切换,
+  │    │   daemon 轮换按 `current-theme` 实时选目录
   │    └─ launch_wallpaper 启动 xwallpaper daemon, 启动时自动恢复 keep=0 状态
   └─ 状态: xwallpaper 持久化 (state 文件), daemon 重启自愈
 ```
@@ -464,7 +480,7 @@ wallpaper.sh → source utils/monitor.sh, utils/notify.sh
 - `rofi/fonts/` 字体文件
 - `rofi/colors/` `rofi/images/`
 - `~/.config/dwm/quicklinks.json` — quicklinks 书签, `links` 数组元素含 `id`(uuid)、`name`、`url` (icon 字段已废弃移除); 顶层 `searcher` 数组存搜索引擎 `{name, url}`(name 为唯一键, url 用 `{key}` 占位搜索词, 可省略 → 追加 url 末尾), 自定义输入搜索默认用 `searcher[0]`, 支持 `@<name>` 首 token 指定引擎
-- `~/.config/dwm/wallpaper.json` — 壁纸配置, 含 `monitors`(按屏/组名键)、`groups`(成员名单 + enabled 启停); 每个 monitor/组可带可选 `video-render` 对象 `{volume, fps}`: `volume>0` 传 `--volume N` 播放音频, `volume=0`/缺省时传 `--mute` 静音 (0 与 mute 等价), `fps>0` 传 `--fps`
+- `~/.config/dwm/wallpaper.json` — 壁纸配置, 含 `monitors`(按屏/组名键)、`groups`(成员名单 + enabled 启停); 每个 monitor/组可带可选 `video-render` 对象 `{volume, fps}`: `volume>0` 传 `--volume N` 播放音频, `volume=0`/缺省时传 `--mute` 静音 (0 与 mute 等价), `fps>0` 传 `--fps`; 主题色调目录: light 用 `random_image_dir`/`random_video_dir`, dark 用 `random_image_dir_dark`/`random_video_dir_dark` (缺失/空串 fallback light, rofi Wallpaper 菜单 Images Dark/Videos Dark 配置)
 - `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置，`"auto"` 含 `enabled`(默认 false)、`sun_rise_offset`(日出延迟分钟数)、`sun_set_offset`(日落延迟分钟数)、`dawn_minutes`/`dusk_minutes`(亮度过渡分钟数，默认 60，0=关闭渐变)、`transition_anchor`(过渡锚点 `after`(默认，事件后窗口) / `center`(对称窗口))，`"cursor"` 含 `theme`/`size`，`"dpi"` 为 Xft.dpi 值，`light`/`dark` 的 `colorscheme` 引用 `~/.config/dwm/colorschemes/` 下的颜色方案文件
 - `~/.xsettingsd` — `set_gtk_theme()` 维护 `Net/ThemeName`(当前 GTK 主题) 行, 保留其他 XSETTINGS 键, `killall -HUP xsettingsd` 触发 XSETTINGS 重载广播
 

@@ -15,6 +15,8 @@
 LIB="$HOME/.dwm/tools/wallpaper-lib.sh"
 WALLPAPER_SH="$HOME/.dwm/tools/wallpaper.sh"
 RENDER_SH="$HOME/.dwm/tools/wallpaper-render.sh"
+THEME_SH="$HOME/.dwm/tools/theme.sh"
+ROFI_WALLPAPER_SH="$HOME/.dwm/rofi/scripts/wallpaper.sh"
 
 TEST_DIR=$(mktemp -d)
 trap 'rm -rf "$TEST_DIR"' EXIT
@@ -195,5 +197,10 @@ reset_state
 rc=0
 theme_wallpaper dark || rc=$?
 check "单 target 失效仍退出 0" "[ $rc -eq 0 ]"
+
+# ---- 9. theme hook + rofi 接线存在性 ----
+check "theme _do_theme_change hook 壁纸跟随（后台）" "grep -q 'wallpaper.sh.*--theme.*&' \"$THEME_SH\""
+check "rofi 有 Images Dark 入口" "grep -q 'random_images_path_dark' \"$ROFI_WALLPAPER_SH\""
+check "rofi 有 Videos Dark 入口" "grep -q 'random_videos_path_dark' \"$ROFI_WALLPAPER_SH\""
 
 exit "$fail"

@@ -263,6 +263,11 @@ _do_theme_change() {
 
     set_dunst_theme "$mode"
 
+    # 壁纸跟随主题色调 (后台执行, 不阻塞后续 SIGHUP; 失败不影响主题切换退出码)
+    if [ -n "$mode" ] && [ -x "$WORK_DIR/tools/wallpaper.sh" ]; then
+        ("$WORK_DIR/tools/wallpaper.sh" --theme "$mode" &)
+    fi
+
     # Wait for all theme changes to settle (especially fcitx5 restart,
     # xrdb merge, and GTK/Qt theme reload) before the SIGHUP that
     # follows. Otherwise dwm restart races with tray client re-init,

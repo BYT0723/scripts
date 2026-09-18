@@ -151,6 +151,8 @@ random_duration|󰔟|Duration|cmd:getConfig -m "$MONITOR" duration
 random_depth||Depth|cmd:getConfig -m "$MONITOR" random_depth
 random_images_path||Images|
 random_videos_path||Videos|
+random_images_path_dark||Images Dark|
+random_videos_path_dark||Videos Dark|
 MODULES
 handle_next() { ( "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" next & ) ; }
 handle_select() { "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" select; }
@@ -160,5 +162,7 @@ handle_random_duration() { set_numeric_config "$MONITOR" duration "Duration" "Wa
 handle_random_depth() { set_numeric_config "$MONITOR" random_depth "Search Depth" "Max directory depth for wallpaper files (1–10)" 1 10; }
 handle_random_images_path() { pick_config_dir "$MONITOR" random_image_dir; }
 handle_random_videos_path() { pick_config_dir "$MONITOR" random_video_dir; }
+handle_random_images_path_dark() { pick_config_dir "$MONITOR" random_image_dir_dark; }
+handle_random_videos_path_dark() { pick_config_dir "$MONITOR" random_video_dir_dark; }
 
 while module_loop; do :; done
