@@ -23,6 +23,7 @@
 #   FORM_CSS=<css>           覆盖默认 GTK CSS (表单 grid/entry margin)
 #   FORM_WIDTH=<px>          yad 窗口宽度 (默认留空 = 自动)
 #   FORM_FONT=<font>         设置表单字体 (yad 专用, 如 "JetBrains Mono Nerd Font 14"; zenity 不支持)
+#   FORM_TITLE=<str>         对话框标题 (yad/zenity --title, 默认不传即后端默认标题)
 
 declare -gA _F_TYPE _F_LABEL _F_DEFAULT _F_CANDIDATE
 declare -ga _F_KEYS
@@ -83,6 +84,7 @@ _form_yad() {
     [[ -n "$css" ]] && args+=("--css=$css")
     local width="${FORM_WIDTH:-400}"
     [[ -n "$width" ]] && args+=("--width=$width")
+    [[ -n "${FORM_TITLE:-}" ]] && args+=("--title=$FORM_TITLE")
     local k suffix
     for k in "${_F_KEYS[@]}"; do
         suffix=""
@@ -122,6 +124,7 @@ _form_yad() {
 _form_zenity() {
     local -n out=$1
     local -a args=(--forms)
+    [[ -n "${FORM_TITLE:-}" ]] && args+=("--title=$FORM_TITLE")
     local k
     for k in "${_F_KEYS[@]}"; do
         case "${_F_TYPE[$k]}" in

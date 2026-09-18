@@ -279,7 +279,7 @@ _edit_link() {
 
 _edit_form() { # 表单录入 + 按 id 替换写库 (rofi 退出后执行)
     local id="$1" name="$2" url="$3"
-    _edit_loop "$name" "$url" &&
+    _edit_loop "$name" "$url" "URL" "Edit Link" &&
         _write_json --arg id "$id" --arg name "$_LINK_NAME" --arg url "$_LINK_URL" \
             '(.links[] | select(.id == $id)) |= {id: .id, name: $name, url: $url}'
 }
@@ -310,7 +310,7 @@ _new_form() { # 剪贴板预填 + 表单 + 追加写库 (rofi 退出后执行)
     local url
     # clipboard_url 也在此执行: xclip/xsel/wl-paste 读取剪贴板可能阻塞, 不能留在 rofi grab 存活期间
     url=$(clipboard_url)
-    _edit_loop "" "$url" &&
+    _edit_loop "" "$url" "URL" "New Link" &&
         _write_json --arg id "$(_gen_id "$_LINK_NAME" "$_LINK_URL")" --arg name "$_LINK_NAME" --arg url "$_LINK_URL" \
             '.links += [{name: $name, url: $url, id: $id}]'
 }
@@ -319,7 +319,7 @@ _new_form() { # 剪贴板预填 + 表单 + 追加写库 (rofi 退出后执行)
 _new_searcher() { _interact_async _new_searcher_form; }
 
 _new_searcher_form() { # 表单 + 追加写库 (rofi 退出后执行)
-    _edit_loop "" "" "URL ({key} 占位)" || return 1
+    _edit_loop "" "" "URL ({key} 占位)" "New Searcher" || return 1
     if jq -e --arg n "$_LINK_NAME" \
         'any(.searcher[]?; .name | ascii_downcase == ($n | ascii_downcase))' "$CONFIG" >/dev/null 2>&1; then
         tool-notify critical "Quicklinks" "搜索引擎已存在: $_LINK_NAME"
@@ -392,11 +392,12 @@ _handle_input() {
 
 # 弹表单录入链接, 校验失败 notify 并重开; 成功设置 _LINK_NAME/_LINK_URL, 取消返回 1
 # 第三参数 url_label 自定义 URL 字段标签 (searcher 表单提示 {key} 占位, 默认 "URL")
+# 第四参数 title 为对话框标题 (经 FORM_TITLE 传给 form_show, 默认 "Quicklinks")
 _edit_loop() {
-    local name="$1" url="$2" url_label="${3:-URL}"
+    local name="$1" url="$2" url_label="${3:-URL}" title="${4:-Quicklinks}"
     while :; do
         local json=$(
-            form_show <<EOF
+            FORM_TITLE="$title" form_show <<EOF
 name|entry|Name|${name:-}|
 url|entry|${url_label}|${url:-}|
 EOF

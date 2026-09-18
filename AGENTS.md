@@ -26,7 +26,7 @@ tools/calendar.sh ──sources──► utils/notify.sh
 tools/keyboard.sh ──sources──► utils/notify.sh
 tools/volume.sh ──sources──► utils/notify.sh
 tools/touchpad.sh ──sources──► 无外部脚本
-utils/form.sh ──sources──► 无外部脚本; ──requires─► jq, yad (优先) / zenity (fallback); 环境变量 FORM_BACKEND/FORM_CSS/FORM_WIDTH/FORM_FONT (yad 字体)
+utils/form.sh ──sources──► 无外部脚本; ──requires─► jq, yad (优先) / zenity (fallback); 环境变量 FORM_BACKEND/FORM_CSS/FORM_WIDTH/FORM_FONT (yad 字体)/FORM_TITLE (对话框标题)
 utils/url.sh ──sources──► 无外部脚本
 utils/string.sh ──sources──► 无外部脚本
 
