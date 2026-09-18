@@ -20,6 +20,7 @@ tools/monitor-brightness.sh ──sources──► 无外部脚本; ──source
 tools/lock.sh ──sources──► utils/notify.sh
               ◄──sourced by── rofi/powermenu/type-{1..6}/powermenu.sh
 tools/wallpaper.sh ──sources──► utils/notify.sh, tools/wallpaper-lib.sh, tools/wallpaper-render.sh
+tools/wallpaper-classify.py ──requires──► python3+PIL, ffmpeg/ffprobe (视频缩略图); 壁纸 light/dark 初筛 (B 规则暗像素占比), `--move` 按 verdict 搬进 light//dark/
 tools/screencast.sh ──sources──► utils/monitor.sh
 tools/brightness.sh ──sources──► utils/notify.sh
 tools/calendar.sh ──sources──► utils/notify.sh
