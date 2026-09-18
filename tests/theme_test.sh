@@ -100,8 +100,20 @@ cleanup() {
 }
 trap cleanup EXIT
 
-auto_daemon >/dev/null 2>&1 &
-DAEMON=$!
+# 场景边界先停旧 daemon 再起新实例: 旧实例的在途迭代(持旧缓存/旧状态)
+# 会在清 log 之后落下 theme_change, 误杀"…不切换"断言 (mock sleep 瞬时返回,
+# daemon 热循环使该竞态在负载高时必现; 生产代码按读到的有效数据切换是正确的)
+stop_daemon() {
+    [ -n "$DAEMON" ] && kill "$DAEMON" 2>/dev/null
+    [ -n "$DAEMON" ] && wait "$DAEMON" 2>/dev/null
+    DAEMON=""
+}
+start_daemon() {
+    auto_daemon >/dev/null 2>&1 &
+    DAEMON=$!
+}
+
+start_daemon
 
 # ---- 场景 A: 挂起唤醒后及时纠正 ----
 # 07:00 (sunrise 前): desired=dark, cur=dark → 不切, 轮询等待
@@ -117,10 +129,12 @@ check "挂起唤醒后重算并切换 (dark→light)" "grep -q '^theme_change li
 check "当前主题已更新为 light" "[ \"\$(cat \"\$HOME/.local/state/dwm/current-theme\")\" = light ]"
 
 # ---- 场景 B: 锁屏阻塞切换, 解锁后立即切换 ----
-: >"$MOCK_LOG"
+stop_daemon
 echo dark >"$HOME/.local/state/dwm/current-theme"
 set_now "$(/usr/bin/date -d "$TODAY 09:05" +%s)"
 set_locked 1
+: >"$MOCK_LOG"
+start_daemon
 /bin/sleep 0.3
 check "锁屏期间阻塞等待 (sleep 5 轮询 i3lock)" "grep -q '^sleep 5$' \"\$MOCK_LOG\""
 check "锁屏期间不切换" "! grep -q '^theme_change' \"\$MOCK_LOG\""
@@ -130,10 +144,12 @@ set_locked 0
 check "解锁后立即切换 (dark→light)" "grep -q '^theme_change light$' \"\$MOCK_LOG\""
 
 # ---- 场景 C: 缓存缺失短重试, 取到缓存后切换 ----
-: >"$MOCK_LOG"
+stop_daemon
 rm -f "$HOME/.local/state/dwm/cache/sun-times" "$HOME/.local/state/dwm/cache/sun-times.fetching"
 echo dark >"$HOME/.local/state/dwm/current-theme"
 set_now "$(/usr/bin/date -d "$TODAY 07:00" +%s)"
+: >"$MOCK_LOG"
+start_daemon
 /bin/sleep 0.3
 check "缓存缺失时短轮询 (sleep 30), 不睡 1800" \
     "grep -q '^sleep 30$' \"\$MOCK_LOG\" && ! grep -q '^sleep 1800' \"\$MOCK_LOG\""
