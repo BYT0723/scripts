@@ -1,0 +1,30 @@
+# GENERATED from status-ids.def -- do not hand-edit.
+# Sourced by ~/.dwm/dwm-status.sh and dwm-statuscmd.sh. Requires bash for $'\xNN'.
+ST_DATE=1
+ST_DATE_BYTE=$'\x01'
+ST_BATTERY=2
+ST_BATTERY_BYTE=$'\x02'
+ST_VOLUME=3
+ST_VOLUME_BYTE=$'\x03'
+ST_DISK=6
+ST_DISK_BYTE=$'\x06'
+ST_MEM=7
+ST_MEM_BYTE=$'\x07'
+ST_CPU=8
+ST_CPU_BYTE=$'\x08'
+ST_WEATHER=9
+ST_WEATHER_BYTE=$'\x09'
+ST_MPD=10
+ST_MPD_BYTE=$'\x0a'
+ST_NET=11
+ST_NET_BYTE=$'\x0b'
+ST_MAIL=12
+ST_MAIL_BYTE=$'\x0c'
+ST_RSS=13
+ST_RSS_BYTE=$'\x0d'
+ST_SINGBOX=14
+ST_SINGBOX_BYTE=$'\x0e'
+ST_NOTIFY=15
+ST_NOTIFY_BYTE=$'\x0f'
+ST_SCREENCAST=16
+ST_SCREENCAST_BYTE=$'\x10'
