@@ -21,11 +21,11 @@ random_wallpaper() {
 
     case "$random_type" in
     "video")
-        dir=$(getConfig -m "$monitor" random_video_dir)
+        dir=$(get_theme_dir "$monitor" random_video_dir)
         pattern=".*\.(mp4|avi|mkv)"
         ;;
     "image")
-        dir=$(getConfig -m "$monitor" random_image_dir)
+        dir=$(get_theme_dir "$monitor" random_image_dir)
         pattern=".*\.(jpeg|jpg|png)"
         ;;
     *)
@@ -75,8 +75,8 @@ select_wallpaper() {
     local tmp=$(mktemp)
 
     case "$(getConfig -m "$monitor" random_type)" in
-    video) dir=$(getConfig -m "$monitor" random_video_dir) ;;
-    image) dir=$(getConfig -m "$monitor" random_image_dir) ;;
+    video) dir=$(get_theme_dir "$monitor" random_video_dir) ;;
+    image) dir=$(get_theme_dir "$monitor" random_image_dir) ;;
     *)
         rm -f "$tmp"
         return 1
