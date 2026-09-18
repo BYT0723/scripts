@@ -166,13 +166,10 @@ getConfig() {
 }
 
 # Get theme-aware directory: light 用 base key, dark 用 ${base}_dark (空则 fallback base).
-# Usage: get_theme_dir [-m <monitor>] / get_theme_dir <monitor> <base> [theme]
+# Usage: get_theme_dir <monitor> <base> [theme]
 # theme 缺省读 ~/.local/state/dwm/current-theme (缺失即 light)。
 get_theme_dir() {
-    local monitor=""
-    [ "$1" = "-m" ] && monitor="$2" && shift 2
-    [ -z "$monitor" ] && monitor="$1" && shift
-    local base="$1" theme="${2:-}"
+    local monitor="$1" base="$2" theme="${3:-}"
     [ -z "$theme" ] && theme=$(cat "$HOME/.local/state/dwm/current-theme" 2>/dev/null)
     if [ "$theme" != "dark" ]; then
         getConfig -m "$monitor" "$base"

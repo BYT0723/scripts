@@ -162,27 +162,21 @@ theme_wallpaper() {
     fi
     [ "$mode" = "dark" ] || mode="light"
 
-    # Screen 全屏模式: 只切 Screen, 不碰被 keep 的 monitor/group last
-    if xwallpaper --list 2>/dev/null | grep -qx "Screen"; then
-        local sfile
-        if sfile=$(random_wallpaper "Screen" "$mode"); then
-            [ -n "$sfile" ] && apply_wallpaper "Screen" "$sfile" || true
-        else
-            error "theme_wallpaper: no $mode wallpaper for Screen" || true
-        fi
-        return 0
-    fi
-
     local targets=()
-    while IFS= read -r m; do
-        [ -n "$m" ] && targets+=("$m")
-    done < <(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}')
-    while IFS= read -r grp; do
-        [ -z "$grp" ] && continue
-        [ "$(get_group_enabled "$grp")" != "true" ] && continue
-        get_group_dim "$grp" >/dev/null 2>&1 || continue
-        targets+=("$grp")
-    done < <(group_names)
+    if xwallpaper --list 2>/dev/null | grep -qx "Screen"; then
+        # Screen 全屏模式: 只切 Screen, 不碰被 keep 的 monitor/group last
+        targets=("Screen")
+    else
+        while IFS= read -r m; do
+            [ -n "$m" ] && targets+=("$m")
+        done < <(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}')
+        while IFS= read -r grp; do
+            [ -z "$grp" ] && continue
+            [ "$(get_group_enabled "$grp")" != "true" ] && continue
+            get_group_dim "$grp" >/dev/null 2>&1 || continue
+            targets+=("$grp")
+        done < <(group_names)
+    fi
 
     local t file
     for t in "${targets[@]}"; do

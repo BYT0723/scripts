@@ -264,7 +264,8 @@ _do_theme_change() {
     set_dunst_theme "$mode"
 
     # 壁纸跟随主题色调 (后台执行, 不阻塞后续 SIGHUP; 失败不影响主题切换退出码)
-    if [ -n "$mode" ] && [ -x "$WORK_DIR/tools/wallpaper.sh" ]; then
+    # mode 非空由函数顶部 early-return 保证, 此处只需确认脚本可执行
+    if [ -x "$WORK_DIR/tools/wallpaper.sh" ]; then
         ("$WORK_DIR/tools/wallpaper.sh" --theme "$mode" &)
     fi
 
