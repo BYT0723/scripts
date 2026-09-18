@@ -12,8 +12,10 @@ source "$(dirname "$0")/wallpaper-lib.sh"
 source "$(dirname "$0")/wallpaper-render.sh"
 
 # return random wallpaper filepath for given monitor
+# Usage: random_wallpaper <monitor> [theme] (theme 缺省读 current-theme)
 random_wallpaper() {
     local monitor="$1"
+    local theme="${2:-}"
     local depth=$(getConfig -m "$monitor" random_depth)
     local random_type=$(getConfig -m "$monitor" random_type)
     local dir=""
@@ -21,11 +23,11 @@ random_wallpaper() {
 
     case "$random_type" in
     "video")
-        dir=$(get_theme_dir "$monitor" random_video_dir)
+        dir=$(get_theme_dir "$monitor" random_video_dir "$theme")
         pattern=".*\.(mp4|avi|mkv)"
         ;;
     "image")
-        dir=$(get_theme_dir "$monitor" random_image_dir)
+        dir=$(get_theme_dir "$monitor" random_image_dir "$theme")
         pattern=".*\.(jpeg|jpg|png)"
         ;;
     *)
@@ -149,6 +151,51 @@ apply_wallpaper() {
     [ -n "$monitor_index" ] && set_wallpaper_to_monitor "$monitor_index" "$file"
 }
 
+# ---- 按主题批量切换全部目标壁纸 ----
+# Usage: theme_wallpaper [light|dark|auto] (auto 读 current-theme, 缺失即 light)
+# 枚举 active monitors + enabled groups (skip 组员 monitor); Screen 激活时只切 Screen;
+# 单 target 失败跳过继续, 整体恒返回 0。
+theme_wallpaper() {
+    local mode="${1:-auto}"
+    if [ "$mode" = "auto" ]; then
+        mode=$(cat "$HOME/.local/state/dwm/current-theme" 2>/dev/null)
+    fi
+    [ "$mode" = "dark" ] || mode="light"
+
+    # Screen 全屏模式: 只切 Screen, 不碰被 keep 的 monitor/group last
+    if xwallpaper --list 2>/dev/null | grep -qx "Screen"; then
+        local sfile
+        if sfile=$(random_wallpaper "Screen" "$mode"); then
+            [ -n "$sfile" ] && apply_wallpaper "Screen" "$sfile" || true
+        else
+            error "theme_wallpaper: no $mode wallpaper for Screen" || true
+        fi
+        return 0
+    fi
+
+    local targets=()
+    while IFS= read -r m; do
+        [ -n "$m" ] && targets+=("$m")
+    done < <(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}')
+    while IFS= read -r grp; do
+        [ -z "$grp" ] && continue
+        [ "$(get_group_enabled "$grp")" != "true" ] && continue
+        get_group_dim "$grp" >/dev/null 2>&1 || continue
+        targets+=("$grp")
+    done < <(group_names)
+
+    local t file
+    for t in "${targets[@]}"; do
+        is_group_member "$t" && continue
+        if ! file=$(random_wallpaper "$t" "$mode"); then
+            error "theme_wallpaper: no $mode wallpaper for $t" || true
+            continue
+        fi
+        [ -n "$file" ] && apply_wallpaper "$t" "$file" || true
+    done
+    return 0
+}
+
 # wallpaper launch_wallpaper
 launch_wallpaper() {
     sleep ${wallpaper_launch_delay:-1}
@@ -219,6 +266,10 @@ op=$1
 
 case "$op" in
 '-r' | '--run') launch_wallpaper ;;
+'--theme')
+    shift
+    theme_wallpaper "${1:-auto}"
+    ;;
 '-m')
     shift
     monitor="$1"
