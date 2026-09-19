@@ -15,8 +15,11 @@ yt_download() {
 
     mkdir -p "$YT_DL_DIR"
 
+    # NOTE: 根据如下链接运行bgutil-ytdlp-pot-provider，为yt-dlp提供PO Token, 绕过校验，以获取同web相同的视频格式和音频格式
+    # https://github.com/Brainicism/bgutil-ytdlp-pot-provider#a-http-server-option
     local ytdlp_opts=(
         --cookies-from-browser "${BROWSER:-firefox}"
+        --extractor-args "youtubepot-bgutilhttp:base_url=http://127.0.0.1:4416"
         -o "$YT_DL_DIR/%(title)s.%(ext)s"
     )
 
