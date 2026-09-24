@@ -58,8 +58,8 @@ desktop_setting() {
     /bin/bash $WORK_DIR/dwm-status.sh reboot
     # 窗口合成器 picom (window composer)
     launch check picom "picom --config $HOME/.config/dwm/picom.conf"
-    # XSETTINGS 守护 (GTK 主题/字体广播, Firefox 亮暗跟随依赖)
-    launch check xsettingsd "xsettingsd"
+    # wallpaper management (xwallpaper daemon + bash random deamon)
+    /bin/bash "$TOOLS_DIR"/wallpaper.sh -r &
     # systray sni
     launch check snixembed "snixembed"
     # 启动通知
@@ -68,6 +68,8 @@ desktop_setting() {
     launch check lxpolkit "lxpolkit"
     # batsignal
     launch check batsignal "batsignal -I battery"
+    # XSETTINGS 守护 (GTK 主题/字体广播, Firefox 亮暗跟随依赖)
+    launch check xsettingsd "xsettingsd"
 }
 
 application_launch() {
@@ -76,7 +78,8 @@ application_launch() {
     # pluseaudio systray icon
     launch restart pasystray "pasystray"
     # input method
-    launch restart fcitx5 "fcitx5"
+    fcitx5 -r &
+    # launch restart fcitx5 "fcitx5"
     # auto mount
     launch restart udiskie "udiskie -sn"
     # 屏保
@@ -87,9 +90,6 @@ application_launch() {
     ((CONKY_AUTOSTART > 0)) && /bin/bash $WORK_DIR/dwm-launcher.sh conky start
     # 音频控制 (暂时先关闭，已有独立功放，不需要ee)
     # launch check easyeffects "easyeffects --service-mode --hide-window"
-
-    # wallpaper management (xwallpaper daemon + bash random deamon)
-    /bin/bash "$TOOLS_DIR"/wallpaper.sh -r &
 }
 
 keyboard_setting() {
