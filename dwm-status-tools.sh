@@ -228,7 +228,7 @@ update_weather() {
 
 update_weather_forecast() {
     alert=$(weather-forecast 12 "$weather_forecast_path")
-    [ -n "$alert" ] && notify-send -u critical -i weather -h string:x-dunst-stack-tag:weatherAlert "Weather" "$alert" || true
+    [ -n "$alert" ] && notify-send -u normal -t 30000 -i weather -h string:x-dunst-stack-tag:weatherAlert "Weather" "$alert" || true
 }
 
 # 通过imap更新未读邮件数量
