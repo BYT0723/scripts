@@ -172,14 +172,18 @@ handle_set_offset() { _handle_offset "auto.sun_set_offset" "Set offset (min)" ge
 handle_dawn() { _handle_offset "auto.dawn_minutes" "Dawn duration (min)" get_dawn unsigned; }
 handle_dusk() { _handle_offset "auto.dusk_minutes" "Dusk duration (min)" get_dusk unsigned; }
 handle_anchor() {
-    local cur next
+    local cur chosen
     cur=$(get_anchor)
-    next="after"
-    [ "$cur" = "after" ] && next="center"
-    jq --arg v "$next" '.auto.transition_anchor = $v' "$THEME_CONF" >"${THEME_CONF}.tmp" &&
+    chosen=$(printf 'after\ncenter\nbefore' | module_sub_rofi "Transition anchor" "current: $cur")
+    case "$chosen" in
+    after | center | before) ;;
+    *) return ;; # 空选(取消)与非法输出都直接回退
+    esac
+    [ "$chosen" = "$cur" ] && return
+    jq --arg v "$chosen" '.auto.transition_anchor = $v' "$THEME_CONF" >"${THEME_CONF}.tmp" &&
         mv "${THEME_CONF}.tmp" "$THEME_CONF"
     _restart_auto_daemon
-    system-notify low "Transition anchor" "switched to $next"
+    tool-notify low "Transition anchor" "switched to $chosen"
 }
 handle_conf() {
     local checksum_before auto_before

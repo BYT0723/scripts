@@ -216,8 +216,9 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `_brightness_curve()`     | _brightness_at (插值曲线单点封装，milliscale cubic warp 两头快中间慢，起止约 2 倍速、中段约 0.5 倍速；太阳高度方案以后只换它) |
 | `_brightness_at()`        | _monitor_brightness_at (经 _brightness_curve 缓动后 from→to 插值，duration≤0 取 to，elapsed 越界钳制) |
 | `_transition_minutes()`   | auto_daemon (读 `auto.dawn/dusk_minutes`，缺失/非法→60，0=关闭渐变) |
-| `_transition_anchor()`    | auto_daemon (读 `auto.transition_anchor` after/center，非法→after) |
-| `_dawn_window()` / `_dusk_window()` | _monitor_brightness_at (过渡窗口起止；after 事件后窗口 / center 对称窗口，非法 anchor 回退 after) |
+| `_normalize_anchor()`    | _transition_anchor, _window_at, _monitor_brightness_at (锚点归一化: after/center/before, 非法→after; 三处复用, 单一真实来源) |
+| `_transition_anchor()`    | auto_daemon (读 `auto.transition_anchor` after/center/before，非法→after) |
+| `_dawn_window()` / `_dusk_window()` | _monitor_brightness_at (过渡窗口起止；after 事件后窗口 / center 对称窗口 / before 事件前窗口，非法 anchor 回退 after) |
 | `_theme_at()`             | auto_daemon, _monitor_brightness_at (二值主题判定，锚点无关，配色始终在 rise/set 翻转) |
 | `_monitor_brightness_at()` | apply_transition_brightness (单 monitor 目标亮度：窗口内插值，窗口外取端点，dusk 重叠优先) |
 | `_should_apply_at()` | apply_transition_brightness (是否写亮度谓词：窗口内含终点，或 duration=0 侧的二值对齐；窗口外返回 1) |
@@ -247,7 +248,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `handle_auto()`             | theme.sh (→ `tools/theme.sh auto on/off`)                                            |
 | `handle_monitor_brightness()` | theme.sh (注册表 → 循环连续调节多显示器: yad 滑块经 FIFO+后台 pid 实时预览, OK 保存 theme.json / 取消恢复, 调完回到 monitor 选择处 ESC 退出; 亮度读写复用 monitor-brightness.sh 的 read_brightness/set_brightness; eDP 逐值即时, DDC 走 `read -t 0.03` drain 丢弃积压只应用最新值) |
 | `handle_dawn()` / `handle_dusk()` | theme.sh (注册表 → `_handle_offset unsigned` 改 `auto.dawn/dusk_minutes`，非负整数，改后重启 auto daemon) |
-| `handle_anchor()`           | theme.sh (注册表 → after/center 翻转 `auto.transition_anchor`，改后重启 auto daemon) |
+| `handle_anchor()`           | theme.sh (注册表 → select 直选 `auto.transition_anchor` (after/center/before)，改后重启 auto daemon) |
 | `get_sun_message()`         | theme.sh (调 `get_sun_times` → 格式化 MODULE_MESG; 网络失败则 fallback 为无时间后缀) |
 
 ### tools/yt-dlp.sh
@@ -428,7 +429,7 @@ tools/theme.sh auto (守护进程)
       → system-notify low
       → pkill -SIGHUP dwm → dwm restart → loadxrdb 重载配色
   → 每轮 (60s): apply_transition_brightness() 按 `auto.dawn/dusk_minutes` +
-    `auto.transition_anchor` (after 默认 / center) 对各 monitor 线性插值设亮度
+    `auto.transition_anchor` (after 默认 / center / before) 对各 monitor 线性插值设亮度
     (配色二值翻转，亮度渐变；锁屏期间两者都跳过)
   手动 apply 先 auto off 再切主题（防 daemon 间隙 tick 覆盖端点亮度）；
   auto off 附带 pkill 无 pid 文件的 daemon；daemon 启动 flock 单实例，不重入
@@ -482,7 +483,7 @@ wallpaper.sh → source utils/monitor.sh, utils/notify.sh
 - `rofi/colors/` `rofi/images/`
 - `~/.config/dwm/quicklinks.json` — quicklinks 书签, `links` 数组元素含 `id`(uuid)、`name`、`url` (icon 字段已废弃移除); 顶层 `searcher` 数组存搜索引擎 `{name, url}`(name 为唯一键, url 用 `{key}` 占位搜索词, 可省略 → 追加 url 末尾), 自定义输入搜索默认用 `searcher[0]`, 支持 `@<name>` 首 token 指定引擎
 - `~/.config/dwm/wallpaper.json` — 壁纸配置, 含 `monitors`(按屏/组名键)、`groups`(成员名单 + enabled 启停); 每个 monitor/组可带可选 `video-render` 对象 `{volume, fps}`: `volume>0` 传 `--volume N` 播放音频, `volume=0`/缺省时传 `--mute` 静音 (0 与 mute 等价), `fps>0` 传 `--fps`; 主题色调目录: light 用 `random_image_dir`/`random_video_dir`, dark 用 `random_image_dir_dark`/`random_video_dir_dark` (缺失/空串 fallback light, rofi Wallpaper 菜单 Images Dark/Videos Dark 配置)
-- `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置，`"auto"` 含 `enabled`(默认 false)、`sun_rise_offset`(日出延迟分钟数)、`sun_set_offset`(日落延迟分钟数)、`dawn_minutes`/`dusk_minutes`(亮度过渡分钟数，默认 60，0=关闭渐变)、`transition_anchor`(过渡锚点 `after`(默认，事件后窗口) / `center`(对称窗口))，`"cursor"` 含 `theme`/`size`，`"dpi"` 为 Xft.dpi 值，`light`/`dark` 的 `colorscheme` 引用 `~/.config/dwm/colorschemes/` 下的颜色方案文件
+- `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置，`"auto"` 含 `enabled`(默认 false)、`sun_rise_offset`(日出延迟分钟数)、`sun_set_offset`(日落延迟分钟数)、`dawn_minutes`/`dusk_minutes`(亮度过渡分钟数，默认 60，0=关闭渐变)、`transition_anchor`(过渡锚点 `after`(默认，事件后窗口) / `center`(对称窗口) / `before`(事件前窗口))，`"cursor"` 含 `theme`/`size`，`"dpi"` 为 Xft.dpi 值，`light`/`dark` 的 `colorscheme` 引用 `~/.config/dwm/colorschemes/` 下的颜色方案文件
 - `~/.xsettingsd` — `set_gtk_theme()` 维护 `Net/ThemeName`(当前 GTK 主题) 行, 保留其他 XSETTINGS 键, `killall -HUP xsettingsd` 触发 XSETTINGS 重载广播
 
 ## Rofi 模块注册表规范

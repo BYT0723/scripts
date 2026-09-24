@@ -54,7 +54,7 @@ DWM 启动 → autostart.sh ─┬─ picom / dunst / xsettingsd / snixembed / l
 
 - **状态栏**：`dwm-status.sh → dwm-status-tools.sh → dwm-status-print.sh + utils/{weather,notify}.sh`，daemon（cpu/流量/天气/邮件/rss/mpd）+ 1s refresh；点击经 `dwm-statuscmd.sh` 分发到 `tools/*`。
 - **rofi**：`dwm-launcher.sh`（`is_portrait()` 选横/竖布局）→ `launchers/type-*` / `powermenu/type-*` / `module.sh` 子菜单；`quicklinks-mode.sh` 为 rofi script mode（`ROFI_RETV` 分派，favicon 后台分片并发缓存）。
-- **主题**：`tools/theme.sh auto` 60s 轮询（短睡而非一次睡到切换点，挂起唤醒 ≤60s 纠正；i3lock 期间阻塞）。翻转只切配色并后台 hook `wallpaper.sh --theme` 跟随换壁纸；亮度由每轮 `apply_transition_brightness()` 按 `dawn/dusk_minutes + transition_anchor(after/center)` 插值。`set_gtk_theme()` 走 GTK 主题名 + gsettings portal 双通道（Firefox 亮暗靠 portal，见 AGENTS.md 已知问题）。
+- **主题**：`tools/theme.sh auto` 60s 轮询（短睡而非一次睡到切换点，挂起唤醒 ≤60s 纠正；i3lock 期间阻塞）。翻转只切配色并后台 hook `wallpaper.sh --theme` 跟随换壁纸；亮度由每轮 `apply_transition_brightness()` 按 `dawn/dusk_minutes + transition_anchor(after/center/before)` 插值。`set_gtk_theme()` 走 GTK 主题名 + gsettings portal 双通道（Firefox 亮暗靠 portal，见 AGENTS.md 已知问题）。
 - **壁纸**：渲染层统一 `xwallpaper`（client+daemon IPC，`xwallpaperd` 常驻；图片/视频/网页 → `--image/--video/--web`，`-g --name` 窗口）。状态按 name 持久化（monitor 用 xrandr 名、组用 `grp_<组名>`、全屏用 `Screen`；`--state` 查询，`clear --keep + restore` 做互斥回退），脚本侧不再存 latest 文件。同名 set 即 reload，只清互斥窗口不清自身。
 - **锁屏/DPMS**：`lock.sh`（`_lock_before/_lock/_screen_lock_loop/_lock_after`）+ `screen.sh`（xautolock LOCKER）；视频壁纸持续 present 会触发 amdgpu 驱动 unblank，需 `STOP xwallpaperd` 双保险（X 层 `xset q` 标志 stale，不可信）。
 
@@ -208,7 +208,7 @@ DWM 启动 → autostart.sh ─┬─ picom / dunst / xsettingsd / snixembed / l
 
 - `~/.config/dwm/quicklinks.json` — 书签 `links[]`（`id`/`name`/`url`，icon 字段已废弃）；`searcher[]`（`{name, url}`，name 唯一键，`{key}` 占位搜索词，可省略→追加末尾；默认 `searcher[0]`，`@<name>` 指定引擎）
 - `~/.config/dwm/wallpaper.json` — `monitors`（按屏/组名键）+ `groups`（成员名单 + enabled）；可选 `video-render{volume, fps}`（`volume>0` 传 `--volume`，`0`/缺省 `--mute`，`fps>0` 传 `--fps`）；`random_image_dir[_dark]` / `random_video_dir[_dark]`（dark 空 fallback light）
-- `~/.config/dwm/theme.json` — `auto{enabled, sun_rise/set_offset, dawn/dusk_minutes(默认60, 0=关闭渐变), transition_anchor(after/center)}`；`cursor{theme,size}`；`dpi`；`light/dark.colorscheme`（引用 `~/.config/dwm/colorschemes/`）；`brightness.<monitor>`（per-monitor 端点亮度）
+- `~/.config/dwm/theme.json` — `auto{enabled, sun_rise/set_offset, dawn/dusk_minutes(默认60, 0=关闭渐变), transition_anchor(after/center/before)}`；`cursor{theme,size}`；`dpi`；`light/dark.colorscheme`（引用 `~/.config/dwm/colorschemes/`）；`brightness.<monitor>`（per-monitor 端点亮度）
 - `~/.xsettingsd` — `set_gtk_theme()` 维护 `Net/ThemeName` 行并 `HUP xsettingsd` 广播
 - `~/.local/state/dwm/current-theme`、`cache/sun-times`（日出日落缓存）、`~/.local/state/xwallpaper/state`（壁纸持久化，`keep` 区分当前/last）
 

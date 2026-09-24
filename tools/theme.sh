@@ -322,12 +322,17 @@ _transition_minutes() {
     printf '%s' "$v"
 }
 
-# 锚点配置读取: after(默认) | center，非法 → after
+# 锚点归一化: after | center | before, 非法 → after
+_normalize_anchor() {
+    case "$1" in
+    after | center | before) printf '%s' "$1" ;;
+    *) printf 'after' ;;
+    esac
+}
+
+# 锚点配置读取: after(默认) | center | before，非法 → after
 _transition_anchor() {
-    local v
-    v=$(get_auto_config "auto.transition_anchor")
-    [ "$v" = "center" ] || v="after"
-    printf '%s' "$v"
+    _normalize_anchor "$(get_auto_config "auto.transition_anchor")"
 }
 
 # daemon 单实例守卫：flock 非阻塞拿锁，拿不到返回 1 (调用者直接 exit 0)。
@@ -345,14 +350,19 @@ _auto_lock() {
 }
 
 # 过渡窗口起止 (输出 "start end")，anchor 非法回退 after
+# after: [point, point+dur] 事件时开始、事件后结束
+# center: 对称窗口，事件时正好中点
+# before: [point-dur, point] 事件时已达新端点
 _window_at() {
-    local point="$1" dur="$2" anchor="$3"
-    [ "$anchor" = "center" ] || anchor="after"
+    local point="$1" dur="$2" anchor
+    anchor=$(_normalize_anchor "$3")
     if [ "$dur" -le 0 ] 2>/dev/null; then
         printf '%s %s' "$point" "$point"
     elif [ "$anchor" = "center" ]; then
         local start=$((point - dur / 2))
         printf '%s %s' "$start" $((start + dur))
+    elif [ "$anchor" = "before" ]; then
+        printf '%s %s' $((point - dur)) "$point"
     else
         printf '%s %s' "$point" $((point + dur))
     fi
@@ -377,7 +387,7 @@ _theme_at() {
 # 单 monitor 目标亮度: 窗口内插值，窗口外取端点 (dusk 重叠优先)
 _monitor_brightness_at() {
     local now="$1" rise="$2" set_pt="$3" dawn="$4" dusk="$5" anchor="$6" dark="$7" light="$8"
-    [ "$anchor" = "center" ] || anchor="after"
+    anchor=$(_normalize_anchor "$anchor")
     local ds de ss se
     read ds de <<<"$(_dawn_window "$rise" "$dawn" "$anchor")"
     read ss se <<<"$(_dusk_window "$set_pt" "$dusk" "$anchor")"
