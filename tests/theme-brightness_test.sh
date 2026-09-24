@@ -225,6 +225,14 @@ check "手动切换走端点亮度" 'grep -q "^endpoint light$" "$SET_LOG"'
 : >"$SET_LOG"
 _do_theme_change light nobright
 check "daemon 翻转不设端点亮度" '! grep -q "^endpoint " "$SET_LOG"'
+
+# 回归 (race): 端点亮度必须同步写完 —— 若后台执行, 慢 job 会在 _do_theme_change
+# 返回后才落盘, 用旧主题亮度覆盖后启动的新主题 (DDC 单次 ~200ms/首次 detect ~1.6s)
+SLOW_LOG="$M_TMP/slow.log"
+set_monitor_brightness() { sleep 0.5; printf 'endpoint %s\n' "$1" >>"$SLOW_LOG"; }
+: >"$SLOW_LOG"
+_do_theme_change light
+check "端点亮度同步写完 (返回即可见)" 'grep -q "^endpoint light$" "$SLOW_LOG"'
 rm -rf "$M_TMP"
 
 exit $fail

@@ -249,8 +249,11 @@ _do_theme_change() {
 
     # daemon 自动翻转时跳过一次性端点亮度 (由每轮插值负责，避免切换瞬间闪到端点)；
     # 手动 apply 保留端点亮度 (apply 后 auto 关闭，无后续插值)。
+    # 必须同步执行 (不可 `&`): 后台化会让先启动但更慢的 job (DDC 单次 ~200ms,
+    # 首次 detect ~1.6s) 在返回后才落盘, 用旧主题亮度覆盖后启动的新主题 —— 表现为
+    # "dark 主题却是 light 亮度", 且窗口外 daemon 不自愈。同步则后调用者最后写, 值正确。
     if [ "$nobright" != "nobright" ]; then
-        set_monitor_brightness "$mode" &
+        set_monitor_brightness "$mode"
     fi
     set_dwm_theme "$mode"
     set_rofi_theme "$mode"
