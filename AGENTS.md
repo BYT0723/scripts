@@ -224,7 +224,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `_should_apply_at()` | apply_transition_brightness (是否写亮度谓词：窗口内含终点，或 duration=0 侧的二值对齐；窗口外返回 1) |
 | `apply_transition_brightness()` | auto_daemon (只在过渡窗口内写各 monitor 插值亮度，窗口外不动——手动/OSD 调的不抢回；duration=0 的侧按二值对齐端点；与硬件值差<1 跳过，读不到直接写) |
 | `_auto_lock()`            | auto_daemon (flock 非阻塞单实例守卫，锁路径 `${THEME_LOCK:-/tmp/dwm-status/theme-auto.lock}`；autostart 直起的 daemon 无 pid 文件，重复 `auto on` 靠此不重入；flock 缺失时 fail-open) |
-| `set_gtk_theme()`         | tools/theme.sh (_do_theme_change: 写 gtk2/3/4 持久配置 + 运行时双通道广播 — xsettingsd GTK 主题名 / gsettings color-scheme 同步 portal)                     |
+| `set_gtk_theme()`         | tools/theme.sh (_do_theme_change: 写 gtk2/3/4 持久配置 (主题/icon/光标 theme+size, 源 `theme.json:cursor`) + 运行时双通道广播 — xsettingsd GTK 主题名 + `Gtk/CursorThemeName/Size` / gsettings color-scheme 同步 portal + `cursor-theme/size`) |
 | `get_auto_config()`       | tools/theme.sh (auto_daemon, auto on/off, apply)                                                                                                 |
 | `get_sun_times()`         | tools/theme.sh (auto_daemon), rofi/scripts/theme.sh (get_sun_message → MODULE_MESG 日出日落显示; 内置 `~/.local/state/dwm/cache/sun-times` 缓存) |
 | `auto_daemon()`           | tools/theme.sh (auto 守护进程循环)                                                                                                               |
@@ -484,7 +484,7 @@ wallpaper.sh → source utils/monitor.sh, utils/notify.sh
 - `~/.config/dwm/quicklinks.json` — quicklinks 书签, `links` 数组元素含 `id`(uuid)、`name`、`url` (icon 字段已废弃移除); 顶层 `searcher` 数组存搜索引擎 `{name, url}`(name 为唯一键, url 用 `{key}` 占位搜索词, 可省略 → 追加 url 末尾), 自定义输入搜索默认用 `searcher[0]`, 支持 `@<name>` 首 token 指定引擎
 - `~/.config/dwm/wallpaper.json` — 壁纸配置, 含 `monitors`(按屏/组名键)、`groups`(成员名单 + enabled 启停); 每个 monitor/组可带可选 `video-render` 对象 `{volume, fps}`: `volume>0` 传 `--volume N` 播放音频, `volume=0`/缺省时传 `--mute` 静音 (0 与 mute 等价), `fps>0` 传 `--fps`; 主题色调目录: light 用 `random_image_dir`/`random_video_dir`, dark 用 `random_image_dir_dark`/`random_video_dir_dark` (缺失/空串 fallback light, rofi Wallpaper 菜单 Images Dark/Videos Dark 配置)
 - `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置，`"auto"` 含 `enabled`(默认 false)、`sun_rise_offset`(日出延迟分钟数)、`sun_set_offset`(日落延迟分钟数)、`dawn_minutes`/`dusk_minutes`(亮度过渡分钟数，默认 60，0=关闭渐变)、`transition_anchor`(过渡锚点 `after`(默认，事件后窗口) / `center`(对称窗口) / `before`(事件前窗口))，`"cursor"` 含 `theme`/`size`，`"dpi"` 为 Xft.dpi 值，`light`/`dark` 的 `colorscheme` 引用 `~/.config/dwm/colorschemes/` 下的颜色方案文件
-- `~/.xsettingsd` — `set_gtk_theme()` 维护 `Net/ThemeName`(当前 GTK 主题) 行, 保留其他 XSETTINGS 键, `killall -HUP xsettingsd` 触发 XSETTINGS 重载广播
+- `~/.xsettingsd` — `set_gtk_theme()` 维护 `Net/ThemeName`(当前 GTK 主题) + `Gtk/CursorThemeName/Size`(源 `theme.json:cursor`, 与 `Xcursor` 对齐, 缺失时 Firefox 回退到 `settings.ini/gsettings` 的 36), 保留其他 XSETTINGS 键, `pkill -HUP xsettingsd` 触发重载广播
 
 ## Rofi 模块注册表规范
 

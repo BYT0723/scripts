@@ -197,10 +197,12 @@ set_gtk_theme() {
     local mode="$1"
     [ -z "$mode" ] && return
 
-    local theme icon_theme
+    local theme icon_theme cursor_theme cursor_size
     theme=$(get_theme_config "$mode" "gtk") || return
     icon_theme=$(get_theme_config "$mode" "icon") || return
     [ -z "$theme" ] && return
+    cursor_theme=$(jq -r '.cursor.theme // empty' "$THEME_CONF")
+    cursor_size=$(jq -r '.cursor.size // empty' "$THEME_CONF")
 
     local gtk2_cfg="$HOME/.gtkrc-2.0"
     local gtk3_cfg="$HOME/.config/gtk-3.0/settings.ini"
@@ -208,16 +210,22 @@ set_gtk_theme() {
 
     _ensure_config_line "$gtk2_cfg" '^gtk-theme-name=.*' 'gtk-theme-name="'"$theme"'"'
     _ensure_config_line "$gtk2_cfg" '^gtk-icon-theme-name=.*' 'gtk-icon-theme-name="'"$icon_theme"'"'
+    [ -n "$cursor_theme" ] && _ensure_config_line "$gtk2_cfg" '^gtk-cursor-theme-name.*' 'gtk-cursor-theme-name="'"$cursor_theme"'"'
+    [ -n "$cursor_size" ] && _ensure_config_line "$gtk2_cfg" '^gtk-cursor-theme-size.*' "gtk-cursor-theme-size=$cursor_size"
     for conf in "$gtk3_cfg" "$gtk4_cfg"; do
         if [ -f "$conf" ] && grep -q '^\[Settings\]' "$conf" 2>/dev/null; then
             _ensure_config_line "$conf" '^gtk-theme-name=.*' "gtk-theme-name=$theme"
             _ensure_config_line "$conf" '^gtk-icon-theme-name=.*' "gtk-icon-theme-name=$icon_theme"
+            [ -n "$cursor_theme" ] && _ensure_config_line "$conf" '^gtk-cursor-theme-name=.*' "gtk-cursor-theme-name=$cursor_theme"
+            [ -n "$cursor_size" ] && _ensure_config_line "$conf" '^gtk-cursor-theme-size=.*' "gtk-cursor-theme-size=$cursor_size"
         else
             mkdir -p "$(dirname "$conf")"
             {
                 echo "[Settings]"
                 echo "gtk-theme-name=$theme"
                 echo "gtk-icon-theme-name=$icon_theme"
+                [ -n "$cursor_theme" ] && echo "gtk-cursor-theme-name=$cursor_theme"
+                [ -n "$cursor_size" ] && echo "gtk-cursor-theme-size=$cursor_size"
             } >>"$conf"
         fi
     done
@@ -225,6 +233,8 @@ set_gtk_theme() {
     # 运行时广播双通道 (以上仅为持久配置, 供应用启动时读取):
     # 1. XSETTINGS: GTK 应用 (含 Firefox UI) 监听 gtk-theme-name 变化即时刷新
     _ensure_config_line "$HOME/.xsettingsd" '^Net/ThemeName.*' 'Net/ThemeName "'"$theme"'"'
+    [ -n "$cursor_theme" ] && _ensure_config_line "$HOME/.xsettingsd" '^Gtk/CursorThemeName.*' 'Gtk/CursorThemeName "'"$cursor_theme"'"'
+    [ -n "$cursor_size" ] && _ensure_config_line "$HOME/.xsettingsd" '^Gtk/CursorThemeSize.*' "Gtk/CursorThemeSize $cursor_size"
     if ! pgrep -x xsettingsd >/dev/null 2>&1; then
         xsettingsd &>/dev/null &
         disown
@@ -238,6 +248,10 @@ set_gtk_theme() {
         local cs="prefer-$mode"
         gsettings set org.gnome.desktop.interface color-scheme "$cs" ||
             system-notify normal "Theme Sync" "gsettings color-scheme 设置失败, portal 通道未生效"
+        # 光标: GTK/Firefox 经 XSETTINGS 未命中时回退到 gsettings, 必须与 theme.json 对齐
+        # (否则 Xcursor.size=24 而 Firefox=36, 差 1.5x)
+        [ -n "$cursor_theme" ] && gsettings set org.gnome.desktop.interface cursor-theme "$cursor_theme" 2>/dev/null
+        [ -n "$cursor_size" ] && gsettings set org.gnome.desktop.interface cursor-size "$cursor_size" 2>/dev/null
     fi
 }
 
