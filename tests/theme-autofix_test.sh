@@ -176,6 +176,34 @@ check "F3 脏 API 时不切换" "! grep -q '^theme_change' \"\$MOCK_LOG\""
 stop_daemon
 export CURL_API_BODY=""
 
+# ---- 场景 I: 窗口外翻转带端点，窗口内翻转保持 nobright ----
+# 用镜像真实 nobright 契约的 mock (无 nobright 才写端点)
+_do_theme_change() {
+    echo "theme_change $1 $2" >>"$MOCK_LOG"
+    echo "$1" >"$HOME/.local/state/dwm/current-theme"
+    [ "$2" != "nobright" ] && echo "endpoint $1" >>"$MOCK_LOG"
+}
+# I1: 深夜启动 (23:00, 窗口外), cur=light → 翻转 dark 必须带端点
+printf '%s|%s|%s|%s\n' "$TODAY" "$SR" "$SS" "$SR2" >"$CACHE"
+echo light >"$HOME/.local/state/dwm/current-theme"
+set_now "$(/usr/bin/date -d "$TODAY 23:00" +%s)"
+: >"$MOCK_LOG"
+start_daemon
+/bin/sleep 0.3
+check "I1 窗口外翻转带端点 (dark+endpoint, 无 nobright)" \
+    "grep -q '^theme_change dark \$' \"\$MOCK_LOG\" && grep -q '^endpoint dark\$' \"\$MOCK_LOG\""
+stop_daemon
+
+# I2: 日出整点 (09:00, dawn 窗口内), cur=dark → 翻转 light 保持 nobright (防闪端点)
+echo dark >"$HOME/.local/state/dwm/current-theme"
+set_now "$SR"
+: >"$MOCK_LOG"
+start_daemon
+/bin/sleep 0.3
+check "I2 窗口内翻转保持 nobright (无端点闪)" \
+    "grep -q '^theme_change light nobright\$' \"\$MOCK_LOG\" && ! grep -q '^endpoint ' \"\$MOCK_LOG\""
+stop_daemon
+
 # ---- 场景 G: 静态守卫 ----
 # _do_theme_change 调用链 (set_fcitx5_theme/set_gtk_theme/_do_theme_change) 内所有行尾
 # 单个 & 后台 (排除 && 续行) 必须带 9>&-, 否则孤儿进程继承 flock FD 9 致新 daemon 秒退

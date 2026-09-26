@@ -579,8 +579,16 @@ auto_daemon() {
                 sleep 5 9>&-
                 [ "$(get_auto_config "auto.enabled")" = "false" ] && exit 0
             done
-            # 只切配色不设端点亮度，亮度由下面每轮插值统一负责
-            _do_theme_change "$desired" nobright
+            # 翻转时的亮度策略 (窗口内外有别):
+            # 窗口内 → nobright，只切配色，亮度由每轮插值接管 (翻转点插值正好在旧端点，
+            #   若设新端点会闪一下)；窗口外 → 带端点一次性写入，否则之后再也没人写亮度
+            #   (插值在窗口外故意不动)，导致配色与亮度永久错位 (如夜间启动 daemon、
+            #   挂起跨过窗口、锁屏延迟翻转)。
+            if _should_apply_at "$now" "$rise" "$set_pt" "$dawn" "$dusk" "$anchor"; then
+                _do_theme_change "$desired" nobright
+            else
+                _do_theme_change "$desired"
+            fi
             tool-notify low "Auto Theme" "switched to $desired theme"
             # _do_theme_change 空模式 early-return 时 current-theme 不变,
             # 以文件校验为准再 SIGHUP, 避免无意义重启风暴
