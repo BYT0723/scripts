@@ -283,10 +283,13 @@ _do_theme_change() {
 
     set_dunst_theme "$mode"
 
-    # 壁纸跟随主题色调 (后台执行, 不阻塞后续 SIGHUP; 失败不影响主题切换退出码)
+    # 壁纸跟随主题色调 (前台同步, 必须在后续 SIGHUP 之前落盘:
+    # 后台化会让 set 落在 dwm 重启之后, 屏幕闪两次 —— 一次重启 remap,
+    # 一次迟到的壁纸 reload; 同步则最多一次壁纸切换 + 一次重启, 且有序。
+    # theme_wallpaper 恒返回 0, 失败不影响主题切换退出码)
     # mode 非空由函数顶部 early-return 保证, 此处只需确认脚本可执行
     if [ -x "$WORK_DIR/tools/wallpaper.sh" ]; then
-        ("$WORK_DIR/tools/wallpaper.sh" --theme "$mode" 9>&- &)
+        "$WORK_DIR/tools/wallpaper.sh" --theme "$mode" 9>&- || true
     fi
 
     # Wait for all theme changes to settle (especially fcitx5 restart,

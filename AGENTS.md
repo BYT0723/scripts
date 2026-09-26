@@ -293,7 +293,10 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | 函数                         | 调用者                                                                                                                                                                                                       |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `getConfig()`                | wallpaper.sh, wallpaper-lib.sh (内部)                                                                                                                                                                        |
-| `get_theme_dir()`            | wallpaper.sh (random_wallpaper, select_wallpaper, theme_wallpaper) — 主题目录解析: light 用 base key, dark 用 `${base}_dark`, 为空 fallback base; theme 缺省读 current-theme |
+| `get_theme_dir()`            | wallpaper.sh (random_wallpaper, select_wallpaper, theme_wallpaper) — 主题目录解析: light 用 base key, dark 用 `${base}_dark`, 为空 fallback base; theme 缺省经 `current_mode()` 读 current-theme |
+| `current_mode()`             | wallpaper.sh (theme auto 解析、回写记忆) / wallpaper-lib.sh (get_theme_dir 缺省) — current-theme 归一化 light\|dark (缺失/非 dark 即 light); 与 theme.sh 的 `get_current_theme()` (原始值) 区分 |
+| `get_last_wallpaper()`       | wallpaper.sh (theme_wallpaper 恢复记忆) — 读 `wallpaper-last.json` 中 `<target>.<mode>` 路径, 缺失/损坏输出空; mode 非 dark 按 light |
+| `save_last_wallpaper()`      | wallpaper.sh (theme_wallpaper random 后、`-m next/select` 后、daemon 轮换后按 current-theme 回写) — jq 原子写回 (tmp+mv), 源缺失/损坏从 `{}` 重建 |
 | `ensure_monitor_config()`    | rofi/scripts/wallpaper.sh (主入口选定 monitor 后初始化写入) — 遍历 `config` 数组写默认, 跳过 volume/fps (video-render 子对象默认) |
 | `detect_file_type()`         | wallpaper.sh, wallpaper-render.sh                                                                                                                                                                            |
 | `get_video_dim()`            | wallpaper.sh (get_wallpaper_rotation) — 单次 ffprobe 合并取 dims+rotation (csv 第三列), 原两次独立调用省一半耗时                                                                                                                                                                        |
@@ -331,8 +334,9 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | 函数 | 调用者 |
 | ---- | ------ |
 | `random_wallpaper()` | wallpaper.sh (`-m next`, launch_wallpaper daemon, theme_wallpaper) — 经 `get_theme_dir` 按当前主题选目录 (第二参可显式传 light/dark); 排除当前壁纸后随机抽取 |
+| `ensure_xwallpaperd()` | wallpaper.sh (launch_wallpaper 经此拉起) — daemon 存活直接复用, 仅死亡/缺失才 pkill 清理 + 拉起 (热重启重跑 autostart 不杀 daemon, 窗口不销毁重建) |
 | `select_wallpaper()` | wallpaper.sh (`-m select`) — 经 `get_theme_dir` 按当前主题定 yazi 起始目录 |
-| `theme_wallpaper()` | wallpaper.sh (`--theme [light\|dark\|auto]` CLI) / tools/theme.sh `_do_theme_change` (后台 hook) — 枚举 active monitors + enabled groups (skip 组员, 坏组跳过), Screen 激活时只切 Screen, 单 target 失败跳过整体恒返回 0 |
+| `theme_wallpaper()` | wallpaper.sh (`--theme [light\|dark\|auto]` CLI) / tools/theme.sh `_do_theme_change` (前台同步 hook, SIGHUP 前落盘) — 枚举 active monitors + enabled groups (skip 组员, 坏组跳过), Screen 激活时只切 Screen, 单 target 失败跳过整体恒返回 0; 先读 `wallpaper-last.json` 恢复该主题上次壁纸 (文件仍存在才用), 无记忆/文件已删才 random 并回写记忆; 当前已是目标时跳过 set (同名 set 即 reload, 白闪一次) |
 
 ### tools/wallpaper-render.sh
 
@@ -425,7 +429,7 @@ tools/theme.sh auto (守护进程)
   → get_current_theme() (xrdb -query dwm.col_theme)
   → 日出/日落触发:
       → _do_theme_change("light"|"dark", nobright) (只切配色)
-      → (wallpaper.sh --theme <mode> &) 后台跟随换壁纸 (失败不影响切换)
+      → wallpaper.sh --theme <mode> 前台同步跟随换壁纸 (SIGHUP 前落盘, 失败不影响切换)
       → system-notify low
       → pkill -SIGHUP dwm → dwm restart → loadxrdb 重载配色
   → 每轮 (60s): apply_transition_brightness() 按 `auto.dawn/dusk_minutes` +
@@ -472,7 +476,7 @@ wallpaper.sh → source utils/monitor.sh, utils/notify.sh
   │    ├─ 主题色调: light 用 `random_image_dir/random_video_dir`, dark 用 `random_image_dir_dark/random_video_dir_dark`
   │    │   (dark 空 fallback light, 经 `get_theme_dir` 解析); 主题翻转经 `theme_wallpaper --theme` 跟随切换,
   │    │   daemon 轮换按 `current-theme` 实时选目录
-  │    └─ launch_wallpaper 启动 xwallpaper daemon, 启动时自动恢复 keep=0 状态
+  │    └─ launch_wallpaper 经 ensure_xwallpaperd 复用常驻 daemon (存活不重启, 仅死亡拉起), 启动时自动恢复 keep=0 状态
   └─ 状态: xwallpaper 持久化 (state 文件), daemon 重启自愈
 ```
 
@@ -483,6 +487,7 @@ wallpaper.sh → source utils/monitor.sh, utils/notify.sh
 - `rofi/colors/` `rofi/images/`
 - `~/.config/dwm/quicklinks.json` — quicklinks 书签, `links` 数组元素含 `id`(uuid)、`name`、`url` (icon 字段已废弃移除); 顶层 `searcher` 数组存搜索引擎 `{name, url}`(name 为唯一键, url 用 `{key}` 占位搜索词, 可省略 → 追加 url 末尾), 自定义输入搜索默认用 `searcher[0]`, 支持 `@<name>` 首 token 指定引擎
 - `~/.config/dwm/wallpaper.json` — 壁纸配置, 含 `monitors`(按屏/组名键)、`groups`(成员名单 + enabled 启停); 每个 monitor/组可带可选 `video-render` 对象 `{volume, fps}`: `volume>0` 传 `--volume N` 播放音频, `volume=0`/缺省时传 `--mute` 静音 (0 与 mute 等价), `fps>0` 传 `--fps`; 主题色调目录: light 用 `random_image_dir`/`random_video_dir`, dark 用 `random_image_dir_dark`/`random_video_dir_dark` (缺失/空串 fallback light, rofi Wallpaper 菜单 Images Dark/Videos Dark 配置)
+- `~/.local/state/dwm/wallpaper-last.json` — 壁纸主题记忆 (状态, 非配置): `{"<target>":{"light":"/path","dark":"/path"}}`, target = monitor 名/组名/Screen; 主题切换优先恢复记忆 (文件不存在回退 random), 手动 `next/select` 与 daemon 轮换按 `current-theme` 回写
 - `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置，`"auto"` 含 `enabled`(默认 false)、`sun_rise_offset`(日出延迟分钟数)、`sun_set_offset`(日落延迟分钟数)、`dawn_minutes`/`dusk_minutes`(亮度过渡分钟数，默认 60，0=关闭渐变)、`transition_anchor`(过渡锚点 `after`(默认，事件后窗口) / `center`(对称窗口) / `before`(事件前窗口))，`"cursor"` 含 `theme`/`size`，`"dpi"` 为 Xft.dpi 值，`light`/`dark` 的 `colorscheme` 引用 `~/.config/dwm/colorschemes/` 下的颜色方案文件
 - `~/.xsettingsd` — `set_gtk_theme()` 维护 `Net/ThemeName`(当前 GTK 主题) + `Gtk/CursorThemeName/Size`(源 `theme.json:cursor`, 与 `Xcursor` 对齐, 缺失时 Firefox 回退到 `settings.ini/gsettings` 的 36), 保留其他 XSETTINGS 键, `pkill -HUP xsettingsd` 触发重载广播
 
@@ -547,6 +552,8 @@ calendar-lunar|󰃚|Lunar Calendar|
 - **rofi/scripts/theme.sh handle_monitor_brightness 保存值/退出码失效已修复**: 原实现 `coproc YAD` + `wait "$YAD_PID"` 取 yad 退出码区分 OK/取消, 但 bash 读完全部 coproc 输出后可能清理 `YAD_PID`（实测 wait 时已空 → 报错 status≠0 → 误走恢复分支）; 且 `while read` 最后一次 read 读到 EOF 时会把 `$value` **清空**, 循环外 `$value` 必空（OK 也空）。重构为 **FIFO + 后台 pid (`$!`, 稳定)**, 循环内用 `$last` 记录最终值; OK 后从硬件读取实际亮度（eDP brightnessctl / DDC getvcp）作为保存值, 读取失败回退 `$last`。回归测试 `tests/rofi-theme-monitor-brightness_test.sh`（awk 提取函数 + mock yad/xrandr/brightnessctl; 因脚本顶层 `module_loop` 阻塞无法整体 source）
 - **DP 显示器 DDC 亮度控制失效已修复**: `get_ddc_bus()` 只接受 `ddcutil detect --brief` 中 `Display N` 有效条目, 丢弃 `Invalid display` 条目。但 DP 经 aux 总线时 detect 常误报 `This monitor does not support DDC/CI. (I2C slave address x37 is unresponsive.)`, 而同 bus 的 `getvcp/setvcp 10` 实际可用 (TRG JQ24F260L 实测) → bus 解析为空, 读写静默失败。现两遍取值: 优先有效条目, 无命中时回退同 `drm_connector_id` 的 Invalid 条目总线 (eDP 不受影响, 其读写短路走 brightnessctl)。回归测试 `tests/monitor-brightness_test.sh` 场景 D (旧代码 FAIL, 新代码 PASS)
 - **DDC 显示器滑块拖动滞后已优化**：yad `--print-partial` 拖动时逐像素输出值, 原实现每个值都调 `ddcutil setvcp`（~200ms/次）, 大幅拖动会积压上百次调用排队, 松手后仍持续处理（实测 100 值 → ~20s）; eDP 的 `brightnessctl set` 即时无此问题。现循环按显示器类型分流: eDP 逐值即时应用, DDC 用内层 `read -t 0.03` 丢弃积压值、滑动暂停后只应用最新值（实测 100 值 → 1 次 setvcp, ~1s）。回归测试场景 C（mock ddcutil detect/setvcp + DisplayPort-0 monitor, 断言 setvcp 只调 1 次且为最新值）
+- **热重启后 autostart 重跑杀掉 xwallpaperd 多闪一次已修复**: dwm SIGHUP 重启会重跑 `autostart.sh` → `wallpaper.sh -r` 的 `launch_wallpaper` 曾无条件 `pkill xwallpaperd` 再起新实例 (窗口销毁重建闪一次, 叠加主题切换自身的 set 共两次)。现抽取 `ensure_xwallpaperd()`: `pgrep` 存活直接复用零操作, 仅死亡/缺失才清理拉起; bash 轮换实例仍按旧逻辑去重重启 (只重置计时器, 不碰窗口)。回归测试 `tests/wallpaper-restart_test.sh` (存活零 pkill/零启动 + 死亡拉起 + launch 体内无裸 pkill 静态守卫, 旧代码 FAIL)
+- **主题切换壁纸闪两次已修复 (两处)**: ① `theme_wallpaper` 无幂等 — 当前已是目标仍同名 set (xwallpaper 同名即 reload) 白闪一次, 现以 `--state` path 比对, 相等跳过 (random 分支本就排除当前, 主要命中记忆恢复路径)。② `_do_theme_change` 壁纸 job 后台 `&` + 固定 `sleep 0.3` 后 SIGHUP, set (find+ffprobe+set 约 0.4-1s) 落在 dwm 重启之后成第二次闪烁, 现改前台同步 SIGHUP 前落盘 (恒返回 0, 失败不影响切换; 与端点亮度同步化同类修复)。回归测试 `tests/wallpaper-last_test.sh` 场景 6 (旧代码 FAIL) + `tests/wallpaper-theme_test.sh` hook 前台断言 (`&)` 静态守卫)
 
 ---
 

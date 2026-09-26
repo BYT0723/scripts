@@ -19,6 +19,39 @@ mkdir -p "$cache_wallpaper_dir"
 # 本文件仅保留 rotation_cache (文件方向角度缓存, 非当前状态)。
 rotation_cache="$cache_wallpaper_dir/rotation_cache"
 
+# light/dark 主题壁纸记忆 (方案 A): 每个 target (monitor 名/组名/Screen)
+# 记住上次 light/dark 各自的壁纸路径, 主题来回切换时恢复而非重新 random。
+# 格式: {"<target>": {"light": "/path", "dark": "/path"}}
+last_state="$HOME/.local/state/dwm/wallpaper-last.json"
+
+# 读记忆: 输出路径 (无记忆/文件损坏时输出空)。mode 非 dark 一律按 light。
+get_last_wallpaper() {
+    local target="$1" mode="$2"
+    [ -z "$target" ] && return 1
+    [ "$mode" != "dark" ] && mode="light"
+    [ -f "$last_state" ] || return 1
+    jq -r --arg t "$target" --arg m "$mode" '.[$t][$m] // empty' "$last_state" 2>/dev/null
+}
+
+# 写记忆: jq 原子写回 (tmp+mv), 源文件缺失/损坏时从 {} 重建。
+save_last_wallpaper() {
+    local target="$1" mode="$2" path="$3"
+    [ -z "$target" ] || [ -z "$path" ] && return 1
+    [ "$mode" != "dark" ] && mode="light"
+    mkdir -p "$(dirname "$last_state")" 2>/dev/null || return 1
+    local tmp
+    tmp=$(mktemp "${last_state}.tmp.XXXXXX" 2>/dev/null) || return 1
+    if ! jq --arg t "$target" --arg m "$mode" --arg p "$path" \
+        '.[$t][$m] = $p' "$last_state" >"$tmp" 2>/dev/null; then
+        jq -n --arg t "$target" --arg m "$mode" --arg p "$path" \
+            '{($t): {($m): $p}}' >"$tmp" 2>/dev/null || {
+            rm -f "$tmp"
+            return 1
+        }
+    fi
+    mv "$tmp" "$last_state"
+}
+
 # Define the default configuration
 declare -A config
 config["random"]=0
@@ -165,12 +198,21 @@ getConfig() {
     echo "${config[$key]}"
 }
 
+# 当前主题 (归一化 light|dark): 读 current-theme, 缺失/非 dark 一律 light。
+# wallpaper.sh 内三处 inline cat+归一化的唯一来源 (theme auto 解析、回写记忆);
+# 与 tools/theme.sh 的 get_current_theme (原始值, 不归一化) 区分。
+current_mode() {
+    local m
+    m=$(cat "$HOME/.local/state/dwm/current-theme" 2>/dev/null)
+    [ "$m" = "dark" ] && printf 'dark' || printf 'light'
+}
+
 # Get theme-aware directory: light 用 base key, dark 用 ${base}_dark (空则 fallback base).
 # Usage: get_theme_dir <monitor> <base> [theme]
 # theme 缺省读 ~/.local/state/dwm/current-theme (缺失即 light)。
 get_theme_dir() {
     local monitor="$1" base="$2" theme="${3:-}"
-    [ -z "$theme" ] && theme=$(cat "$HOME/.local/state/dwm/current-theme" 2>/dev/null)
+    [ -z "$theme" ] && theme=$(current_mode)
     if [ "$theme" != "dark" ]; then
         getConfig -m "$monitor" "$base"
         return

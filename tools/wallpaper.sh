@@ -157,10 +157,7 @@ apply_wallpaper() {
 # 单 target 失败跳过继续, 整体恒返回 0。
 theme_wallpaper() {
     local mode="${1:-auto}"
-    if [ "$mode" = "auto" ]; then
-        mode=$(cat "$HOME/.local/state/dwm/current-theme" 2>/dev/null)
-    fi
-    [ "$mode" = "dark" ] || mode="light"
+    [ "$mode" = "auto" ] && mode=$(current_mode)
 
     local targets=()
     if xwallpaper --list 2>/dev/null | grep -qx "Screen"; then
@@ -178,16 +175,42 @@ theme_wallpaper() {
         done < <(group_names)
     fi
 
-    local t file
+    local t file desired last win cur
     for t in "${targets[@]}"; do
         is_group_member "$t" && continue
-        if ! file=$(random_wallpaper "$t" "$mode"); then
-            error "theme_wallpaper: no $mode wallpaper for $t" || true
+        # 记忆恢复优先 (文件仍存在才用, 否则回退 random)
+        desired=""
+        last=$(get_last_wallpaper "$t" "$mode" 2>/dev/null)
+        if [ -n "$last" ] && [ -f "$last" ]; then
+            desired="$last"
+        else
+            if ! file=$(random_wallpaper "$t" "$mode"); then
+                error "theme_wallpaper: no $mode wallpaper for $t" || true
+                continue
+            fi
+            [ -n "$file" ] || continue
+            desired="$file"
+            save_last_wallpaper "$t" "$mode" "$desired" || true
+        fi
+        # 幂等: 当前已是目标则跳过 (同名 set 即 reload, 白闪一次)
+        win="$t"
+        has_group "$t" && win="grp_${t// /_}"
+        cur=$(xwallpaper --state 2>/dev/null | awk -F'\t' -v n="$win" '$1==n {print $3; exit}')
+        if [ -n "$cur" ] && [ "$cur" = "$desired" ]; then
             continue
         fi
-        [ -n "$file" ] && apply_wallpaper "$t" "$file" || true
+        apply_wallpaper "$t" "$desired" || true
     done
     return 0
+}
+
+# 确保 xwallpaperd 存活: 存活直接复用 (热重启重跑 autostart 时不杀 daemon,
+# 否则窗口销毁重建多闪一次); 仅死亡/缺失才拉起。
+ensure_xwallpaperd() {
+    pgrep -x xwallpaperd >/dev/null 2>&1 && return 0
+    pkill -x xwallpaperd 2>/dev/null
+    while pgrep -x xwallpaperd >/dev/null; do sleep 0.1; done
+    xwallpaperd
 }
 
 # wallpaper launch_wallpaper
@@ -198,11 +221,7 @@ launch_wallpaper() {
     script=$(readlink -f "$0")
     pgrep -f "$script" | grep -vx "$$" | xargs -r kill
 
-    {
-        pkill -x xwallpaperd
-        while pgrep -x xwallpaperd >/dev/null; do sleep 0.1; done
-        xwallpaperd
-    } &
+    ensure_xwallpaperd &
 
     declare -A last_update
     local check_interval=60
@@ -243,7 +262,10 @@ launch_wallpaper() {
             [ $((now - last)) -lt $((dur * 60)) ] && continue
 
             file=$(random_wallpaper "$target")
-            [ -n "$file" ] && apply_wallpaper "$target" "$file" && last_update[$target]=$now
+            if [ -n "$file" ] && apply_wallpaper "$target" "$file"; then
+                last_update[$target]=$now
+                save_last_wallpaper "$target" "$(current_mode)" "$file" || true
+            fi
         done < <(
             xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}'
             while IFS= read -r grp; do
@@ -280,7 +302,9 @@ case "$op" in
         ;;
     *) exit 1 ;;
     esac
-    [ -n "$file" ] && apply_wallpaper $fflag "$monitor" "$file"
+    if [ -n "$file" ] && apply_wallpaper $fflag "$monitor" "$file"; then
+        save_last_wallpaper "$monitor" "$(current_mode)" "$file" || true
+    fi
     ;;
 '-h' | '--help') echo_help ;;
 *)

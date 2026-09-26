@@ -121,7 +121,7 @@ fail=0
 check() { # desc, cond
     if eval "$2"; then echo "PASS: $1"; else echo "FAIL: $1"; fail=1; fi
 }
-reset_state() { rm -f "$XW_MOCK_STATE"/*.win; }
+reset_state() { rm -f "$XW_MOCK_STATE"/*.win "$HOME/.local/state/dwm/wallpaper-last.json"; }
 
 # ---- 1. light → base ----
 echo "light" >"$HOME/.local/state/dwm/current-theme"
@@ -199,7 +199,7 @@ theme_wallpaper dark || rc=$?
 check "单 target 失效仍退出 0" "[ $rc -eq 0 ]"
 
 # ---- 9. theme hook + rofi 接线存在性 ----
-check "theme _do_theme_change hook 壁纸跟随（后台）" "grep -q 'wallpaper.sh.*--theme.*&' \"$THEME_SH\""
+check "theme _do_theme_change hook 壁纸跟随（前台同步）" "grep -q 'wallpaper.sh.*--theme' \"$THEME_SH\" && ! grep -q 'wallpaper.sh.*--theme.*&)' \"$THEME_SH\""
 check "rofi 有 Images Dark 入口" "grep -q 'random_images_path_dark' \"$ROFI_WALLPAPER_SH\""
 check "rofi 有 Videos Dark 入口" "grep -q 'random_videos_path_dark' \"$ROFI_WALLPAPER_SH\""
 
