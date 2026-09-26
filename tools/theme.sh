@@ -123,7 +123,7 @@ set_fcitx5_theme() {
     _ensure_config_line "$file" "^DarkTheme=.*" "DarkTheme=$dark_theme"
     _ensure_config_line "$file" "^UseDarkTheme=.*" "UseDarkTheme=True"
 
-    fcitx5 -r &
+    fcitx5 -r 9>&- &
     local new_pid
     for i in {1..10}; do
         sleep 0.1
@@ -236,7 +236,9 @@ set_gtk_theme() {
     [ -n "$cursor_theme" ] && _ensure_config_line "$HOME/.xsettingsd" '^Gtk/CursorThemeName.*' 'Gtk/CursorThemeName "'"$cursor_theme"'"'
     [ -n "$cursor_size" ] && _ensure_config_line "$HOME/.xsettingsd" '^Gtk/CursorThemeSize.*' "Gtk/CursorThemeSize $cursor_size"
     if ! pgrep -x xsettingsd >/dev/null 2>&1; then
-        xsettingsd &>/dev/null &
+        # 9>&-: auto_daemon 持 flock FD 9 时调到此处, 常驻的 xsettingsd 绝不能继承它,
+        # 否则 daemon 重启后新实例永远拿不到锁而秒退 (与 sleep 孤儿占锁同类 bug)
+        xsettingsd 9>&- &>/dev/null &
         disown
         sleep 0.3
     fi
@@ -271,7 +273,8 @@ _do_theme_change() {
     fi
     set_dwm_theme "$mode"
     set_rofi_theme "$mode"
-    set_kitty_theme "$mode" &
+    # 9>&-: daemon 持 flock FD 9, 所有后台任务一律关闭继承 (见 _auto_lock 注释)
+    set_kitty_theme "$mode" 9>&- &
     set_qt_theme "$mode"
     set_gtk_theme "$mode"
     set_fcitx5_theme
@@ -283,7 +286,7 @@ _do_theme_change() {
     # 壁纸跟随主题色调 (后台执行, 不阻塞后续 SIGHUP; 失败不影响主题切换退出码)
     # mode 非空由函数顶部 early-return 保证, 此处只需确认脚本可执行
     if [ -x "$WORK_DIR/tools/wallpaper.sh" ]; then
-        ("$WORK_DIR/tools/wallpaper.sh" --theme "$mode" &)
+        ("$WORK_DIR/tools/wallpaper.sh" --theme "$mode" 9>&- &)
     fi
 
     # Wait for all theme changes to settle (especially fcitx5 restart,
@@ -480,19 +483,26 @@ get_sun_times() {
     (
         exec 9>&- # 见 _auto_lock：不继承 flock 锁
         IFS=, read LAT LON < <(curl -m 2 -fsS https://ipinfo.io/loc) || exit
+        # 坐标非法直接丢弃 (不写缓存、不删锁: 保留 1 分钟 throttle, 见下)
+        [[ $LAT =~ ^-?[0-9.]+$ && $LON =~ ^-?[0-9.]+$ ]] || exit
         local json tz sr1 ss1 sr2
         json=$(curl -m 5 -fsS "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&daily=sunrise,sunset&forecast_days=2&timezone=auto") || exit
         tz=$(echo "$json" | jq -r '.timezone // "UTC"')
-        sr1=$(echo "$json" | jq -r '.daily.sunrise[0]')
-        ss1=$(echo "$json" | jq -r '.daily.sunset[0]')
-        sr2=$(echo "$json" | jq -r '.daily.sunrise[1]')
-        sr_ep=$(TZ="$tz" date -d "$sr1" +%s)
-        ss_ep=$(TZ="$tz" date -d "$ss1" +%s)
-        sr2_ep=$(TZ="$tz" date -d "$sr2" +%s)
+        sr1=$(echo "$json" | jq -r '.daily.sunrise[0] // empty')
+        ss1=$(echo "$json" | jq -r '.daily.sunset[0] // empty')
+        sr2=$(echo "$json" | jq -r '.daily.sunrise[1] // empty')
+        [ -n "$sr1" ] && [ -n "$ss1" ] && [ -n "$sr2" ] || exit
+        sr_ep=$(TZ="$tz" date -d "$sr1" +%s) || exit
+        ss_ep=$(TZ="$tz" date -d "$ss1" +%s) || exit
+        sr2_ep=$(TZ="$tz" date -d "$sr2" +%s) || exit
+        # epoch 非法或时序颠倒 (ss>sr, sr2>ss) 视为脏数据丢弃, 不写缓存
+        # (date -d "" 会静默返回当前时间, 必须拦掉)
+        [[ $sr_ep =~ ^[0-9]+$ && $ss_ep =~ ^[0-9]+$ && $sr2_ep =~ ^[0-9]+$ ]] || exit
+        [ "$ss_ep" -gt "$sr_ep" ] && [ "$sr2_ep" -gt "$ss_ep" ] || exit
         mkdir -p "$(dirname "$cache")"
         printf '%s|%s|%s|%s\n' "$today" "$sr_ep" "$ss_ep" "$sr2_ep" >"${cache}.tmp" && mv "${cache}.tmp" "$cache"
         rm -f "$lock"
-    ) &
+    ) >/dev/null 2>&1 &
     disown
     return 1
 }
@@ -501,11 +511,21 @@ auto_daemon() {
     _auto_lock "${THEME_LOCK:-/tmp/dwm-status/theme-auto.lock}" || exit 0
     local auto
     auto=$(get_auto_config "auto.enabled")
-    [ "$auto" = "true" ] || exit 0
+    # 三态: true=运行; 显式 false/未知非空值=关闭→退出;
+    # 空=配置瞬时不可读(编辑器非原子写的瞬间 jq 失败)或缺 key→进主循环短重试, 不退出
+    # (直接退出会导致一次瞬时抖动杀死 daemon, 且永不自愈)
+    [ "$auto" = "false" ] && exit 0
+    [ -n "$auto" ] && [ "$auto" != "true" ] && exit 0
 
     while true; do
         auto=$(get_auto_config "auto.enabled")
-        [ "$auto" = "true" ] || exit 0
+        [ "$auto" = "false" ] && exit 0
+        [ -n "$auto" ] && [ "$auto" != "true" ] && exit 0
+        if [ "$auto" != "true" ]; then
+            # 空=读失败, 短重试不退出 (见函数首注释)
+            sleep 10 9>&-
+            continue
+        fi
 
         local times sunrise sunset next_sunrise
         if ! times=$(get_sun_times 2>/dev/null); then
@@ -515,12 +535,20 @@ auto_daemon() {
             continue
         fi
         read sunrise sunset next_sunrise <<<"$times"
+        # 缓存手改/损坏时非数字会坍缩成 epoch 0 (bash 空变量即 0),
+        # remain 恒负→无 sleep 热循环, desired 恒 dark→SIGHUP 风暴; 必须拦掉
+        if ! [[ $sunrise =~ ^[0-9]+$ && $sunset =~ ^[0-9]+$ && $next_sunrise =~ ^[0-9]+$ ]]; then
+            sleep 30 9>&-
+            continue
+        fi
 
         local rise_off set_off
         rise_off=$(get_auto_config "auto.sun_rise_offset")
-        rise_off=$((${rise_off:-0} * 60))
+        [[ $rise_off =~ ^-?[0-9]+$ ]] || rise_off=0
+        rise_off=$((rise_off * 60))
         set_off=$(get_auto_config "auto.sun_set_offset")
-        set_off=$((${set_off:-0} * 60))
+        [[ $set_off =~ ^-?[0-9]+$ ]] || set_off=0
+        set_off=$((set_off * 60))
 
         local now desired next_switch rise set_pt dawn dusk anchor
         now=$(date +%s)
@@ -544,15 +572,19 @@ auto_daemon() {
 
         local cur
         cur=$(get_current_theme)
-        if [ "$cur" != "$desired" ]; then
-            # 锁屏期间阻塞等待 (避免与 dwm SIGHUP 重启竞态), 解锁后立即切换
+        if [ -n "$desired" ] && [ "$cur" != "$desired" ]; then
+            # 锁屏期间阻塞等待 (避免与 dwm SIGHUP 重启竞态), 解锁后立即切换;
+            # 等待中重查 enabled: 锁屏期间 auto off 必须生效, 不补 stale 翻转
             while pgrep -x i3lock >/dev/null 2>&1; do
                 sleep 5 9>&-
+                [ "$(get_auto_config "auto.enabled")" = "false" ] && exit 0
             done
             # 只切配色不设端点亮度，亮度由下面每轮插值统一负责
             _do_theme_change "$desired" nobright
             tool-notify low "Auto Theme" "switched to $desired theme"
-            pkill -SIGHUP dwm
+            # _do_theme_change 空模式 early-return 时 current-theme 不变,
+            # 以文件校验为准再 SIGHUP, 避免无意义重启风暴
+            [ "$(get_current_theme)" = "$desired" ] && pkill -SIGHUP dwm
             sleep 0.5 9>&-
         fi
 
@@ -607,20 +639,36 @@ auto)
     pf="/tmp/dwm-status/autostart-launch-theme-auto.pid"
     case "$2" in
     on)
-        jq '.auto.enabled = true' "$THEME_CONF" >"${THEME_CONF}.tmp" &&
-            mv "${THEME_CONF}.tmp" "$THEME_CONF"
+        jq '.auto.enabled = true' "$THEME_CONF" >"${THEME_CONF}.tmp" 2>/dev/null &&
+            mv "${THEME_CONF}.tmp" "$THEME_CONF" || {
+            system-notify normal "Auto Theme" "theme.json 写入失败, auto 未启用"
+            exit 1
+        }
         pid=""
         [ -f "$pf" ] && pid=$(cat "$pf")
-        [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && exit 0
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then exit 0; fi
+        # pid 文件不可靠 (autostart 直起的 daemon 无 pid 文件, flock 才是单一真实来源):
+        # 锁被占说明已有实例在跑, 直接复用, 不再 spawn (否则新实例拿不到锁秒退,
+        # 还会用死 pid 覆盖 pid 文件)
+        if ! ( _auto_lock "${THEME_LOCK:-/tmp/dwm-status/theme-auto.lock}" ) 2>/dev/null; then
+            tool-notify low "Auto Theme" "auto switch enabled"
+            exit 0
+        fi
         "$0" auto >/dev/null 2>&1 &
         mkdir -p "$(dirname "$pf")"
         echo $! >"$pf"
         tool-notify low "Auto Theme" "auto switch enabled"
         ;;
     off)
-        jq '.auto.enabled = false' "$THEME_CONF" >"${THEME_CONF}.tmp" &&
-            mv "${THEME_CONF}.tmp" "$THEME_CONF"
-        [ -f "$pf" ] && kill "$(cat "$pf")" 2>/dev/null
+        jq '.auto.enabled = false' "$THEME_CONF" >"${THEME_CONF}.tmp" 2>/dev/null &&
+            mv "${THEME_CONF}.tmp" "$THEME_CONF" || {
+            system-notify normal "Auto Theme" "theme.json 写入失败"
+            exit 1
+        }
+        if [ -f "$pf" ]; then
+            off_pid=$(cat "$pf")
+            [[ $off_pid =~ ^[0-9]+$ ]] && kill "$off_pid" 2>/dev/null
+        fi
         rm -f "$pf"
         # 兜底无 pid 文件的 daemon (如 autostart 直起的 `theme.sh auto`)：
         # 行尾锚定只命中 daemon (`...theme.sh auto`)，不命中 `auto off` 自身
