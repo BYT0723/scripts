@@ -1,22 +1,20 @@
 #!/usr/bin/env bash
-# autostart.sh launch() 重入/竞态回归测试:
+# utils/launch.sh launch() 重入/竞态回归测试 (供 autostart.sh 与 tools/theme.sh 共用):
 #   A. 并发重入: 多个实例同时 launch check 同一 name, 只允许一个实例启动
 #   B. restart: 旧进程退出后新进程才启动 (新旧不并存), 且 pid 文件更新
 #   C. 锁不被长驻后台进程继承: 进程存活期间锁须已释放 (否则后续 launch 永远拿不到锁)
 #   D. 死 pid 文件: 记录已死进程时 check 应重新启动
 # 运行: bash tests/autostart_test.sh
 
-SCRIPT="$HOME/.dwm/autostart.sh"
+LAUNCH_LIB="$HOME/.dwm/utils/launch.sh"
 TEST_DIR=$(mktemp -d)
 BIN="$TEST_DIR/bin"
 mkdir -p "$BIN"
 export PATH="$BIN:$PATH"
 
-# 提取 launch() 函数定义 (顶层有执行代码, 不能直接 source 全文件)
-LAUNCH_FN="$TEST_DIR/launch_fn.sh"
-sed -n '/^launch() {/,/^}$/p' "$SCRIPT" >"$LAUNCH_FN"
-if ! grep -q '^launch() {' "$LAUNCH_FN"; then
-    echo "FAIL: cannot extract launch() from $SCRIPT"
+# launch() 已抽到 utils/launch.sh, 文件只含函数定义, 可直接 source
+if ! grep -q '^launch() {' "$LAUNCH_LIB"; then
+    echo "FAIL: cannot find launch() in $LAUNCH_LIB"
     exit 1
 fi
 
@@ -50,7 +48,7 @@ marker_sleep() { echo $$ >>"$MARKER"; sleep 1; }
 # 长驻进程 (写标记 + 不退出, 由 restart 杀掉)
 daemon_cmd() { echo $$ >>"$MARKER"; while :; do sleep 60; done; }
 
-source "$LAUNCH_FN"
+source "$LAUNCH_LIB"
 
 # ---- A. 并发重入互斥 ----
 for round in 1 2 3 4 5; do
