@@ -23,6 +23,19 @@ _ensure_config_line() {
     fi
 }
 
+# _ensure_config_line 的 ini 版: 按 [section] 归属写键
+# (键存在则替换; 否则插到 [section] 后; 缺节则尾部补节。缺文件由调用者建空文件)
+_ensure_ini_key() {
+    local file="$1" section="$2" key="$3" value="$4"
+    if grep -q "^$key=" "$file" 2>/dev/null; then
+        sed -i "s|^$key=.*|$key=$value|" "$file"
+    elif grep -q "^\[$section\]" "$file" 2>/dev/null; then
+        sed -i "/^\[$section\]/a $key=$value" "$file"
+    else
+        printf '[%s]\n%s=%s\n' "$section" "$key" "$value" >>"$file"
+    fi
+}
+
 # ---------- queries ----------
 
 get_current_theme() { cat "$HOME/.local/state/dwm/current-theme" 2>/dev/null; }
@@ -148,12 +161,34 @@ set_kitty_theme() {
 }
 
 set_qt_theme() {
-    [ "$QT_QPA_PLATFORMTHEME" = "gtk3" ] && return 0
+    local mode="$1"
+    [ -z "$mode" ] && return
 
-    if ! grep -q 'QT_QPA_PLATFORMTHEME=gtk3' "$HOME/.xprofile" 2>/dev/null; then
-        echo 'export QT_QPA_PLATFORMTHEME=gtk3' >>"$HOME/.xprofile"
-        system-notify low "Qt Theme" "QT_QPA_PLATFORMTHEME=gtk3 written to ~/.xprofile, relogin needed"
+    local kvtheme icon_theme
+    kvtheme=$(get_theme_config "$mode" "qt") || kvtheme=""
+    [ -z "$kvtheme" ] && return
+    icon_theme=$(get_theme_config "$mode" "icon") || icon_theme=""
+
+    # 1. QT_QPA_PLATFORMTHEME=qt6ct (幂等: 替换现存 export 行, 含 gtk3 残留; 注释行不动;
+    #    .xprofile 仅登录时读取, 有变更就提示 relogin)
+    if ! grep -q '^export QT_QPA_PLATFORMTHEME=qt6ct' "$HOME/.xprofile" 2>/dev/null; then
+        _ensure_config_line "$HOME/.xprofile" '^export QT_QPA_PLATFORMTHEME=.*' 'export QT_QPA_PLATFORMTHEME=qt6ct'
+        system-notify low "Qt Theme" "QT_QPA_PLATFORMTHEME=qt6ct written to ~/.xprofile, relogin needed"
     fi
+
+    # 2. qt6ct / qt5ct: style 固定 kvantum + icon 跟随 theme.json (缺文件/缺节自动补)
+    local conf
+    for conf in "$HOME/.config/qt6ct/qt6ct.conf" "$HOME/.config/qt5ct/qt5ct.conf"; do
+        [ -f "$conf" ] || { mkdir -p "$(dirname "$conf")"; : >"$conf"; }
+        _ensure_ini_key "$conf" Appearance style kvantum
+        [ -n "$icon_theme" ] && _ensure_ini_key "$conf" Appearance icon_theme "$icon_theme"
+    done
+
+    # 3. Kvantum 主题跟随深浅色 + --set 即时生效 (新起 Qt 应用兜底读 kvconfig)
+    local kvconf="$HOME/.config/Kvantum/kvantum.kvconfig"
+    [ -f "$kvconf" ] || { mkdir -p "$(dirname "$kvconf")"; : >"$kvconf"; }
+    _ensure_ini_key "$kvconf" General theme "$kvtheme"
+    command -v kvantummanager >/dev/null 2>&1 && kvantummanager --set "$kvtheme" >/dev/null 2>&1 || true
 }
 
 set_dunst_theme() {
@@ -621,6 +656,8 @@ check)
         "tela-icon-theme-git"
         "orchis-theme"
         "fcitx5-themes-candlelight"
+        "qt6ct"
+        "kvantum"
         "xsettingsd"
         "dconf"
     )
