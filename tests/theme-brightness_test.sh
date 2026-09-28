@@ -215,6 +215,7 @@ rm -rf "$F_TMP"
 # 有 nobright (daemon) → 不调，亮度由 apply_transition_brightness 负责
 set_dwm_theme() { :; }; set_rofi_theme() { :; }; set_kitty_theme() { :; }
 set_qt_theme() { :; }; set_gtk_theme() { :; }; set_fcitx5_theme() { :; }; set_dunst_theme() { :; }
+restart_snixembed() { :; }
 xrdb() { :; }
 M_TMP=$(mktemp -d)
 SET_LOG="$M_TMP/set.log"

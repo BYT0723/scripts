@@ -12,10 +12,13 @@ dwm-status.sh ──sources──► dwm-status-tools.sh ──sources──► 
                                                            utils/weather.sh
                                                            utils/notify.sh
 dwm-statuscmd.sh ──sources──► utils/notify.sh
-tools/theme.sh ──sources──► utils/notify.sh, tools/monitor-brightness.sh
+autostart.sh ──sources──► utils/launch.sh
+tools/theme.sh ──sources──► utils/notify.sh, utils/launch.sh, tools/monitor-brightness.sh
                 ──requires─► xsettingsd, dconf (gsettings), curl (GTK/portal 双通道广播 / auto 日出日落)
                 ──calls──► tools/wallpaper.sh --theme <mode> (后台, 主题翻转跟随换壁纸)
+                ──calls──► utils/launch.sh launch restart snixembed (切主题重启 snixembed 重绘托盘图标, 见 restart_snixembed)
 tools/monitor-brightness.sh ──sources──► 无外部脚本; ──sourced by── tools/theme.sh
+utils/launch.sh ──sourced by── autostart.sh, tools/theme.sh; ──requires─► flock (/tmp/dwm-status/autostart-launch-<name>.{pid,lock})
 
 tools/lock.sh ──sources──► utils/notify.sh
               ◄──sourced by── rofi/powermenu/type-{1..6}/powermenu.sh
@@ -100,6 +103,14 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | 函数        | 调用者                                       |
 | ----------- | -------------------------------------------- |
 | `trim_str()`| quicklinks-mode.sh (_edit_loop / clipboard_url) |
+
+### utils/launch.sh
+
+> 应用启动/重启助手, 被 autostart.sh 与 tools/theme.sh 共用。以 `/tmp/dwm-status/autostart-launch-<name>.pid` 记录 pid, 同一 name 的"检查+启动"用 flock 保证原子, 后台子进程 `9>&-` 关闭锁 fd。`{ } 9>lock` 的重定向在块结束后由 bash 自动还原父 shell 的 FD 9 (故不与 theme.sh `_auto_lock` 的 FD 9 冲突)。
+
+| 函数       | 调用者                                                                                          |
+| ---------- | ----------------------------------------------------------------------------------------------- |
+| `launch()` | autostart.sh (`check`/`restart` 各应用), tools/theme.sh `restart_snixembed` (切主题 `launch restart snixembed`) |
 
 ### rofi/scripts/quicklinks-mode.sh (rofi script mode)
 
@@ -211,7 +222,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 
 | 函数                      | 调用者                                                                                                                                           |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `_do_theme_change()`      | tools/theme.sh (apply / auto_daemon; 第二参 `nobright` 跳过一次性端点亮度) — daemon 翻转只切配色，亮度由每轮插值统一负责；手动 apply 保留端点亮度 (apply 后 auto 关闭) |
+| `_do_theme_change()`      | tools/theme.sh (apply / auto_daemon; 第二参 `nobright` 跳过一次性端点亮度) — daemon 翻转只切配色，亮度由每轮插值统一负责；手动 apply 保留端点亮度 (apply 后 auto 关闭)；末尾调 restart_snixembed (与 set_fcitx5_theme 同级) |
+| `restart_snixembed()`     | _do_theme_change (切主题时若 PATH 有 snixembed 则 `launch restart snixembed`, 让它用新前景色重绘 symbolic 图标; 其余托盘程序 (nm-applet/pasystray/udiskie) 图标色来自 icon 主题, 由 set_gtk_theme 广播 `Net/IconThemeName` 后 GTK 即时重载, 无需重启) |
 | `set_monitor_brightness()`| tools/theme.sh (_do_theme_change 非 nobright 路径, **同步**执行 — 后台化会让慢 job 用旧主题亮度覆盖新主题, 见下) — 逐 active monitor 读配置 `brightness.<monitor>` (per-monitor 独立), 缺失/非数字/>100 fallback 50, 经 set_brightness 分发 (eDP → brightnessctl, 其他 → ddcutil setvcp) |
 | `_brightness_curve()`     | _brightness_at (插值曲线单点封装，milliscale cubic warp 两头快中间慢，起止约 2 倍速、中段约 0.5 倍速；太阳高度方案以后只换它) |
 | `_brightness_at()`        | _monitor_brightness_at (经 _brightness_curve 缓动后 from→to 插值，duration≤0 取 to，elapsed 越界钳制) |
@@ -431,6 +443,7 @@ tools/theme.sh auto (守护进程)
   → get_current_theme() (xrdb -query dwm.col_theme)
   → 日出/日落触发:
       → _do_theme_change("light"|"dark", nobright) (只切配色)
+      → restart_snixembed() 经 launch restart 重启 snixembed (图标按新前景色重绘)
       → wallpaper.sh --theme <mode> 前台同步跟随换壁纸 (SIGHUP 前落盘, 失败不影响切换)
       → system-notify low
       → pkill -SIGHUP dwm → dwm restart → loadxrdb 重载配色
@@ -551,6 +564,7 @@ calendar-lunar|󰃚|Lunar Calendar|
 - **rofi `next` 卡顿已修复**: 原 `xwallpaper` CLI 为单进程架构, 每次裸调用约 0.2s (X 连接+库加载), 一次 `next` 链路需串行 4-6 次 clear/restore/set (~1.5s)。原 `handle_next` 同步执行导致 rofi 要等 next 跑完才重开 (点 Next 后空白 1.5s)。修复两层: ① 脚本层 `handle_next` 改 `( tools/wallpaper.sh -m ... next & )` 后台执行, rofi 立即重开; ② xwallpaper 改为 **client+daemon 架构** (`xwallpaperd` 常驻, CLI 经 IPC 通信, 实测 `--list`/`--state`/`clear` 从 ~0.2s 降至 ~0.001s, group next 从 0.97s 降至 0.4s, 大图 set 从 0.6-1s 降至 0.16s)。另修复 `xwallpaper state` → `--state` 拼写 (3 处), 此前排除当前壁纸逻辑一直失效会重复抽同一张。
 - **锁屏 standby 后物理屏 1-2s 亮起（xwallpaper 视频壁纸持续 present 触发驱动 unblank）**：根因是 `xwallpaper --daemon` 的 libmpv（`vo=gpu`+`wid` 直绘）在 X DPMS off 后**持续 present 帧** → amdgpu 驱动把输出 dpms 恢复 On（sysfs 实测 2-3s 回弹，X 层 `xset q` 标志保持 Off/Standby 不变，eDP→HDMI→DP 依次亮）。与键盘幽灵输入、amdgpu REG_WAIT（7.x 回归，lts 6.18.46 无此）、TLP/GPU runtime PM（`control=on` 全程 active）均无关。修复双层：① xwallpaper（源码 `~/Workspace/Github/xwallpaper`）backend 层加 `set_paused` 回调（video → mpv pause），`xw_app_dpms_poll()`（`DPMSInfo` 查询，500ms 节流）在主循环检测电源模式，非 On 即暂停渲染；② `lock.sh _lock_before/_lock_after` 对 `xwallpaperd`（兼容保留 `xwallpaper` 单进程时代）进程 `pkill -STOP/-CONT` 双保险。验证：standby 12s sysfs dpms 全程 Off 不回弹。**注意**: client+daemon 拆分后常驻渲染进程名为 `xwallpaperd`，`-x xwallpaper` 精确匹配打不到 daemon，必须 STOP `xwallpaperd`，否则锁屏 `_screen_lock_loop` 会因 X 层 `xset q` 标志 stale（物理已亮、X 仍 Off）卡在 `! Monitor is On` 等待里，表现为灭一次→亮→再也不灭。
 - **首次开机 HDMI 视频壁纸黑屏（swapchain 创建失败 → mpv 丢 video track）**：开机早期 GPU/GL（RADV/amdgpu Vulkan 栈）未就绪时，`vo=gpu` 的 swapchain 创建失败（`VK_ERROR_INITIALIZATION_FAILED`），mpv `write_video` 里 `vo_reconfig2<0` → `error_on_track` **禁用视频 track**（日志 `deselect track 0`/`Video: no video`）——窗口在、restore 显示 `ok`、只有音频在播、画面黑。**restore_pending 重试对此无效**（窗口 active 不算 pending）；**mpv 自身不重试**（reconfig 失败即禁 track）。为何 xwinwrap+mpv 无此问题：独立 mpv 进程启动晚（fork/exec/加载），建 swapchain 时 GPU 已就绪。修复（xwallpaper 已提交）：backend 加 `retry()` 回调（video 查 mpv `video` 属性，无视频则重新 `loadfile` 重建渲染路径），daemon 启动后 2 分钟窗口内 **0.5s 节拍**轮询，reload 间 **1.5s 防堆积**（`load_file` 统一记 `last_load_ms`，含首次 loadfile 防竞态），GPU 就绪后 ≤1.5s 出视频。诊断方法（临时）：`XW_DEBUG_DAEMON=1 xwallpaper --daemon` 手动启动，restore/自愈日志打 stderr，mpv 日志写 `/tmp/xw-mpv-<winid>.log` + IPC socket `/tmp/xw-mpv-<winid>.sock`（`get_property video` 查有无视频 track）
+- **托盘图标不跟随主题切换已修复（两处根因）**: ① **nm-applet / pasystray / udiskie**：图标色由 **icon 主题**决定（`Tela-manjaro-light` 深色图标 / `dark` 浅色图标），而 `set_gtk_theme` 只写 gtk settings.ini 的 `gtk-icon-theme-name`、**运行时没广播 `Net/IconThemeName`**；X11 下 GTK 以 XSETTINGS 优先于 settings.ini，故所有已启动 GTK 应用（含重启后）都卡在旧图标主题 → 亮主题下仍是浅色图标、看起来"不跟随"。修复：`set_gtk_theme` 增写 `~/.xsettingsd` 的 `Net/IconThemeName`（HUP xsettingsd 广播）+ `gsettings icon-theme` 同步；GTK 收到 XSETTINGS 变化后**即时重载图标，无需重启进程**（实测 nm-applet pid 不变，purest `#dfdfdf` ↔ `#505050`）。② **EasyEffects（snixembed 代理）**：EasyEffects 8.2.9 起发 `IconName`（`com.github.wwmm.easyeffects-symbolic`）而非 `IconPixmap`，snixembed 自 2020 起 IconName 优先（`set_icon_name`），靠 `GtkStatusIcon` 默认着色在轻量 X11 会话取到错误前景色 → 深底配深图标不可见。修复在 snixembed 自身：`set_icon_name` 用当前主题 style context 经 `IconInfo.load_symbolic_for_context` 自渲染（保留 SNI 规范鼓励的 IconName 优先），另修 `pixbuf_from_data` 的 `i += 3`→`i += 4`，`size_changed` 改连 `set_icon` 恢复尺寸自适应；代码在 `~/Workspace/Github/snixembed`。snixembed 前景色只在 `set_icon` 时取一次 → 切主题时由 `_do_theme_change` → `restart_snixembed`（`launch restart snixembed`）重启重绘；`launch()` 抽出 `utils/launch.sh` 供 autostart 与 theme.sh 共用。端到端 dark `#a5a6a9` ↔ light `#535355`。回归测试 `tests/theme-tray_test.sh`（restart_snixembed）+ `tests/autostart_test.sh`（改为 source `utils/launch.sh`）
 - **rofi/scripts/theme.sh handle_monitor_brightness 保存值/退出码失效已修复**: 原实现 `coproc YAD` + `wait "$YAD_PID"` 取 yad 退出码区分 OK/取消, 但 bash 读完全部 coproc 输出后可能清理 `YAD_PID`（实测 wait 时已空 → 报错 status≠0 → 误走恢复分支）; 且 `while read` 最后一次 read 读到 EOF 时会把 `$value` **清空**, 循环外 `$value` 必空（OK 也空）。重构为 **FIFO + 后台 pid (`$!`, 稳定)**, 循环内用 `$last` 记录最终值; OK 后从硬件读取实际亮度（eDP brightnessctl / DDC getvcp）作为保存值, 读取失败回退 `$last`。回归测试 `tests/rofi-theme-monitor-brightness_test.sh`（awk 提取函数 + mock yad/xrandr/brightnessctl; 因脚本顶层 `module_loop` 阻塞无法整体 source）
 - **DP 显示器 DDC 亮度控制失效已修复**: `get_ddc_bus()` 只接受 `ddcutil detect --brief` 中 `Display N` 有效条目, 丢弃 `Invalid display` 条目。但 DP 经 aux 总线时 detect 常误报 `This monitor does not support DDC/CI. (I2C slave address x37 is unresponsive.)`, 而同 bus 的 `getvcp/setvcp 10` 实际可用 (TRG JQ24F260L 实测) → bus 解析为空, 读写静默失败。现两遍取值: 优先有效条目, 无命中时回退同 `drm_connector_id` 的 Invalid 条目总线 (eDP 不受影响, 其读写短路走 brightnessctl)。回归测试 `tests/monitor-brightness_test.sh` 场景 D (旧代码 FAIL, 新代码 PASS)
 - **DDC 显示器滑块拖动滞后已优化**：yad `--print-partial` 拖动时逐像素输出值, 原实现每个值都调 `ddcutil setvcp`（~200ms/次）, 大幅拖动会积压上百次调用排队, 松手后仍持续处理（实测 100 值 → ~20s）; eDP 的 `brightnessctl set` 即时无此问题。现循环按显示器类型分流: eDP 逐值即时应用, DDC 用内层 `read -t 0.03` 丢弃积压值、滑动暂停后只应用最新值（实测 100 值 → 1 次 setvcp, ~1s）。回归测试场景 C（mock ddcutil detect/setvcp + DisplayPort-0 monitor, 断言 setvcp 只调 1 次且为最新值）

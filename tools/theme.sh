@@ -4,6 +4,7 @@ WORK_DIR=$(dirname "$(dirname "${BASH_SOURCE[0]}")")
 THEME_CONF="$HOME/.config/dwm/theme.json"
 
 source "$WORK_DIR/utils/notify.sh"
+source "$WORK_DIR/utils/launch.sh"
 source "$WORK_DIR/tools/monitor-brightness.sh"
 
 # ---------- helpers ----------
@@ -148,6 +149,15 @@ set_fcitx5_theme() {
     fi
 }
 
+restart_snixembed() {
+    # snixembed 用当前 GTK 主题前景色自渲染 symbolic 图标 (src/proxyicon.vala
+    # set_icon_name), 前景色只在 set_icon 时取一次, 不跟随运行时主题切换 → 切主题重启它。
+    # 其余托盘程序 (nm-applet/pasystray/udiskie) 的图标色来自 icon 主题, 由 set_gtk_theme
+    # 广播 Net/IconThemeName 后 GTK 即时重载, 无需重启 (autostart 保持原 restart 策略)。
+    command -v snixembed >/dev/null 2>&1 && launch restart snixembed "snixembed"
+    return 0
+}
+
 set_kitty_theme() {
     local mode="$1"
     [ -z "$(command -v kitten)" ] && return
@@ -268,6 +278,10 @@ set_gtk_theme() {
     # 运行时广播双通道 (以上仅为持久配置, 供应用启动时读取):
     # 1. XSETTINGS: GTK 应用 (含 Firefox UI) 监听 gtk-theme-name 变化即时刷新
     _ensure_config_line "$HOME/.xsettingsd" '^Net/ThemeName.*' 'Net/ThemeName "'"$theme"'"'
+    # icon 主题: X11 下 GTK 以 XSETTINGS 优先于 settings.ini; 不广播则已启动/重启的 GTK
+    # 应用仍用旧图标主题 —— 托盘图标 (nm-applet/pasystray/udiskie 等, 颜色来自图标主题
+    # 的 symbolic 图标) 表现为不跟随主题切换
+    _ensure_config_line "$HOME/.xsettingsd" '^Net/IconThemeName.*' 'Net/IconThemeName "'"$icon_theme"'"'
     [ -n "$cursor_theme" ] && _ensure_config_line "$HOME/.xsettingsd" '^Gtk/CursorThemeName.*' 'Gtk/CursorThemeName "'"$cursor_theme"'"'
     [ -n "$cursor_size" ] && _ensure_config_line "$HOME/.xsettingsd" '^Gtk/CursorThemeSize.*' "Gtk/CursorThemeSize $cursor_size"
     if ! pgrep -x xsettingsd >/dev/null 2>&1; then
@@ -287,6 +301,7 @@ set_gtk_theme() {
             system-notify normal "Theme Sync" "gsettings color-scheme 设置失败, portal 通道未生效"
         # 光标: GTK/Firefox 经 XSETTINGS 未命中时回退到 gsettings, 必须与 theme.json 对齐
         # (否则 Xcursor.size=24 而 Firefox=36, 差 1.5x)
+        gsettings set org.gnome.desktop.interface icon-theme "$icon_theme" 2>/dev/null
         [ -n "$cursor_theme" ] && gsettings set org.gnome.desktop.interface cursor-theme "$cursor_theme" 2>/dev/null
         [ -n "$cursor_size" ] && gsettings set org.gnome.desktop.interface cursor-size "$cursor_size" 2>/dev/null
     fi
@@ -313,6 +328,7 @@ _do_theme_change() {
     set_qt_theme "$mode"
     set_gtk_theme "$mode"
     set_fcitx5_theme
+    restart_snixembed
 
     [ -f "$HOME/.Xresources" ] && xrdb -merge "$HOME/.Xresources"
 
