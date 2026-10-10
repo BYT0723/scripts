@@ -65,3 +65,36 @@ set_wallpaper_to_group() {
     xw_apply "$(detect_file_type "$filepath")" "${w}x${h}+${x}+${y}" \
         "$target" "$filepath" "$group" || return 1
 }
+
+# video-render (fps/volume) 改动后重建当前视频壁纸。
+# xwallpaperd 内 mpv 仅在创建时读取 --fps/--volume, 同名 set 只走 reload 不重建,
+# 故必须 clear + 重设同一文件才能生效。
+# 用法: reapply_video_wallpaper <target> (monitor 名 / 组名 / Screen)
+# 仅当 target 当前壁纸为 video 时重建 (rotation 按 --state 第 4 列透传);
+# 其它类型或无窗口时 no-op 返回 0。
+reapply_video_wallpaper() {
+    local target="$1"
+    [ -z "$target" ] && return 1
+    local win="$target"
+    has_group "$target" && win="grp_${target// /_}"
+
+    local line
+    line=$(xwallpaper --state 2>/dev/null | awk -F'\t' -v n="$win" '$1==n {print; exit}')
+    [ -n "$line" ] || return 0
+    local _name _type path rot
+    IFS=$'\t' read -r _name _type path rot <<<"$line"
+    [ "$_type" = "video" ] || return 0
+    [ -n "$path" ] || return 0
+
+    xw_clear "$win"
+    if has_group "$target"; then
+        WALLPAPER_ROTATION="$rot" set_wallpaper_to_group "$target" "$path"
+    elif [ "$target" = "Screen" ]; then
+        WALLPAPER_ROTATION="$rot" set_wallpaper_to_screen "$path"
+    else
+        local idx
+        idx=$(xrandr --listactivemonitors 2>/dev/null | awk -v n="$target" 'NR>1 && $NF==n {sub(":", "", $1); print $1; exit}')
+        [ -n "$idx" ] || return 1
+        WALLPAPER_ROTATION="$rot" set_wallpaper_to_monitor "$idx" "$path"
+    fi
+}

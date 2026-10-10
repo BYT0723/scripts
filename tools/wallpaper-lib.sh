@@ -560,3 +560,34 @@ set_numeric_config() {
     [ -n "$new" ] && [ "$new" -ge "$min" ] 2>/dev/null && [ "$new" -le "$max" ] 2>/dev/null &&
         jq "${json_path}.${key} = $new" "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
 }
+
+# Read video-render sub-object value, fallback to config[] defaults.
+# Usage: get_video_render_config <monitor> <key>
+get_video_render_config() {
+    local monitor="$1" key="$2"
+    local val
+    val=$(jq -r --arg m "$monitor" --arg k "$key" '.monitors[$m]["video-render"][$k] // empty' "$conf" 2>/dev/null)
+    [ -n "$val" ] && echo "$val" && return
+    echo "${config[$key]}"
+}
+
+# Prompt for a video-render numeric value via rofi, validate integer >= min, write to wallpaper.json.
+# 返回 0 仅当写入了新值；取消/非法输入/值未变返回非 0 (调用方可直接 && 串联后续重建逻辑)。
+# Usage: set_video_render_config <monitor> <key> <prompt> <mesg> [min] [max]
+set_video_render_config() {
+    local monitor="$1"
+    local key="$2"
+    local prompt="$3"
+    local mesg="$4"
+    local min="${5:-0}"
+    local max="${6:-99999}"
+
+    local cur=$(get_video_render_config "$monitor" "$key")
+    local new=$(module_input "$prompt" "$mesg" "$cur")
+    [ -n "$new" ] || return
+    [[ "$new" =~ ^[0-9]+$ ]] || return
+    [ "$new" -ge "$min" ] 2>/dev/null && [ "$new" -le "$max" ] 2>/dev/null || return
+    [ "$new" -eq "$cur" ] 2>/dev/null && return 1
+    jq --arg v "$new" --arg m "$monitor" --arg k "$key" \
+        '.monitors[$m]["video-render"][$k] = ($v | tonumber)' "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
+}

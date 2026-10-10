@@ -40,7 +40,7 @@ rofi/scripts/yt-dlp-wrapper.sh ──sources──► rofi/scripts/lib-module.sh
 
 rofi/scripts/quicklinks-mode.sh──sources──► utils/form.sh, utils/notify.sh, utils/url.sh, utils/string.sh, rofi/scripts/lib-module.sh (module_confirm); ──挂载于── rofi/launchers/type-3/launcher.sh (combi 模式 quicklinks modi)
 rofi/scripts/module.sh      ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
-rofi/scripts/wallpaper.sh   ──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh, tools/wallpaper-lib.sh
+rofi/scripts/wallpaper.sh   ──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh, tools/wallpaper-lib.sh, tools/wallpaper-render.sh
 rofi/scripts/notification.sh──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh
 rofi/scripts/sddm.sh       ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/screenshot.sh  ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
@@ -300,6 +300,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `handle_random_videos_path()` | wallpaper.sh (模块主菜单: 选择视频目录)                 |
 | `handle_random_images_path_dark()` | wallpaper.sh (模块主菜单: 选择深色图片目录 → `random_image_dir_dark`) |
 | `handle_random_videos_path_dark()` | wallpaper.sh (模块主菜单: 选择深色视频目录 → `random_video_dir_dark`) |
+| `handle_fps()` | wallpaper.sh (模块主菜单: 设置视频帧率上限 → `video-render.fps`, 0=不限; setter 仅写入新值时返回 0, `&&` 串联 `reapply_video_wallpaper` 即时生效) |
 | `handle_group()`              | wallpaper.sh (模块主菜单: 组管理 — 新建/编辑/启停/删除) |
 
 ### tools/wallpaper-lib.sh
@@ -332,6 +333,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `_json_path_for()`           | wallpaper-lib.sh (pick_config_dir, set_numeric_config 内部)                                                                                                                                                  |
 | `pick_config_dir()`          | rofi/scripts/wallpaper.sh (handle_random_images_path[_dark], handle_random_videos_path[_dark])                                                                                                                             |
 | `set_numeric_config()`       | rofi/scripts/wallpaper.sh (handle_random_duration, handle_random_depth)                                                                                                                                      |
+| `get_video_render_config()`  | wallpaper-lib.sh (set_video_render_config 内部), rofi/scripts/wallpaper.sh (fps 菜单 `cmd:` 状态显示) — 读 `.monitors["<monitor>"]["video-render"].<key>`, 缺失回退 `config[]` 默认 |
+| `set_video_render_config()`  | rofi/scripts/wallpaper.sh (handle_fps) — rofi 输入整数校验 (`^[0-9]+$`, min 0) 后, 值未变早退 (无意义写回都省掉), jq (`tonumber`) 原子写回 `.monitors["<monitor>"]["video-render"].<key>`; 仅写入新值返回 0 |
 | `has_group()`                | wallpaper.sh (apply_wallpaper), wallpaper-lib.sh (get_monitor_dim), rofi/scripts/wallpaper.sh (handle_group)                                                                                                 |
 | `group_names()`              | wallpaper.sh (apply_wallpaper), wallpaper-lib.sh (is_group_member, group_for_monitor, get_monitor_list_text), rofi/scripts/wallpaper.sh (handle_group)                              |
 | `get_group_members()`        | wallpaper.sh (apply_wallpaper), wallpaper-lib.sh (is_group_member, get_group_dim, xw_clear_group_members), wallpaper-render.sh (set_wallpaper_to_group 内部调 get_group_dim), rofi/scripts/wallpaper.sh (handle_group) |
@@ -359,6 +362,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `set_wallpaper_to_screen()`  | wallpaper.sh (apply_wallpaper, set_latest), 内部调 xw_clear_all_exclude_screen 清空所有 monitor/group 壁纸窗口后整屏铺图 (Screen 自身由 set 同名 reload 覆盖, monitor/group 经 --keep 保留 last) |
 | `set_wallpaper_to_monitor()` | wallpaper.sh (apply_wallpaper, set_latest), 内联检查所属组并清组窗口 (组与成员互斥, mon_name 自身靠同名 reload) + xw_clear_screen_and_restore (与 screen 互斥, 清除后 restore 回退 last) |
 | `set_wallpaper_to_group()`   | wallpaper.sh (apply_wallpaper, set_latest), 内部调 xw_clear_group_members 清成员 monitor 独立窗口 (grp_<组名> 自身靠同名 reload) + xw_clear_screen_and_restore (与 screen 互斥, 清除后 restore 回退 last); 向 xw_apply 显式传组名为 confname (config 键用组名, 非窗口名 grp_<组名>) |
+| `reapply_video_wallpaper()`  | rofi/scripts/wallpaper.sh (handle_fps 值改变后) — `xwallpaper --state` 按窗口名查 type, 仅 video 时 `xw_clear` + 经 `set_wallpaper_to_*` 重设同一文件 (mpv 仅创建时读 --fps, 同名 set reload 不生效; rotation 按 state 第 4 列透传); 非 video/无窗口 no-op |
 
 ## 调用链 (Call Chain)
 
