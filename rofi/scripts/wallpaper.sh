@@ -149,19 +149,17 @@ select||Select|
 random_switch||Random|cmd:icon toggle conf wallpaper random number "$MONITOR"
 random_type|󱧶|Type|cmd:[[ $(getConfig -m "$MONITOR" random_type) == "video" ]] && echo "" || echo ""
 random_duration|󰔟|Duration|cmd:getConfig -m "$MONITOR" duration
-random_depth||Depth|cmd:getConfig -m "$MONITOR" random_depth
 fps||FPS|cmd:get_video_render_config "$MONITOR" fps
-random_images_path||Images|
-random_videos_path||Videos|
-random_images_path_dark||Images Dark|
-random_videos_path_dark||Videos Dark|
+random_images_path||Images Path|
+random_videos_path||Videos Path|
+random_images_path_dark||Images Path (Dark)|
+random_videos_path_dark||Videos Path (Dark)|
 MODULES
-handle_next() { ( "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" next & ) ; }
+handle_next() { ("$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" next &) }
 handle_select() { "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" select; }
 handle_random_switch() { toggleConf wallpaper random number "$MONITOR"; }
 handle_random_type() { toggleConf wallpaper random_type wallpaper_type "$MONITOR"; }
 handle_random_duration() { set_numeric_config "$MONITOR" duration "Duration" "Wallpaper change interval in minutes (≥ 1)" 1; }
-handle_random_depth() { set_numeric_config "$MONITOR" random_depth "Search Depth" "Max directory depth for wallpaper files (1–10)" 1 10; }
 handle_fps() {
     # setter 仅在写入新值时返回 0 (取消/非法/未改变直接返回)；有改变才重建 video 壁纸
     set_video_render_config "$MONITOR" fps "FPS" "Video frame rate limit (0 = unlimited, ≥ 0)" 0 &&

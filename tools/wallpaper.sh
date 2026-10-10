@@ -16,7 +16,8 @@ source "$(dirname "$0")/wallpaper-render.sh"
 random_wallpaper() {
     local monitor="$1"
     local theme="${2:-}"
-    local depth=$(getConfig -m "$monitor" random_depth)
+    # depth 为全局值 (目录结构属性, 非 monitor 属性): 读顶层/.defaults random_depth, 缺省 3
+    local depth=$(getConfig random_depth)
     local random_type=$(getConfig -m "$monitor" random_type)
     local dir=""
     local pattern=""

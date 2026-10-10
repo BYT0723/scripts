@@ -166,8 +166,8 @@ ensure_monitor_config() {
 
     local obj
     obj=$(for k in "${!config[@]}"; do
-        # volume/fps 属于 video-render 子对象默认, 非 monitor 顶层字段, 不写入
-        [ "$k" = "volume" ] || [ "$k" = "fps" ] && continue
+        # volume/fps 属于 video-render 子对象默认, random_depth 为全局值, 均非 monitor 顶层字段, 不写入
+        [ "$k" = "volume" ] || [ "$k" = "fps" ] || [ "$k" = "random_depth" ] && continue
         printf '"%s": "%s",' "$k" "${config[$k]}"
     done)
     obj="{${obj%,}}"
