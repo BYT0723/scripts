@@ -52,12 +52,8 @@ _download() {
         local rc=0 out
         out=$(sw_download "$appid" "$itemid" "$user" 2>&1) || rc=$?
         if [[ $rc -eq 0 ]]; then
-            if command -v xclip &>/dev/null; then
-                printf '%s' "$out" | xclip -selection clipboard
-                system-notify normal "Steam Workshop" "Done (path copied)\n$label\n$out"
-            else
-                system-notify normal "Steam Workshop" "Done\n$label\n$out"
-            fi
+            act=$(notify-send -u normal " Steam Workshop" "Done\n$label\n$out" -A open="Open folder" 2>/dev/null)
+            [[ "$act" == "open" || "$act" == "0" ]] && xdg-open "$out"
         elif [[ $rc -eq 2 ]]; then
             system-notify critical "Steam Workshop" "Login required\nRun in terminal: steamcmd +login $user +quit"
         else

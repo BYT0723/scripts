@@ -286,7 +286,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `sw_resolve_appid()`| steam-workshop.sh `_go` 兼容入口 (先 `?appid=` 参数零网络, 后抓页面) |
 | `sw_item_info()`      | steam-workshop.sh `_go` (一次抓页返回 `appid\|app名\|资源名`, appid 缺失即失败转手输) |
 | `sw_list_users()`   | steam-workshop.sh `_pick_user` (解析 loginusers.vdf `AccountName\|PersonaName`, Timestamp 倒序; 0→anonymous, 1→直用, N→rofi 选) |
-| `sw_download()`     | steam-workshop.sh `_download` (后台: steamcmd `+login <user> +workshop_download_item`; rc=0 成功回落盘路径, 2=认证失败提示终端登录, 1=其他失败; 无下载目录, 成功路径由 UI 拷进剪贴板) |
+| `sw_download()`     | steam-workshop.sh `_download` (后台: steamcmd `+login <user> +workshop_download_item`; rc=0 成功回落盘路径, 2=认证失败提示终端登录, 1=其他失败) |
 
 ### rofi/scripts/yt-dlp-wrapper.sh
 
@@ -306,7 +306,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | 函数                 | 调用者                                              |
 | -------------------- | --------------------------------------------------- |
 | `_pick_user()`       | steam-workshop.sh `_go` (0 用户→anonymous, 1→直用, N→`module_sub_rofi` 选 `acc — pers`, ESC 返回 1) |
-| `_download()`        | steam-workshop.sh `_go` (后台下载 + notify: 标题 `资源名 — App名`; 0→Done+路径拷剪贴板, 2→critical 终端登录指令, 其他→critical rc) |
+| `_download()`        | steam-workshop.sh `_go` (后台下载 + notify: 标题 `资源名 — App名`; 0→Done+`Open folder` action (notify-send -A, 点击 `xdg-open` 落盘路径), 2→critical 终端登录指令, 其他→critical rc) |
 | `_go()`              | steam-workshop.sh handle_input / handle_clipboard (parse→info→user→download 全链) |
 | `handle_input()`     | steam-workshop.sh (模块主菜单: 输入 URL/ID, 剪贴板预填) |
 | `handle_clipboard()` | steam-workshop.sh (模块主菜单: 剪贴板链接直接下载)  |
