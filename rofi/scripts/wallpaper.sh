@@ -222,12 +222,11 @@ handle_select() {
 }
 handle_random_switch() { toggleConf wallpaper random number "$MONITOR"; }
 handle_random_type() {
-    local cur chosen conf
+    local cur chosen
     cur=$(getConfig -m "$MONITOR" random_type)
     chosen=$(printf 'image\nvideo\nweb' | module_sub_rofi "Random type" "current: $cur")
     case "$chosen" in image | video | web) ;; *) return ;; esac
     [ "$chosen" = "$cur" ] && return
-    conf="$HOME/.config/dwm/wallpaper.json"
     jq --arg m "$MONITOR" --arg v "$chosen" '.monitors[$m].random_type = $v' \
         "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
 }
