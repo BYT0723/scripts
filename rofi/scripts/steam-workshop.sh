@@ -49,7 +49,7 @@ _download() {
     system-notify low "Steam Workshop" "Downloading\n$label"
 
     (
-        local rc=0 out err msg
+        local rc=0 out err msg act
         out=$(sw_download "$appid" "$itemid" "$user" 2>&1) || rc=$?
         if [[ $rc -eq 0 ]]; then
             act=$(notify-send -u normal " Steam Workshop" "Done\n$label\n$out" -A open="Open folder" 2>/dev/null)
@@ -60,7 +60,10 @@ _download() {
             [[ -n "$err" ]] && msg="$msg\n$err"
             system-notify critical "Steam Workshop" "$msg\nRun in terminal: steamcmd +login $user +quit"
         else
-            system-notify critical "Steam Workshop" "Failed (rc=$rc)\n$label"
+            msg="Failed (rc=$rc)"
+            err=$(sw_short_error <<<"$out")
+            [[ -n "$err" ]] && msg="$msg\n$err"
+            system-notify critical "Steam Workshop" "$msg\n$label"
         fi
     ) &
 }
@@ -75,7 +78,7 @@ _go() {
         IFS='|' read -r appid appname title <<<"$info"
     else
         mesg="Could not detect AppID for item $itemid, enter manually"
-        if sw_page_gated "$(sw_fetch_page "$url" 2>/dev/null)"; then
+        if sw_page_gated "$(sw_fetch_page "$url")"; then
             mesg="Login-gated item (anonymous can't see it), enter AppID manually"
         fi
         appid=$(module_input "AppID" "$mesg")

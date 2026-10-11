@@ -4,10 +4,10 @@
 #   sw_fetch_page <url-or-id>    → stdout 工坊页面 HTML (纯数字 ID 自动拼 URL)
 #   sw_parse_appid <page>        → stdout appid
 #   sw_parse_field <page> <marker> → stdout 标记文本 (HTML 转义解码)
-#   sw_page_gated <page>         → 登录门返回 0 (匿名不可见条目)
-#   sw_short_error                → steamcmd 全量输出摘一行人类可读错误
 #   sw_parse_appname <page>      → stdout app 名 (可空)
 #   sw_parse_title <page>        → stdout 资源名 (可空)
+#   sw_page_gated <page>         → 登录门返回 0 (匿名不可见条目)
+#   sw_short_error                → steamcmd 全量输出摘一行人类可读错误
 #   sw_resolve_appid <url-or-id> → stdout appid (先 ?appid= 参数, 后抓页面)
 #   sw_api_info <itemid>         → stdout "appid|app名|资源名" (免 key WebAPI, 登录门条目可用; 需 jq)
 #   sw_item_info <url-or-id>     → stdout "appid|app名|资源名" (页面 → WebAPI → 失败)
@@ -63,7 +63,7 @@ sw_page_gated() { # page → 登录门则返回 0 (受限/隐藏条目, 匿名�
 
 sw_short_error() { # steamcmd 全量输出 → 一行人类可读错误 (无则输出空)
     local text="${1:-}" err=""
-    [[ -z "$text" ]] && text=$(cat)
+    [[ -z "$text" && ! -t 0 ]] && text=$(cat)
     err=$(grep -oi 'cached credentials not found\.' <<<"$text" | head -1)
     [[ -z "$err" ]] && err=$(grep -o 'ERROR.*' <<<"$text" | head -1)
     [[ -z "$err" ]] && err=$(grep -oi 'steam guard.*' <<<"$text" | head -1)
@@ -100,7 +100,6 @@ sw_api_info() {
     appname=$(curl -sSL --max-time 10 --proto '=https' \
         "https://store.steampowered.com/api/appdetails?appids=$appid" 2>/dev/null \
         | jq -r --arg id "$appid" '.[$id] | select(.success == true) | .data.name // ""')
-    [[ "$appname" == "null" ]] && appname=""
     echo "$appid|$(sw_decode_entities "$appname")|$(sw_decode_entities "$title")"
 }
 
@@ -151,7 +150,6 @@ sw_download() {
     path=$(grep -o 'Success\. Downloaded item [0-9]* to "[^"]*"' "$log" | head -1 | sed 's/.* to "//; s/"$//')
     if [[ $rc -eq 0 && -n "$path" && -e "$path" ]]; then
         echo "$path"
-        rc=0
     elif grep -qiE 'invalid password|steam guard|not logged on|access denied|no subscription|logon failure|rate limit' "$log"; then
         rc=2
     else
