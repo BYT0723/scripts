@@ -320,7 +320,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | ----------------------------- | ------------------------------------------------------- |
 | `monitor_selection()`         | wallpaper.sh (主入口: 选择 monitor/组)       |
 | `handle_next()`               | wallpaper.sh (模块主菜单: 下一张; `( tools/wallpaper.sh -m ... next & )` 后台执行, rofi 立即重开) |
-| `handle_select()`             | wallpaper.sh (模块主菜单: 选择文件)                     |
+| `handle_select()`             | wallpaper.sh (模块主菜单: 选择文件; `random_type=web` 时走 `select_web_wallpaper` rofi 图文选择, 否则 yazi) |
+| `select_web_wallpaper()`      | handle_select (web 分支: `index.html` 去重到目录 → `project.json:title/preview` 解析标题+缩略图 → `rofi -dmenu -format i -show-icons` 按索引回映射目录 → `tools/wallpaper.sh -m <mon> file`) |
 | `handle_random_switch()`      | wallpaper.sh (模块主菜单: 随机开关 toggle)              |
 | `handle_random_type()`        | wallpaper.sh (模块主菜单: 类型三选一 selector image/video/web，状态行显示当前类型图标) |
 | `handle_random_duration()`    | wallpaper.sh (模块主菜单: 设置轮换间隔)                 |

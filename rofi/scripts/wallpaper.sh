@@ -158,7 +158,68 @@ random_videos_path_dark||Videos Path (Dark)|
 random_web_path_dark||Web Path (Dark)|
 MODULES
 handle_next() { ("$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" next &) }
-handle_select() { "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" select; }
+# web 用 rofi 图文选择器 (标题+预览缩略图): yazi 顶层只见数字 id,
+# 名字在 project.json:title 里, 预览在 preview 字段/preview.* 里。image/video 保留 yazi 大图预览。
+select_web_wallpaper() {
+    local dir depth files
+    dir=$(get_theme_dir "$MONITOR" random_web_dir)
+    depth=$(getConfig random_depth)
+    if ! files=$(find_wallpapers "$dir" "$depth" ".*/index\.html"); then
+        return 1
+    fi
+
+    local menu map menu_nul
+    menu=$(mktemp)
+    map=$(mktemp)
+    menu_nul=$(mktemp)
+    trap 'rm -f "$menu" "$map" "$menu_nul"' RETURN
+
+    local d f id title preview icon meta p
+    while IFS= read -r f; do
+        [ -z "$f" ] && continue
+        d=$(dirname "$f")
+        id=$(basename "$d")
+        title="$id"
+        preview=""
+        if [ -f "$d/project.json" ]; then
+            meta=$(jq -r '[.title // empty, .preview // empty] | @tsv' "$d/project.json" 2>/dev/null)
+            IFS=$'\t' read -r title preview <<<"$meta"
+            [ -z "$title" ] && title="$id"
+        fi
+        title=$(printf '%s' "$title" | tr '\t\n\r' '   ')
+        icon=""
+        [ -n "$preview" ] && [ -f "$d/$preview" ] && icon="$d/$preview"
+        if [ -z "$icon" ]; then
+            for p in preview.gif preview.png preview.jpg preview.jpeg preview.webp; do
+                if [ -s "$d/$p" ]; then icon="$d/$p"; break; fi
+            done
+        fi
+        # NUL 字节 bash 变量装不下: 行尾先写 \001 占位, 喂 rofi 前统一 tr 成 NUL (同 windows-selector)
+        printf '%s (%s)\001icon\x1f%s\x1f\n' "$title" "$id" "$icon" >>"$menu"
+        printf '%s\n' "$d" >>"$map"
+    done <<<"$files"
+    tr '\001' '\000' <"$menu" >"$menu_nul"
+
+    local sel
+    # 网格主题 (双列卡片 + 128px 大缩略图): inputbar 只有 entry, prompt 经 -p 设置
+    sel=$(rofi -dmenu -i -p "Web" -format i -no-custom -show-icons \
+        -theme "$ROFI_DIR/launchers/type-3/style-6.rasi" \
+        -theme-str 'listview {columns: 4; lines: 4; flow: horizontal; }' \
+        -theme-str 'window {width: 800px;}' \
+        -hover-select -me-select-entry '' -me-accept-entry '' -me-accept-custom MousePrimary <"$menu_nul" 2>/dev/null) || return 0
+    case "$sel" in '' | *[!0-9]*) return 0 ;; esac
+    local picked
+    picked=$(sed -n "$((sel + 1))p" "$map")
+    [ -n "$picked" ] || return 0
+    "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" file "$picked"
+}
+handle_select() {
+    if [ "$(getConfig -m "$MONITOR" random_type)" = "web" ]; then
+        select_web_wallpaper
+    else
+        "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" select
+    fi
+}
 handle_random_switch() { toggleConf wallpaper random number "$MONITOR"; }
 handle_random_type() {
     local cur chosen conf

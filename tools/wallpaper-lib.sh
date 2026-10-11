@@ -459,7 +459,7 @@ error() {
 echo_help() {
     echo -e "Help Message"
     echo "      -r | --run             run wallpaper daemon"
-    echo "      -m <mon> <next|select> apply to specific monitor"
+    echo "      -m <mon> <next|select|file> apply to specific monitor"
 }
 
 # 清掉 group 所有成员 monitor 的独立壁纸窗口 (组与成员互斥)。

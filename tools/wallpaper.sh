@@ -327,6 +327,12 @@ case "$op" in
         file=$(select_wallpaper "$monitor")
         fflag="-f"
         ;;
+    file)
+        shift
+        file="$*"
+        fflag="-f"
+        [ -z "$file" ] && exit 1
+        ;;
     *) exit 1 ;;
     esac
     if [ -n "$file" ] && apply_wallpaper $fflag "$monitor" "$file"; then
