@@ -48,7 +48,7 @@ application_launch() {
     # conky (system monitor)
     ((CONKY_AUTOSTART > 0)) && /bin/bash $WORK_DIR/dwm-launcher.sh conky start
     # 音频控制 (暂时先关闭，已有独立功放，不需要ee)
-    # launch check easyeffects "easyeffects --service-mode --hide-window"
+    launch check easyeffects "easyeffects --service-mode --hide-window"
 }
 
 keyboard_setting() {
