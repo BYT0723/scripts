@@ -103,7 +103,6 @@ export CURL_FIXTURE="$TEST_DIR/page.html"
 assert_cond "info: appid|appname|title" '[[ $(sw_item_info "https://steamcommunity.com/sharedfiles/filedetails/?id=2858284176") == "431960|Wallpaper Engine|Wavy grass" ]]'
 export CURL_FIXTURE="$TEST_DIR/page-noapp.html" CURL_API_FIXTURE="$TEST_DIR/api-deleted.json"
 assert_cond "info: no app fails" '! sw_item_info "999" >/dev/null'
-export CURL_FIXTURE="$TEST_DIR/page.html" CURL_API_FIXTURE="$TEST_DIR/api.json"
 assert_cond "gated: login-gate detected" 'sw_page_gated "$(cat "$TEST_DIR/page-gated.html")"'
 assert_cond "gated: normal page not gated" '! sw_page_gated "$(cat "$TEST_DIR/page.html")"'
 export CURL_API_FIXTURE="$TEST_DIR/api.json" CURL_APP_FIXTURE="$TEST_DIR/app.json"
@@ -136,5 +135,10 @@ export STEAMCMD_MODE=auth
 assert_cond "download: auth failure rc=2" 'sw_download 431960 3810650535 someuser >/dev/null 2>&1; [[ $? -eq 2 ]]'
 export STEAMCMD_MODE=error
 assert_cond "download: other failure rc=1" 'sw_download 431960 3810650535 anonymous >/dev/null 2>&1; [[ $? -eq 1 ]]'
+
+# ---- short_error ----
+assert_cond "err: cached credentials" '[[ $(sw_short_error <<<"Loading Steam API...OK Cached credentials not found.") == "Cached credentials not found." ]]'
+assert_cond "err: first ERROR line" '[[ $(sw_short_error <<<"foo ERROR (Invalid Password) bar") == "ERROR (Invalid Password) bar" ]]'
+assert_cond "err: empty when nothing useful" '[[ -z $(sw_short_error <<<"nothing useful here") ]]'
 
 exit $FAIL

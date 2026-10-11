@@ -5,6 +5,7 @@
 #   sw_parse_appid <page>        → stdout appid
 #   sw_parse_field <page> <marker> → stdout 标记文本 (HTML 转义解码)
 #   sw_page_gated <page>         → 登录门返回 0 (匿名不可见条目)
+#   sw_short_error                → steamcmd 全量输出摘一行人类可读错误
 #   sw_parse_appname <page>      → stdout app 名 (可空)
 #   sw_parse_title <page>        → stdout 资源名 (可空)
 #   sw_resolve_appid <url-or-id> → stdout appid (先 ?appid= 参数, 后抓页面)
@@ -58,6 +59,16 @@ sw_decode_entities() {
 
 sw_page_gated() { # page → 登录门则返回 0 (受限/隐藏条目, 匿名不可见)
     grep -qi 'you must be logged in to view this item' <<<"$1"
+}
+
+sw_short_error() { # steamcmd 全量输出 → 一行人类可读错误 (无则输出空)
+    local text="${1:-}" err=""
+    [[ -z "$text" ]] && text=$(cat)
+    err=$(grep -oi 'cached credentials not found\.' <<<"$text" | head -1)
+    [[ -z "$err" ]] && err=$(grep -o 'ERROR.*' <<<"$text" | head -1)
+    [[ -z "$err" ]] && err=$(grep -oi 'steam guard.*' <<<"$text" | head -1)
+    err="${err:0:100}"
+    [[ -n "$err" ]] && echo "$err"
 }
 
 sw_resolve_appid() {

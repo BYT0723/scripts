@@ -284,6 +284,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `sw_fetch_page()`     | sw_resolve_appid / sw_item_info (统一 curl 入口, 纯数字 ID 自动拼 URL) |
 | `sw_parse_field()` / `sw_parse_appname()` / `sw_parse_title()` | sw_item_info (纯解析，见上) |
 | `sw_page_gated()` | steam-workshop.sh `_go` (登录门检测，手输 AppID 提示语区分) |
+| `sw_short_error()` | steam-workshop.sh `_download` (rc=2 时 notify 附真实错误行，不再只给通用指令) |
 | `sw_resolve_appid()`| steam-workshop.sh `_go` 兼容入口 (先 `?appid=` 参数零网络, 后抓页面) |
 | `sw_api_info()` | sw_item_info (免 key WebAPI `GetPublishedFileDetails` 取 appid+标题, store `appdetails` 取 app 名; 登录门条目可用, 需 jq) |
 | `sw_item_info()`      | steam-workshop.sh `_go` (一次抓页返回 `appid\|app名\|资源名`; 页面无 appid → WebAPI 兜底 → 都失败才手输) |
