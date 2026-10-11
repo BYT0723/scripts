@@ -8,7 +8,8 @@
 #   sw_parse_appname <page>      → stdout app 名 (可空)
 #   sw_parse_title <page>        → stdout 资源名 (可空)
 #   sw_resolve_appid <url-or-id> → stdout appid (先 ?appid= 参数, 后抓页面)
-#   sw_item_info <url-or-id>     → stdout "appid|app名|资源名" (appid 必需, 否则失败)
+#   sw_api_info <itemid>         → stdout "appid|app名|资源名" (免 key WebAPI, 登录门条目可用; 需 jq)
+#   sw_item_info <url-or-id>     → stdout "appid|app名|资源名" (页面 → WebAPI → 失败)
 #   sw_list_users                → stdout "AccountName|PersonaName" 行 (按 Timestamp 倒序)
 #   sw_download <appid> <itemid> <user> → stdout 实际落盘路径; rc=0 成功, 2=需终端登录, 1=其他失败
 
@@ -74,16 +75,40 @@ sw_resolve_appid() {
     echo "$appid"
 }
 
+sw_api_info() {
+    local itemid="$1" resp="" appid="" title="" appname=""
+    command -v jq >/dev/null || return 1
+    resp=$(curl -sSL --max-time 20 --proto '=https' -X POST \
+        'https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/' \
+        --data-urlencode 'itemcount=1' --data-urlencode "publishedfileids[0]=$itemid" 2>/dev/null) || return 1
+    appid=$(jq -r '.response.publishedfiledetails[0] | select(.result == 1) | .consumer_app_id' <<<"$resp")
+    if [[ -z "$appid" || "$appid" == "null" ]]; then
+        return 1
+    fi
+    title=$(jq -r '.response.publishedfiledetails[0] | select(.result == 1) | .title // ""' <<<"$resp")
+    appname=$(curl -sSL --max-time 10 --proto '=https' \
+        "https://store.steampowered.com/api/appdetails?appids=$appid" 2>/dev/null \
+        | jq -r --arg id "$appid" '.[$id] | select(.success == true) | .data.name // ""')
+    [[ "$appname" == "null" ]] && appname=""
+    echo "$appid|$(sw_decode_entities "$appname")|$(sw_decode_entities "$title")"
+}
+
 sw_item_info() {
-    local in="$1" page="" appid=""
+    local in="$1" page="" appid="" itemid=""
     [[ "$in" =~ [\?\&]appid=([0-9]+) ]] && {
         echo "${BASH_REMATCH[1]}||"
         return 0
     }
-    page=$(sw_fetch_page "$in") || return 1
-    appid=$(sw_parse_appid "$page")
-    [[ -z "$appid" ]] && return 1
-    echo "$appid|$(sw_parse_appname "$page")|$(sw_parse_title "$page")"
+    page=$(sw_fetch_page "$in" 2>/dev/null)
+    if [[ -n "$page" ]]; then
+        appid=$(sw_parse_appid "$page")
+        if [[ -n "$appid" ]]; then
+            echo "$appid|$(sw_parse_appname "$page")|$(sw_parse_title "$page")"
+            return 0
+        fi
+    fi
+    itemid=$(sw_parse_itemid "$in") || return 1
+    sw_api_info "$itemid"
 }
 
 sw_list_users() {

@@ -32,11 +32,16 @@ chmod +x "$FAKE_BIN/steamcmd"
 cat >"$FAKE_BIN/curl" <<'EOF'
 #!/usr/bin/env bash
 : >>"$CURL_CALLED"
-cat "$CURL_FIXTURE"
+case "$*" in
+*GetPublishedFileDetails*) cat "$CURL_API_FIXTURE" ;;
+*appdetails*) cat "$CURL_APP_FIXTURE" ;;
+*) cat "$CURL_FIXTURE" ;;
+esac
 EOF
 chmod +x "$FAKE_BIN/curl"
 export PATH="$FAKE_BIN:$PATH"
 export CURL_CALLED="$TEST_DIR/curl.called" CURL_FIXTURE="$TEST_DIR/page.html"
+export CURL_API_FIXTURE="$TEST_DIR/api.json" CURL_APP_FIXTURE="$TEST_DIR/app.json"
 
 # shellcheck source=/dev/null
 source "$SCRIPT"
@@ -53,6 +58,15 @@ cat >"$TEST_DIR/page-noapp.html" <<'EOF'
 EOF
 cat >"$TEST_DIR/page-gated.html" <<'EOF'
 <div class="error_ctn">Sorry! An error was encountered while processing your request: You must be logged in to view this item.</div>
+EOF
+cat >"$TEST_DIR/api.json" <<'EOF'
+{"response":{"result":1,"resultcount":1,"publishedfiledetails":[{"publishedfileid":"3812349759","result":1,"creator_app_id":431960,"consumer_app_id":431960,"title":"Gated Item"}]}}
+EOF
+cat >"$TEST_DIR/api-deleted.json" <<'EOF'
+{"response":{"result":1,"resultcount":1,"publishedfiledetails":[{"publishedfileid":"999","result":9}]}}
+EOF
+cat >"$TEST_DIR/app.json" <<'EOF'
+{"431960":{"success":true,"data":{"name":"Wallpaper Engine"}}}
 EOF
 cat >"$TEST_DIR/loginusers.vdf" <<'EOF'
 "users"
@@ -87,10 +101,19 @@ assert_cond "appid: page without app fails" '! sw_resolve_appid "3810650535" >/d
 # ---- item_info (同一页一次抓全: appid|app名|资源名) ----
 export CURL_FIXTURE="$TEST_DIR/page.html"
 assert_cond "info: appid|appname|title" '[[ $(sw_item_info "https://steamcommunity.com/sharedfiles/filedetails/?id=2858284176") == "431960|Wallpaper Engine|Wavy grass" ]]'
-export CURL_FIXTURE="$TEST_DIR/page-noapp.html"
-assert_cond "info: no app fails" '! sw_item_info "3810650535" >/dev/null'
+export CURL_FIXTURE="$TEST_DIR/page-noapp.html" CURL_API_FIXTURE="$TEST_DIR/api-deleted.json"
+assert_cond "info: no app fails" '! sw_item_info "999" >/dev/null'
+export CURL_FIXTURE="$TEST_DIR/page.html" CURL_API_FIXTURE="$TEST_DIR/api.json"
 assert_cond "gated: login-gate detected" 'sw_page_gated "$(cat "$TEST_DIR/page-gated.html")"'
 assert_cond "gated: normal page not gated" '! sw_page_gated "$(cat "$TEST_DIR/page.html")"'
+export CURL_API_FIXTURE="$TEST_DIR/api.json" CURL_APP_FIXTURE="$TEST_DIR/app.json"
+assert_cond "api: appid|appname|title" '[[ $(sw_api_info "3812349759") == "431960|Wallpaper Engine|Gated Item" ]]'
+export CURL_API_FIXTURE="$TEST_DIR/api-deleted.json"
+assert_cond "api: deleted item fails" '! sw_api_info "999" >/dev/null'
+export CURL_FIXTURE="$TEST_DIR/page-gated.html" CURL_API_FIXTURE="$TEST_DIR/api.json"
+assert_cond "info: gated page falls back to api" '[[ $(sw_item_info "https://steamcommunity.com/sharedfiles/filedetails/?id=3812349759") == "431960|Wallpaper Engine|Gated Item" ]]'
+export CURL_FIXTURE="$TEST_DIR/page-noapp.html" CURL_API_FIXTURE="$TEST_DIR/api-deleted.json"
+assert_cond "info: deleted item fails" '! sw_item_info "999" >/dev/null'
 
 # ---- list_users ----
 mapfile -t _users < <(sw_list_users)

@@ -285,7 +285,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `sw_parse_field()` / `sw_parse_appname()` / `sw_parse_title()` | sw_item_info (纯解析，见上) |
 | `sw_page_gated()` | steam-workshop.sh `_go` (登录门检测，手输 AppID 提示语区分) |
 | `sw_resolve_appid()`| steam-workshop.sh `_go` 兼容入口 (先 `?appid=` 参数零网络, 后抓页面) |
-| `sw_item_info()`      | steam-workshop.sh `_go` (一次抓页返回 `appid\|app名\|资源名`, appid 缺失即失败转手输) |
+| `sw_api_info()` | sw_item_info (免 key WebAPI `GetPublishedFileDetails` 取 appid+标题, store `appdetails` 取 app 名; 登录门条目可用, 需 jq) |
+| `sw_item_info()`      | steam-workshop.sh `_go` (一次抓页返回 `appid\|app名\|资源名`; 页面无 appid → WebAPI 兜底 → 都失败才手输) |
 | `sw_list_users()`   | steam-workshop.sh `_pick_user` (解析 loginusers.vdf `AccountName\|PersonaName`, Timestamp 倒序; 0→anonymous, 1→直用, N→rofi 选) |
 | `sw_download()`     | steam-workshop.sh `_download` (后台: steamcmd `+login <user> +workshop_download_item`; rc=0 成功回落盘路径, 2=认证失败提示终端登录, 1=其他失败) |
 
