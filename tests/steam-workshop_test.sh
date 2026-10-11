@@ -51,6 +51,9 @@ EOF
 cat >"$TEST_DIR/page-noapp.html" <<'EOF'
 <html><body>no app here</body></html>
 EOF
+cat >"$TEST_DIR/page-gated.html" <<'EOF'
+<div class="error_ctn">Sorry! An error was encountered while processing your request: You must be logged in to view this item.</div>
+EOF
 cat >"$TEST_DIR/loginusers.vdf" <<'EOF'
 "users"
 {
@@ -86,6 +89,8 @@ export CURL_FIXTURE="$TEST_DIR/page.html"
 assert_cond "info: appid|appname|title" '[[ $(sw_item_info "https://steamcommunity.com/sharedfiles/filedetails/?id=2858284176") == "431960|Wallpaper Engine|Wavy grass" ]]'
 export CURL_FIXTURE="$TEST_DIR/page-noapp.html"
 assert_cond "info: no app fails" '! sw_item_info "3810650535" >/dev/null'
+assert_cond "gated: login-gate detected" 'sw_page_gated "$(cat "$TEST_DIR/page-gated.html")"'
+assert_cond "gated: normal page not gated" '! sw_page_gated "$(cat "$TEST_DIR/page.html")"'
 
 # ---- list_users ----
 mapfile -t _users < <(sw_list_users)

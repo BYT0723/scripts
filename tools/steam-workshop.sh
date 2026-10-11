@@ -4,6 +4,7 @@
 #   sw_fetch_page <url-or-id>    → stdout 工坊页面 HTML (纯数字 ID 自动拼 URL)
 #   sw_parse_appid <page>        → stdout appid
 #   sw_parse_field <page> <marker> → stdout 标记文本 (HTML 转义解码)
+#   sw_page_gated <page>         → 登录门返回 0 (匿名不可见条目)
 #   sw_parse_appname <page>      → stdout app 名 (可空)
 #   sw_parse_title <page>        → stdout 资源名 (可空)
 #   sw_resolve_appid <url-or-id> → stdout appid (先 ?appid= 参数, 后抓页面)
@@ -52,6 +53,10 @@ sw_parse_title() {
 
 sw_decode_entities() {
     sed -e 's/&amp;/\&/g' -e 's/&lt;/</g' -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&#39;/'/g" <<<"$1" | tr '|' ' ' | tr -d '\n'
+}
+
+sw_page_gated() { # page → 登录门则返回 0 (受限/隐藏条目, 匿名不可见)
+    grep -qi 'you must be logged in to view this item' <<<"$1"
 }
 
 sw_resolve_appid() {

@@ -71,7 +71,11 @@ _go() {
     if info=$(sw_item_info "$url"); then
         IFS='|' read -r appid appname title <<<"$info"
     else
-        appid=$(module_input "AppID" "Could not detect AppID for item $itemid, enter manually")
+        mesg="Could not detect AppID for item $itemid, enter manually"
+        if sw_page_gated "$(sw_fetch_page "$url" 2>/dev/null)"; then
+            mesg="Login-gated item (anonymous can't see it), enter AppID manually"
+        fi
+        appid=$(module_input "AppID" "$mesg")
         [[ -z "$appid" ]] && return
         appname=""
         title=""
