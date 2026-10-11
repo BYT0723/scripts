@@ -36,9 +36,12 @@ utils/string.sh ──sources──► 无外部脚本
 
 tools/yt-dlp.sh ◄──sourced by── rofi/scripts/yt-dlp-wrapper.sh
 
+tools/steam-workshop.sh ◄──sourced by── rofi/scripts/steam-workshop.sh
+
 rofi/scripts/yt-dlp-wrapper.sh ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh, tools/yt-dlp.sh
 
 rofi/scripts/quicklinks-mode.sh──sources──► utils/form.sh, utils/notify.sh, utils/url.sh, utils/string.sh, rofi/scripts/lib-module.sh (module_confirm); ──挂载于── rofi/launchers/type-3/launcher.sh (combi 模式 quicklinks modi)
+rofi/scripts/steam-workshop.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh, tools/steam-workshop.sh; ──calls──► steamcmd (+login <user> +workshop_download_item, 后台子 shell + system-notify)
 rofi/scripts/module.sh      ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/wallpaper.sh   ──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh, tools/wallpaper-lib.sh, tools/wallpaper-render.sh
 rofi/scripts/notification.sh──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh
@@ -173,6 +176,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `handle_audio_output()`   | module.sh (pactl sink 切换子菜单 → notify-send)             |
 | `handle_theme()`          | module.sh (Theme 子菜单 → rofi/scripts/theme.sh)            |
 | `handle_yt_dlp_wrapper()` | module.sh (YT-DLP Wrapper → rofi/scripts/yt-dlp-wrapper.sh) |
+| `handle_steam_workshop()` | module.sh (Steam Workshop → rofi/scripts/steam-workshop.sh) |
 | `handle_xcolor()`         | module.sh (Color Picker → xcolor + xclip + dunstify)        |
 | `handle_wallpaper()`      | module.sh (Wallpaper → rofi/scripts/wallpaper.sh)           |
 | `handle_touchpad()`       | module.sh (Touch Pad → tools/touchpad.sh toggle)            |
@@ -272,6 +276,18 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `yt_download()`  | yt-dlp.sh (CLI: audio/video/raw) / yt-dlp-wrapper.sh (source 后直接调用) |
 | `extract_opus()` | yt_download() (audio 模式) / yt-dlp.sh (定义/CLI extra)                  |
 
+### tools/steam-workshop.sh (无 rofi 依赖, CLI: parse/appid/users/download)
+
+| 函数                | 调用者                                                                 |
+| ------------------- | ---------------------------------------------------------------------- |
+| `sw_parse_itemid()` | steam-workshop.sh `_go` (URL/纯数字 → itemid, 失败 critical 退出)      |
+| `sw_fetch_page()`     | sw_resolve_appid / sw_item_info (统一 curl 入口, 纯数字 ID 自动拼 URL) |
+| `sw_parse_appid()` / `sw_parse_appname()` / `sw_parse_title()` | sw_item_info (纯解析: `data-appid` / `apphub_AppName` / `workshopItemTitle`, HTML 转义解码, `|` 置换) |
+| `sw_resolve_appid()`| steam-workshop.sh `_go` 兼容入口 (先 `?appid=` 参数零网络, 后抓页面) |
+| `sw_item_info()`      | steam-workshop.sh `_go` (一次抓页返回 `appid\|app名\|资源名`, appid 缺失即失败转手输) |
+| `sw_list_users()`   | steam-workshop.sh `_pick_user` (解析 loginusers.vdf `AccountName\|PersonaName`, Timestamp 倒序; 0→anonymous, 1→直用, N→rofi 选) |
+| `sw_download()`     | steam-workshop.sh `_download` (后台: steamcmd `+login <user> +workshop_download_item`; rc=0 成功回落盘路径, 2=认证失败提示终端登录, 1=其他失败; 无下载目录, 成功路径由 UI 拷进剪贴板) |
+
 ### rofi/scripts/yt-dlp-wrapper.sh
 
 | 函数                 | 调用者                                               |
@@ -284,6 +300,16 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `handle_clipboard()` | yt-dlp-wrapper.sh (模块主菜单: 剪贴板链接直接下载)   |
 | `handle_format()`    | yt-dlp-wrapper.sh (模块主菜单: -F 自定义格式)        |
 | `handle_open()`      | yt-dlp-wrapper.sh (模块主菜单: 打开下载目录)         |
+
+### rofi/scripts/steam-workshop.sh
+
+| 函数                 | 调用者                                              |
+| -------------------- | --------------------------------------------------- |
+| `_pick_user()`       | steam-workshop.sh `_go` (0 用户→anonymous, 1→直用, N→`module_sub_rofi` 选 `acc — pers`, ESC 返回 1) |
+| `_download()`        | steam-workshop.sh `_go` (后台下载 + notify: 标题 `资源名 — App名`; 0→Done+路径拷剪贴板, 2→critical 终端登录指令, 其他→critical rc) |
+| `_go()`              | steam-workshop.sh handle_input / handle_clipboard (parse→info→user→download 全链) |
+| `handle_input()`     | steam-workshop.sh (模块主菜单: 输入 URL/ID, 剪贴板预填) |
+| `handle_clipboard()` | steam-workshop.sh (模块主菜单: 剪贴板链接直接下载)  |
 
 ### rofi/scripts/wallpaper.sh
 
@@ -427,6 +453,7 @@ dwm-launcher.sh (快捷键)
   → rofi/scripts/module.sh   (模块管理)
     → rofi/scripts/theme.sh (主题控制子菜单，由 module.sh handle_theme 调用)
     → rofi/scripts/yt-dlp-wrapper.sh (YT-DLP Wrapper，由 module.sh handle_yt_dlp_wrapper 调用)
+    → rofi/scripts/steam-workshop.sh (Steam Workshop，由 module.sh handle_steam_workshop 调用)
     → rofi/scripts/wallpaper.sh (壁纸管理，由 module.sh handle_wallpaper 调用)
     → tools/touchpad.sh toggle (触控板开关，由 module.sh handle_touchpad 调用)
   → rofi/scripts/media-scraping.sh  (Media 启停子菜单，由 module.sh 调用)

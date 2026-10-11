@@ -42,6 +42,7 @@ theme|󰔟|Theme|
 wallpaper|󰸉|Wallpaper|
 xcolor|󰌁|Color Picker|
 yt-dlp-wrapper|󰎆|YT-DLP Wrapper (downloader)|
+steam-workshop|󰉋|Steam Workshop|
 touchpad||Touch Pad|toggle-raw:$WORK_DIR/tools/touchpad.sh status
 screencast|󰑊|Screencast|
 MODULES
@@ -88,6 +89,7 @@ handle_media_scraping() { /bin/bash $ROFI_DIR/scripts/media-scraping.sh; }
 handle_sddm() { /bin/bash $ROFI_DIR/scripts/sddm.sh; }
 handle_scrcpy() { /bin/bash $ROFI_DIR/scripts/scrcpy.sh; }
 handle_yt_dlp_wrapper() { /bin/bash $ROFI_DIR/scripts/yt-dlp-wrapper.sh; }
+handle_steam_workshop() { /bin/bash $ROFI_DIR/scripts/steam-workshop.sh; }
 handle_theme() { /bin/bash $ROFI_DIR/scripts/theme.sh; }
 handle_xcolor() { /bin/bash $WORK_DIR/tools/color-picker.sh; }
 handle_wallpaper() { /bin/bash $ROFI_DIR/scripts/wallpaper.sh; }
