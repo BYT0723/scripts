@@ -147,18 +147,29 @@ module_parse <<'MODULES'
 next|󰑐|Next|
 select||Select|
 random_switch||Random|cmd:icon toggle conf wallpaper random number "$MONITOR"
-random_type|󱧶|Type|cmd:[[ $(getConfig -m "$MONITOR" random_type) == "video" ]] && echo "" || echo ""
+random_type|󱧶|Type|cmd:t=$(getConfig -m "$MONITOR" random_type); case "$t" in video) echo "";; web) echo "";; *) echo "";; esac
 random_duration|󰔟|Duration|cmd:getConfig -m "$MONITOR" duration
 fps||FPS|cmd:get_video_render_config "$MONITOR" fps
 random_images_path||Images Path|
 random_videos_path||Videos Path|
+random_web_path||Web Path|
 random_images_path_dark||Images Path (Dark)|
 random_videos_path_dark||Videos Path (Dark)|
+random_web_path_dark||Web Path (Dark)|
 MODULES
 handle_next() { ("$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" next &) }
 handle_select() { "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" select; }
 handle_random_switch() { toggleConf wallpaper random number "$MONITOR"; }
-handle_random_type() { toggleConf wallpaper random_type wallpaper_type "$MONITOR"; }
+handle_random_type() {
+    local cur chosen conf
+    cur=$(getConfig -m "$MONITOR" random_type)
+    chosen=$(printf 'image\nvideo\nweb' | module_sub_rofi "Random type" "current: $cur")
+    case "$chosen" in image | video | web) ;; *) return ;; esac
+    [ "$chosen" = "$cur" ] && return
+    conf="$HOME/.config/dwm/wallpaper.json"
+    jq --arg m "$MONITOR" --arg v "$chosen" '.monitors[$m].random_type = $v' \
+        "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
+}
 handle_random_duration() { set_numeric_config "$MONITOR" duration "Duration" "Wallpaper change interval in minutes (≥ 1)" 1; }
 handle_fps() {
     # setter 仅在写入新值时返回 0 (取消/非法/未改变直接返回)；有改变才重建 video 壁纸
@@ -167,7 +178,9 @@ handle_fps() {
 }
 handle_random_images_path() { pick_config_dir "$MONITOR" random_image_dir; }
 handle_random_videos_path() { pick_config_dir "$MONITOR" random_video_dir; }
+handle_random_web_path() { pick_config_dir "$MONITOR" random_web_dir; }
 handle_random_images_path_dark() { pick_config_dir "$MONITOR" random_image_dir_dark; }
 handle_random_videos_path_dark() { pick_config_dir "$MONITOR" random_video_dir_dark; }
+handle_random_web_path_dark() { pick_config_dir "$MONITOR" random_web_dir_dark; }
 
 while module_loop; do :; done

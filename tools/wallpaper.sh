@@ -31,6 +31,10 @@ random_wallpaper() {
         dir=$(get_theme_dir "$monitor" random_image_dir "$theme")
         pattern=".*\.(jpeg|jpg|png)"
         ;;
+    "web")
+        dir=$(get_theme_dir "$monitor" random_web_dir "$theme")
+        pattern=".*/index\.html"
+        ;;
     *)
         error "Unknown random type: $random_type"
         return
@@ -40,13 +44,25 @@ random_wallpaper() {
     # Use find_wallpapers to get all matching files
     local files
     if ! files=$(find_wallpapers "$dir" "$depth" "$pattern"); then
-        # Error already printed by find_wallpapers
-        return
+        # Error already printed by find_wallpapers (bare return would
+        # yield 0: entering the branch means the negated test is true)
+        return 1
     fi
 
     # Convert newline-separated list to array
     local file_array=()
     mapfile -t file_array <<<"$files"
+
+    # web 池是 index.html 的上层目录 (xwallpaper --web 要目录): 去重到目录
+    if [ "$random_type" = "web" ]; then
+        local -A seen=()
+        local uniq=() f d
+        for f in "${file_array[@]}"; do
+            d=$(dirname "$f")
+            [ -n "${seen[$d]}" ] || { seen[$d]=1; uniq+=("$d"); }
+        done
+        file_array=("${uniq[@]}")
+    fi
 
     # Exclude current wallpaper to avoid showing the same one again
     # 当前壁纸状态由 xwallpaper 持久化, 经 `state` (name\ttype\tpath\trot) 查询
@@ -76,10 +92,12 @@ select_wallpaper() {
     local monitor="$1"
     local dir
     local tmp=$(mktemp)
+    local random_type=$(getConfig -m "$monitor" random_type)
 
-    case "$(getConfig -m "$monitor" random_type)" in
+    case "$random_type" in
     video) dir=$(get_theme_dir "$monitor" random_video_dir) ;;
     image) dir=$(get_theme_dir "$monitor" random_image_dir) ;;
+    web) dir=$(get_theme_dir "$monitor" random_web_dir) ;;
     *)
         rm -f "$tmp"
         return 1
@@ -88,8 +106,16 @@ select_wallpaper() {
 
     YAZI_CONFIG_HOME=$HOME/.config/yazi_wallpaper $TERM yazi "$dir" --chooser-file="$tmp"
 
-    echo "$(cat $tmp)"
+    local picked
+    picked=$(cat "$tmp")
     rm -f "$tmp"
+    # web 要的是含 index.html 的目录: 选中文件取其上层，无 index.html 则拒绝
+    if [ "$random_type" = "web" ]; then
+        [ -f "$picked" ] && picked=$(dirname "$picked")
+        [ -f "$picked/index.html" ] || return 1
+    fi
+
+    echo "$picked"
 }
 
 # ---- Get rotation for video wallpaper (cached or preview) ----

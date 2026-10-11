@@ -319,12 +319,14 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `handle_next()`               | wallpaper.sh (模块主菜单: 下一张; `( tools/wallpaper.sh -m ... next & )` 后台执行, rofi 立即重开) |
 | `handle_select()`             | wallpaper.sh (模块主菜单: 选择文件)                     |
 | `handle_random_switch()`      | wallpaper.sh (模块主菜单: 随机开关 toggle)              |
-| `handle_random_type()`        | wallpaper.sh (模块主菜单: 类型切换 toggle)              |
+| `handle_random_type()`        | wallpaper.sh (模块主菜单: 类型三选一 selector image/video/web，状态行显示当前类型图标) |
 | `handle_random_duration()`    | wallpaper.sh (模块主菜单: 设置轮换间隔)                 |
 | `handle_random_images_path()` | wallpaper.sh (模块主菜单: 选择图片目录)                 |
 | `handle_random_videos_path()` | wallpaper.sh (模块主菜单: 选择视频目录)                 |
+| `handle_random_web_path()` | wallpaper.sh (模块主菜单: 选择网页壁纸目录 → `random_web_dir`) |
 | `handle_random_images_path_dark()` | wallpaper.sh (模块主菜单: 选择深色图片目录 → `random_image_dir_dark`) |
 | `handle_random_videos_path_dark()` | wallpaper.sh (模块主菜单: 选择深色视频目录 → `random_video_dir_dark`) |
+| `handle_random_web_path_dark()` | wallpaper.sh (模块主菜单: 选择深色网页壁纸目录 → `random_web_dir_dark`) |
 | `handle_fps()` | wallpaper.sh (模块主菜单: 设置视频帧率上限 → `video-render.fps`, 0=不限; setter 仅写入新值时返回 0, `&&` 串联 `reapply_video_wallpaper` 即时生效) |
 | `handle_group()`              | wallpaper.sh (模块主菜单: 组管理 — 新建/编辑/启停/删除) |
 
@@ -375,7 +377,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 
 | 函数 | 调用者 |
 | ---- | ------ |
-| `random_wallpaper()` | wallpaper.sh (`-m next`, launch_wallpaper daemon, theme_wallpaper) — 经 `get_theme_dir` 按当前主题选目录 (第二参可显式传 light/dark); `random_depth` 为全局值 (读顶层/`.defaults`, 缺省 3); 排除当前壁纸后随机抽取 |
+| `random_wallpaper()` | wallpaper.sh (`-m next`, launch_wallpaper daemon, theme_wallpaper) — 经 `get_theme_dir` 按当前主题选目录 (第二参可显式传 light/dark); 按 `random_type` image/video/web 选池：web 池为目录下所有 `index.html` 的上层目录（`find_wallpapers` + `dirname` 去重，`xwallpaper --web` 要目录）; `random_depth` 为全局值 (读顶层/`.defaults`, 缺省 3); 排除当前壁纸后随机抽取 |
 | `ensure_xwallpaperd()` | wallpaper.sh (launch_wallpaper 经此拉起) — daemon 存活直接复用, 仅死亡/缺失才 pkill 清理 + 拉起 (热重启重跑 autostart 不杀 daemon, 窗口不销毁重建) |
 | `select_wallpaper()` | wallpaper.sh (`-m select`) — 经 `get_theme_dir` 按当前主题定 yazi 起始目录 |
 | `theme_wallpaper()` | wallpaper.sh (`--theme [light\|dark\|auto]` CLI) / tools/theme.sh `_do_theme_change` (前台同步 hook, SIGHUP 前落盘) — 枚举 active monitors + enabled groups (skip 组员, 坏组跳过), Screen 激活时只切 Screen, 单 target 失败跳过整体恒返回 0; 先读 `wallpaper-last.json` 恢复该主题上次壁纸 (文件仍存在才用), 无记忆/文件已删才 random 并回写记忆; 当前已是目标时跳过 set (同名 set 即 reload, 白闪一次) |
@@ -531,7 +533,7 @@ wallpaper.sh → source utils/monitor.sh, utils/notify.sh
 - `rofi/fonts/` 字体文件
 - `rofi/colors/` `rofi/images/`
 - `~/.config/dwm/quicklinks.json` — quicklinks 书签, `links` 数组元素含 `id`(uuid)、`name`、`url` (icon 字段已废弃移除); 顶层 `searcher` 数组存搜索引擎 `{name, url}`(name 为唯一键, url 用 `{key}` 占位搜索词, 可省略 → 追加 url 末尾), 自定义输入搜索默认用 `searcher[0]`, 支持 `@<name>` 首 token 指定引擎
-- `~/.config/dwm/wallpaper.json` — 壁纸配置, 含 `monitors`(按屏/组名键)、`groups`(成员名单 + enabled 启停) + 可选顶层/`.defaults.random_depth` (全局搜索深度, 缺省 3, `find -maxdepth`); 每个 monitor/组可带可选 `video-render` 对象 `{volume, fps}`: `volume>0` 传 `--volume N` 播放音频, `volume=0`/缺省时传 `--mute` 静音 (0 与 mute 等价), `fps>0` 传 `--fps`; 主题色调目录: light 用 `random_image_dir`/`random_video_dir`, dark 用 `random_image_dir_dark`/`random_video_dir_dark` (缺失/空串 fallback light, rofi Wallpaper 菜单 Images Dark/Videos Dark 配置)
+- `~/.config/dwm/wallpaper.json` — 壁纸配置, 含 `monitors`(按屏/组名键)、`groups`(成员名单 + enabled 启停) + 可选顶层/`.defaults.random_depth` (全局搜索深度, 缺省 3, `find -maxdepth`); 每个 monitor/组可带可选 `video-render` 对象 `{volume, fps}`: `volume>0` 传 `--volume N` 播放音频, `volume=0`/缺省时传 `--mute` 静音 (0 与 mute 等价), `fps>0` 传 `--fps`; 随机类型 `random_type` ∈ image/video/web (rofi Type 三选一); web 随机池 `random_web_dir`/`random_web_dir_dark` (缺省 `~/.local/share/Steam/steamapps/workshop/content/431960`，池为其下所有 `index.html` 的上层目录); 主题色调目录: light 用 `random_image_dir`/`random_video_dir`, dark 用 `random_image_dir_dark`/`random_video_dir_dark` (缺失/空串 fallback light, rofi Wallpaper 菜单 Images Dark/Videos Dark 配置)
 - `~/.local/state/dwm/wallpaper-last.json` — 壁纸主题记忆 (状态, 非配置): `{"<target>":{"light":"/path","dark":"/path"}}`, target = monitor 名/组名/Screen; 主题切换优先恢复记忆 (文件不存在回退 random), 手动 `next/select` 与 daemon 轮换按 `current-theme` 回写
 - `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置，`"auto"` 含 `enabled`(默认 false)、`sun_rise_offset`(日出延迟分钟数)、`sun_set_offset`(日落延迟分钟数)、`dawn_minutes`/`dusk_minutes`(亮度过渡分钟数，默认 60，0=关闭渐变)、`transition_anchor`(过渡锚点 `after`(默认，事件后窗口) / `center`(对称窗口) / `before`(事件前窗口))，`"cursor"` 含 `theme`/`size`，`"dpi"` 为 Xft.dpi 值，`light`/`dark` 的 `colorscheme` 引用 `~/.config/dwm/colorschemes/` 下的颜色方案文件，`qt` 为 Kvantum 主题名 (light `Orchis-solid` / dark `Orchis-solidDark`)
 - `~/.xsettingsd` — `set_gtk_theme()` 维护 `Net/ThemeName`(当前 GTK 主题) + `Gtk/CursorThemeName/Size`(源 `theme.json:cursor`, 与 `Xcursor` 对齐, 缺失时 Firefox 回退到 `settings.ini/gsettings` 的 36), 保留其他 XSETTINGS 键, `pkill -HUP xsettingsd` 触发重载广播

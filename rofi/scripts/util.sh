@@ -35,7 +35,6 @@ typeToValue() {
     case "$1" in
     bool) echo false ;;
     number) echo 0 ;;
-    wallpaper_type) echo "image" ;;
     esac
 }
 
@@ -48,11 +47,9 @@ toggleConf() {
         local def=$(typeToValue "$type")
         local cur=$(jq -r "${path}.${key} // empty" "$conf" 2>/dev/null)
         if [ "$cur" = "$def" ] || [ -z "$cur" ]; then
-            [ "$type" = "wallpaper_type" ] && jq "${path}.${key} = \"video\"" "$conf" >"$conf.tmp" ||
-                jq "${path}.${key} = 1" "$conf" >"$conf.tmp"
+            jq "${path}.${key} = 1" "$conf" >"$conf.tmp"
         else
-            [ "$type" = "wallpaper_type" ] && jq "${path}.${key} = \"image\"" "$conf" >"$conf.tmp" ||
-                jq "${path}.${key} = 0" "$conf" >"$conf.tmp"
+            jq "${path}.${key} = 0" "$conf" >"$conf.tmp"
         fi
         mv "$conf.tmp" "$conf"
         return
@@ -60,9 +57,9 @@ toggleConf() {
 
     local def=$(typeToValue "$3") val
     if grep -qE "^$2\s*=\s*$def" "${confPath[$1]}"; then
-        case "$3" in bool) val=true ;; number) val=1 ;; wallpaper_type) val=video ;; esac
+        case "$3" in bool) val=true ;; number) val=1 ;; esac
     else
-        case "$3" in bool) val=false ;; number) val=0 ;; wallpaper_type) val=image ;; esac
+        case "$3" in bool) val=false ;; number) val=0 ;; esac
     fi
     sed -i "s|^$2\s*=\s*[^ ]*|$2\ =\ $val|g" "${confPath[$1]}"
 }

@@ -58,6 +58,7 @@ config["random"]=0
 config["random_type"]="image"
 config["random_image_dir"]="~/Pictures"
 config["random_video_dir"]="~/Videos"
+config["random_web_dir"]="~/.local/share/Steam/steamapps/workshop/content/431960"
 config["random_depth"]=3
 config["duration"]=30
 # video 渲染默认值 (未在 monitor/组的 video-render 配置时回退用; volume=0 等价静音)
