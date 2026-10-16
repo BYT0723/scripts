@@ -35,6 +35,10 @@ random_wallpaper() {
         dir=$(get_theme_dir "$monitor" random_web_dir "$theme")
         pattern=".*/index\.html"
         ;;
+    "scene")
+        dir=$(get_theme_dir "$monitor" random_scene_dir "$theme")
+        pattern=".*/scene\.(pkg|json)"
+        ;;
     *)
         error "Unknown random type: $random_type"
         return
@@ -53,8 +57,9 @@ random_wallpaper() {
     local file_array=()
     mapfile -t file_array <<<"$files"
 
-    # web 池是 index.html 的上层目录 (xwallpaper --web 要目录): 去重到目录
-    if [ "$random_type" = "web" ]; then
+    # web 池是 index.html 的上层目录, scene 池是 scene.pkg/scene.json 的上层
+    # 目录 (xwallpaper --web/--scene 都要目录): 去重到目录
+    if [ "$random_type" = "web" ] || [ "$random_type" = "scene" ]; then
         local -A seen=()
         local uniq=() f d
         for f in "${file_array[@]}"; do
@@ -98,6 +103,7 @@ select_wallpaper() {
     video) dir=$(get_theme_dir "$monitor" random_video_dir) ;;
     image) dir=$(get_theme_dir "$monitor" random_image_dir) ;;
     web) dir=$(get_theme_dir "$monitor" random_web_dir) ;;
+    scene) dir=$(get_theme_dir "$monitor" random_scene_dir) ;;
     *)
         rm -f "$tmp"
         return 1
@@ -109,10 +115,14 @@ select_wallpaper() {
     local picked
     picked=$(cat "$tmp")
     rm -f "$tmp"
-    # web 要的是含 index.html 的目录: 选中文件取其上层，无 index.html 则拒绝
+    # web 要的是含 index.html 的目录, scene 要含 scene.pkg/scene.json:
+    # 选中文件取其上层, 缺标记则拒绝
     if [ "$random_type" = "web" ]; then
         [ -f "$picked" ] && picked=$(dirname "$picked")
         [ -f "$picked/index.html" ] || return 1
+    elif [ "$random_type" = "scene" ]; then
+        [ -f "$picked" ] && picked=$(dirname "$picked")
+        { [ -f "$picked/scene.pkg" ] || [ -f "$picked/scene.json" ]; } || return 1
     fi
 
     echo "$picked"

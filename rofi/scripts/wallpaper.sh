@@ -147,24 +147,27 @@ module_parse <<'MODULES'
 next|󰑐|Next|
 select||Select|
 random_switch||Random|cmd:icon toggle conf wallpaper random number "$MONITOR"
-random_type|󱧶|Type|cmd:t=$(getConfig -m "$MONITOR" random_type); case "$t" in video) echo "";; web) echo "";; *) echo "";; esac
+random_type|󱧶|Type|cmd:t=$(getConfig -m "$MONITOR" random_type); case "$t" in video) echo "";; web) echo "";; scene) echo "";; *) echo "";; esac
 random_duration|󰔟|Duration|cmd:getConfig -m "$MONITOR" duration
 fps||FPS|cmd:get_video_render_config "$MONITOR" fps
 random_images_path||Images Path|
 random_videos_path||Videos Path|
 random_web_path||Web Path|
+random_scene_path||Scene Path|
 random_images_path_dark||Images Path (Dark)|
 random_videos_path_dark||Videos Path (Dark)|
 random_web_path_dark||Web Path (Dark)|
 MODULES
 handle_next() { ("$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" next &) }
-# web 用 rofi 图文选择器 (标题+预览缩略图): yazi 顶层只见数字 id,
+# web/scene 用 rofi 图文选择器 (标题+预览缩略图): yazi 顶层只见数字 id,
 # 名字在 project.json:title 里, 预览在 preview 字段/preview.* 里。image/video 保留 yazi 大图预览。
-select_web_wallpaper() {
+# Usage: select_marker_wallpaper <label> <config-base> <find-regex>
+select_marker_wallpaper() {
+    local label="$1" base="$2" pattern="$3"
     local dir depth files
-    dir=$(get_theme_dir "$MONITOR" random_web_dir)
+    dir=$(get_theme_dir "$MONITOR" "$base")
     depth=$(getConfig random_depth)
-    if ! files=$(find_wallpapers "$dir" "$depth" ".*/index\.html"); then
+    if ! files=$(find_wallpapers "$dir" "$depth" "$pattern"); then
         return 1
     fi
 
@@ -175,9 +178,14 @@ select_web_wallpaper() {
     trap 'rm -f "$menu" "$map" "$menu_nul"' RETURN
 
     local d f id title preview icon meta p
+    local -A seen=()
     while IFS= read -r f; do
         [ -z "$f" ] && continue
         d=$(dirname "$f")
+        # scene 一个目录可能同时命中 scene.pkg 与 scene.json: 去重到目录, 保证
+        # menu 与 map 行号一一对应
+        [ -n "${seen[$d]}" ] && continue
+        seen[$d]=1
         id=$(basename "$d")
         title="$id"
         preview=""
@@ -202,7 +210,7 @@ select_web_wallpaper() {
 
     local sel
     # 网格主题 (双列卡片 + 128px 大缩略图): inputbar 只有 entry, prompt 经 -p 设置
-    sel=$(rofi -dmenu -i -p "Web" -format i -no-custom -show-icons \
+    sel=$(rofi -dmenu -i -p "$label" -format i -no-custom -show-icons \
         -theme "$ROFI_DIR/launchers/type-3/style-6.rasi" \
         -theme-str 'listview {columns: 4; lines: 4; flow: horizontal; }' \
         -theme-str 'window {width: 800px;}' \
@@ -214,18 +222,18 @@ select_web_wallpaper() {
     "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" file "$picked"
 }
 handle_select() {
-    if [ "$(getConfig -m "$MONITOR" random_type)" = "web" ]; then
-        select_web_wallpaper
-    else
-        "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" select
-    fi
+    case "$(getConfig -m "$MONITOR" random_type)" in
+    web) select_marker_wallpaper "Web" random_web_dir '.*/index\.html' ;;
+    scene) select_marker_wallpaper "Scene" random_scene_dir '.*/scene\.(pkg|json)' ;;
+    *) "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" select ;;
+    esac
 }
 handle_random_switch() { toggleConf wallpaper random number "$MONITOR"; }
 handle_random_type() {
     local cur chosen
     cur=$(getConfig -m "$MONITOR" random_type)
-    chosen=$(printf 'image\nvideo\nweb' | module_sub_rofi "Random type" "current: $cur")
-    case "$chosen" in image | video | web) ;; *) return ;; esac
+    chosen=$(printf 'image\nvideo\nweb\nscene' | module_sub_rofi "Random type" "current: $cur")
+    case "$chosen" in image | video | web | scene) ;; *) return ;; esac
     [ "$chosen" = "$cur" ] && return
     jq --arg m "$MONITOR" --arg v "$chosen" '.monitors[$m].random_type = $v' \
         "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
@@ -239,6 +247,7 @@ handle_fps() {
 handle_random_images_path() { pick_config_dir "$MONITOR" random_image_dir; }
 handle_random_videos_path() { pick_config_dir "$MONITOR" random_video_dir; }
 handle_random_web_path() { pick_config_dir "$MONITOR" random_web_dir; }
+handle_random_scene_path() { pick_config_dir "$MONITOR" random_scene_dir; }
 handle_random_images_path_dark() { pick_config_dir "$MONITOR" random_image_dir_dark; }
 handle_random_videos_path_dark() { pick_config_dir "$MONITOR" random_video_dir_dark; }
 handle_random_web_path_dark() { pick_config_dir "$MONITOR" random_web_dir_dark; }

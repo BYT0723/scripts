@@ -59,6 +59,7 @@ config["random_type"]="image"
 config["random_image_dir"]="~/Pictures"
 config["random_video_dir"]="~/Videos"
 config["random_web_dir"]="~/.local/share/Steam/steamapps/workshop/content/431960"
+config["random_scene_dir"]="~/.local/share/Steam/steamapps/workshop/content/431960"
 config["random_depth"]=3
 config["duration"]=30
 # video 渲染默认值 (未在 monitor/组的 video-render 配置时回退用; volume=0 等价静音)
@@ -87,9 +88,10 @@ xw_set() {
     [ "$backend" = "page" ] && backend="web"
 
     local args=(set "--$backend" -g "$rect" --name "$target")
-    if [ "$type" = "video" ]; then
+    # video / web / scene 都受音量/静音与 keybinds 控制 (image 无 control 不加)
+    if [ "$type" = "video" ] || [ "$type" = "page" ] || [ "$type" = "scene" ]; then
         local volume fps
-        # volume 0 与 mute=true 等价 (mpv mute=yes == volume 0 均静音);
+        # volume 0 与 mute 等价 (video: mpv mute=yes; web/scene: 驱动到 0);
         # 未配置 video-render 时回退 config["volume"]/config["fps"] 默认值
         volume=$(jq -r --arg n "$confname" '.monitors[$n]["video-render"].volume // empty' "$conf" 2>/dev/null)
         [ -z "$volume" ] && volume="${config[volume]:-0}"
@@ -99,9 +101,11 @@ xw_set() {
             args+=(--mute)
         fi
         [ -n "$rotate" ] && args+=(--rotate "$rotate")
-        fps=$(jq -r --arg n "$confname" '.monitors[$n]["video-render"].fps // empty' "$conf" 2>/dev/null)
-        [ -z "$fps" ] && fps="${config[fps]:-0}"
-        [ -n "$fps" ] && [[ $fps -gt 0 ]] && args+=(--fps "$fps")
+        if [ "$type" = "video" ]; then
+            fps=$(jq -r --arg n "$confname" '.monitors[$n]["video-render"].fps // empty' "$conf" 2>/dev/null)
+            [ -z "$fps" ] && fps="${config[fps]:-0}"
+            [ -n "$fps" ] && [[ $fps -gt 0 ]] && args+=(--fps "$fps")
+        fi
         [ -n "$_WALLPAPER_KEYBINDS" ] && [ -f "$_WALLPAPER_KEYBINDS" ] &&
             args+=(--keybinds "$_WALLPAPER_KEYBINDS")
     fi
@@ -279,6 +283,15 @@ expand_path() {
 
 detect_file_type() {
     local filepath="$1"
+    # 目录: 带 scene.pkg / scene.json 标记的是 scene, 否则是 web (同 CLI 自动探测)
+    if [ -d "$filepath" ]; then
+        if [ -f "$filepath/scene.pkg" ] || [ -f "$filepath/scene.json" ]; then
+            echo "scene"
+        else
+            echo "page"
+        fi
+        return
+    fi
     local baseFilename=$(basename "${filepath// /_}")
     local Type="${baseFilename##*.}"
 
