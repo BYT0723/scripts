@@ -243,11 +243,15 @@ theme_wallpaper() {
 
 # 确保 xwallpaperd 存活: 存活直接复用 (热重启重跑 autostart 时不杀 daemon,
 # 否则窗口销毁重建多闪一次); 仅死亡/缺失才拉起。
+# scene 渲染要读引擎共享资源 (WE assets/shaders, util 纹理)。指向本机那份
+# WE 安装即可 (不存在会自动回退到内置近似 header); 只指路, 不复制/分发资产。
+_XW_ASSETS_DIR="${XW_ASSETS_DIR:-/mnt/windows_d/steam/steamapps/common/wallpaper_engine/assets}"
+
 ensure_xwallpaperd() {
     pgrep -x xwallpaperd >/dev/null 2>&1 && return 0
     pkill -x xwallpaperd 2>/dev/null
     while pgrep -x xwallpaperd >/dev/null; do sleep 0.1; done
-    xwallpaperd
+    XW_ASSETS_DIR="$_XW_ASSETS_DIR" xwallpaperd
 }
 
 # wallpaper launch_wallpaper
