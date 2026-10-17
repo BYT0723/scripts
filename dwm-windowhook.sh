@@ -8,7 +8,14 @@
 # TAGS        window dwm tag number
 # MON         window monitor number
 
-# echo "$ACTION [$TAGS $MON] $CLASS [$TITLE] $WID" >>$HOME/window-hook.log
+# ---- 组合配置: 一行三列 "<action>|<trigger-spec>|<handler>" ----
+# action: 与 $ACTION 精确相等才继续, "*" 通配任何 action (与 trigger 是 AND 关系)。
+# trigger-spec 两形式: "func:<名>" 调函数 (0=命中);
+#   "cmd:<条件>" 直接 eval (one-liner, 整行用单引号防提前展开, 条件里引号照写)。
+# 加新事件 = 加一行 (+ 按需写 trigger_*/handle_*), 不动分派循环。
+WINDOWHOOK_RULES=(
+    'close|cmd:[[ $CLASS == "org.mozilla.Thunderbird" ]]|handle_refresh_mail'
+)
 
 # ---- handlers: 动作, 耗时的一律后台化, 不阻塞 dwm 同步调用 ----
 handle_refresh_mail() {
@@ -23,15 +30,6 @@ handle_refresh_mail() {
         update_mail
     ) &
 }
-
-# ---- 组合配置: 一行三列 "<action>|<trigger-spec>|<handler>" ----
-# action: 与 $ACTION 精确相等才继续, "*" 通配任何 action (与 trigger 是 AND 关系)。
-# trigger-spec 两形式: "func:<名>" 调函数 (0=命中);
-#   "cmd:<条件>" 直接 eval (one-liner, 整行用单引号防提前展开, 条件里引号照写)。
-# 加新事件 = 加一行 (+ 按需写 trigger_*/handle_*), 不动分派循环。
-WINDOWHOOK_RULES=(
-    'close|cmd:[[ $CLASS == "org.mozilla.Thunderbird" ]]|handle_refresh_mail'
-)
 
 # 分派: 首个 "|" 前为 action, 末个 "|" 后为 handler, 中间为 trigger-spec
 # (首/末切分保证 cmd: 里可含 "||"); 顺序遍历, 全命中全执行;
