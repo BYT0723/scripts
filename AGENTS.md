@@ -34,6 +34,8 @@ utils/form.sh ──sources──► 无外部脚本; ──requires─► jq, y
 utils/url.sh ──sources──► 无外部脚本
 utils/string.sh ──sources──► 无外部脚本
 
+dwm-windowhook.sh ──sources──► dwm-status-tools.sh (handle_refresh_mail 在后台子 shell 内延迟 source, 只取 update_mail; 顶层无 source, 不阻塞 dwm 同步调起)
+
 tools/yt-dlp.sh ◄──sourced by── rofi/scripts/yt-dlp-wrapper.sh
 
 tools/steam-workshop.sh ◄──sourced by── rofi/scripts/steam-workshop.sh
@@ -148,6 +150,20 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `_fetch_favicon()` | _ensure_icons (① 页面 HTML 解析 link rel=icon 真实 favicon (优先标准 rel=icon 排除 apple-touch 白底大图), 相对路径拼接 host → ② 降级链 DuckDuckGo→Google s2→站内 /favicon.ico; curl 带浏览器 UA 防 429 限流 + 超时 + file MIME 校验 image/* + tmp/mv 原子写; 全失败写 .fail 标记) |
 | `_dl_icon()`      | _fetch_favicon (curl 下载到文件 + file MIME 校验 image/*, 失败返回 1) |
 | `_icon_href()`    | _fetch_favicon (从 HTML 提取 icon link 的 href, 第二参排除子串如 apple-touch) |
+
+### dwm-windowhook.sh (dwm open/close 调起, env: ACTION/WID/CLASS/TITLE/TAGS/MON)
+
+| 函数 | 调用者 |
+| ---- | ------ |
+| `handle_refresh_mail()` | windowhook_dispatch 经 WINDOWHOOK_RULES (后台子 shell source dwm-status-tools.sh 调 update_mail; 缺 mail.json/jq/curl 静默跳过) |
+| `windowhook_dispatch()` | 主流程 (顶层, `WINDOWHOOK_NO_DISPATCH=1` 时跳过以便测试 source) / tests/windowhook_test.sh |
+
+> 规则表一行三列 `"<action>|<trigger-spec>|<handler>"` (pipe 分隔,
+> 首/末 `|` 切分, `cmd:` 里可含 `||`); action 精确预过滤 (`*` 通配) 与 trigger 是 AND;
+> trigger-spec 两形式: `func:<名>` 调函数, `cmd:<条件>` eval;
+> 加新事件 = 加一行 (+ 按需写函数), 不动分派循环。
+> 分派语义: 顺序遍历、全命中全执行, `declare -F` 守卫缺失函数,
+> 未知 spec 前缀一律 fail-closed 跳过, 恒返回 0。
 
 ### tools/lock.sh
 
@@ -411,6 +427,15 @@ rofi powermenu (用户点击)
 
 screen.sh (DPMS 守护)
   → LOCKER="lock.sh lock"  # 由 xautolock 在超时后调用
+```
+
+### 窗口 hook 链路
+
+```
+dwm 窗口 open/close
+  → dwm-windowhook.sh (env: ACTION/WID/CLASS/TITLE/TAGS/MON)
+    → windowhook_dispatch() 按 WINDOWHOOK_RULES 顺序遍历
+      → trigger 命中 → handler (耗时的一律后台 &, 如 update_mail 刷 mail-unread)
 ```
 
 ### 启动链路
