@@ -228,13 +228,11 @@ select_marker_wallpaper() {
         *) return 0 ;;    # ESC/其他直接返回
         esac
         case "$sel" in
-        '' | *[!0-9]*)
-            # Enter 空选回模块菜单；快捷键无序号则重显 (custom key 未输出序号时可重试，ESC 可出)
-            [ "$rc" = 0 ] && return 0
-            continue
-            ;;
+        '' | *[!0-9]*) picked="" ;;
+        *) picked=$(sed -n "$((sel + 1))p" "$map") ;;
         esac
-        picked=$(sed -n "$((sel + 1))p" "$map")
+        # 空选/越界: Enter 回模块菜单；快捷键无序号则重显
+        # (custom key 未输出序号时可重试，ESC 可出)
         if [ -z "$picked" ]; then
             [ "$rc" = 0 ] && return 0
             continue
