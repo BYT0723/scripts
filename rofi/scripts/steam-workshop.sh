@@ -139,9 +139,9 @@ handle_update() {
     module_confirm "Update $updates item(s)${skips:+ ($skips skipped)}?" || return
     user=$(_pick_user) || return
     (
-        local ok=0 fail=0 fids="" status appid itemid path parent app out
+        local ok=0 fail=0 fids="" _ appid itemid path parent app out
         system-notify low "Steam Workshop" "Updating $updates item(s)..."
-        while IFS='|' read -r status appid itemid path; do
+        while IFS='|' read -r _ appid itemid path; do
             parent=$(basename "$(dirname "$path")")
             app="${parent%_"$appid"}"
             if out=$(sw_download "$appid" "$itemid" "$user" "$app" 2>&1); then

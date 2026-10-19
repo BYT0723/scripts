@@ -128,50 +128,42 @@ sw_api_time() { # itemid → "appid|time_updated" (更新检查用)
 sw_check_updates() { # root [appdir] → 待更新/现状/跳过行
     local root="$1" scope="${2:-}"
     [[ -d "$root" ]] || return 1
-    local -a cand=() # "appid|itemid|path" (appid 可空)
-    local d itemid parent appid
+    local -a cand=() # "itemid|path"
+    local d itemid parent
     while IFS= read -r -d '' d; do
         itemid=$(basename "$d")
         [[ "$itemid" =~ ^[0-9]+$ ]] || continue
         parent=$(basename "$(dirname "$d")")
-        appid=""
-        if [[ "$parent" =~ _([0-9]+)$ ]]; then
-            appid="${BASH_REMATCH[1]}"
-        elif [[ "$parent" =~ ^[0-9]+$ ]]; then
-            appid="$parent"
-        fi
         if [[ -n "$scope" && "$parent" != "$scope" ]]; then
             continue
         fi
-        cand+=("$appid|$itemid|$d")
+        cand+=("$itemid|$d")
     done < <(find "$root" -mindepth 2 -maxdepth 2 -type d -print0 2>/dev/null \
         | LC_ALL=C sort -z | grep -zvzF "$root/steamapps/")
     if [[ -z "$scope" && -d "$root/steamapps/workshop/content" ]]; then
         while IFS= read -r -d '' d; do
             itemid=$(basename "$d")
             [[ "$itemid" =~ ^[0-9]+$ ]] || continue
-            appid=$(basename "$(dirname "$d")")
-            [[ "$appid" =~ ^[0-9]+$ ]] || continue
-            cand+=("$appid|$itemid|$d")
+            [[ "$(basename "$(dirname "$d")")" =~ ^[0-9]+$ ]] || continue
+            cand+=("$itemid|$d")
         done < <(find "$root/steamapps/workshop/content" -mindepth 2 -maxdepth 2 -type d -print0 2>/dev/null | LC_ALL=C sort -z)
     fi
     [[ ${#cand[@]} -gt 0 ]] || return 1
-    local entry known time_info api_appid updated mtime
+    local entry time_info appid updated mtime
     local -a out=()
     for entry in "${cand[@]}"; do
-        IFS='|' read -r known itemid d <<<"$entry"
+        IFS='|' read -r itemid d <<<"$entry"
         if ! time_info=$(sw_api_time "$itemid"); then
             out+=("SKIP|$itemid|$d|api-failed")
             continue
         fi
-        IFS='|' read -r api_appid updated <<<"$time_info"
-        [[ -n "$known" ]] && api_appid="$known"
+        IFS='|' read -r appid updated <<<"$time_info"
         mtime=$(stat -c %Y "$d" 2>/dev/null) || {
             out+=("SKIP|$itemid|$d|stat-failed")
             continue
         }
         if ((updated > mtime)); then
-            out+=("UPDATE|$api_appid|$itemid|$d")
+            out+=("UPDATE|$appid|$itemid|$d")
         else
             out+=("CURRENT|$itemid|$d")
         fi
