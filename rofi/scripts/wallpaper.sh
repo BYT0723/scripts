@@ -329,7 +329,7 @@ prop_color_hex() { # "r g b" (0..1 floats) → #rrggbb; 非法输入输出空
     [[ "$1" =~ ^[0-9.]+[[:space:]]+[0-9.]+[[:space:]]+[0-9.]+$ ]] || return 1
     awk '{r=$1*255+0.5; g=$2*255+0.5; b=$3*255+0.5;
         if (r<0||r>255.5||g<0||g>255.5||b<0||b>255.5) exit 1;
-        printf "#%02x%02x%02x", int(r), int(g), int(b)}' <<<"$1" 2>/dev/null
+        printf "#%02X%02X%02X", int(r), int(g), int(b)}' <<<"$1" 2>/dev/null
 }
 prop_hex_to_rgb() { # #rrggbb/#rgb → "r g b" (%.6f floats); 非法输入失败
     # scene 把 color 原样透传给 JS (按空格 split), 不认 hex; web 两者都认。
@@ -377,6 +377,8 @@ handle_property() {
     path=$(xwallpaper --state 2>/dev/null | awk -F'\t' -v n="$MONITOR" '$1==n {print $3; exit}')
     dir="$path"
     [ -d "$dir" ] || dir=$(dirname "$path")
+    # text 全串较长, property 流程窗口加宽 (local 仅作用域内, 主菜单/其它模块保持 500)
+    local MODULE_WIDTH=800
     while true; do
         # 显示 project.json text 全串 (prop_label, 无 text 回退 name), 寻址仍用英文 name:
         # display line → name 关联映射 (label 含空格, 不能再按列切), 另保留
@@ -387,7 +389,7 @@ handle_property() {
             [ -n "$pn" ] || continue
             [ "$pt" = color ] && pv=$(prop_color_hex "$pv" 2>/dev/null || printf '%s' "$pv")
             label=$(prop_label "$dir" "$pn")
-            line=$(printf '%-26s %12s' "$label" "$pv")
+            line=$(printf '%-28s: %s' "$label" "$pv")
             _line_to_name["$line"]="$pn"
             menu+="$line"$'\n'
         done <<<"$tunables"
@@ -437,7 +439,7 @@ _apply_property() { # <name>: 按 type 调起对应编辑器 ($tunables 取自�
         done <<<"$opts"
         [ "${#_vals[@]}" -gt 0 ] || return
         local -A _dup=()
-        for l in "${_labels[@]}"; do _dup["$l"]=$(( ${_dup["$l"]:-0} + 1 )); done
+        for l in "${_labels[@]}"; do _dup["$l"]=$((${_dup["$l"]:-0} + 1)); done
         for i in "${!_vals[@]}"; do
             v="${_labels[$i]}"
             [ "${_dup[$v]:-0}" -gt 1 ] && v="$v (${_vals[$i]})"

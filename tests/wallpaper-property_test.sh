@@ -144,7 +144,7 @@ export YAD_OUT='#ff0000
 MONITOR="DP-1" MOCK_PICK="" handle_property
 check "F: color OK 时 set 三元组" 'grep -q "set-property schemecolor=1.000000 0.000000 0.000000" "$XW_MOCK_LOG"'
 check "F: color OK 后不恢复原值" '! grep -q "set-property schemecolor=0.168627" "$XW_MOCK_LOG"'
-check "F: yad color 带初始色" 'grep -q -- "--color" "$XW_MOCK_LOG" && grep -q "init-color=#2b2b2b" "$XW_MOCK_LOG"'
+check "F: yad color 带初始色" 'grep -q -- "--color" "$XW_MOCK_LOG" && grep -q "init-color=#2B2B2B" "$XW_MOCK_LOG"'
 
 # ---- G: color + 取消 → 恢复原三元组 ----
 reset_state
@@ -189,7 +189,7 @@ printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
 export YAD_OUT='#ff0000
 ' YAD_RC=0
 MONITOR="DP-1" MOCK_PICK="schemecolor" handle_property
-check "K: 列表中 color 显示 hex" 'grep -q "#2b2b2b" "$TEST_DIR/rofi_in.txt"'
+check "K: 列表中 color 显示 hex" 'grep -q "#2B2B2B" "$TEST_DIR/rofi_in.txt"'
 check "K: 列表中 slider 保持原值" 'grep -q " 35" "$TEST_DIR/rofi_in.txt"'
 check "K: 列表中无原始三元组" '! grep -q "0.168627 0.168627 0.168627" "$TEST_DIR/rofi_in.txt"'
 check "K: 选中 color 正常 set 三元组" 'grep -q "set-property schemecolor=1.000000 0.000000 0.000000" "$XW_MOCK_LOG"'
@@ -212,7 +212,7 @@ printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
 export YAD_OUT='50
 ' YAD_RC=0
 MONITOR="DP-1" MOCK_PICK="volume" handle_property
-check "M: 第二次列表显示新值" 'grep -q "volume *50" "$TEST_DIR/rofi_in.txt"'
+check "M: 第二次列表显示新值" 'grep -Fq ": 50" "$TEST_DIR/rofi_in.txt"'
 check "M: set 已落盘" 'grep -q "set-property volume=50" "$XW_MOCK_LOG"'
 
 # ---- N: 单 bool true → 一键翻转为 false, 无 yad/rofi ----
@@ -301,11 +301,13 @@ JSON
 printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
 export YAD_OUT='120
 ' YAD_RC=0
-T3_LINE=$(printf '%-26s %12s' "角色缩放 / Role Scale" "100")
+T3_LINE=$(printf '%-28s: %s' "角色缩放 / Role Scale" "100")
+MODULE_WIDTH=500
 MONITOR="DP-1" MOCK_PICK="$T3_LINE" handle_property
 check "T3: 列表显示 text 全串" 'grep -Fq "角色缩放 / Role Scale" "$TEST_DIR/rofi_in.txt"'
 check "T3: 列表不显示英文 name" '! grep -q "roleScale" "$TEST_DIR/rofi_in.txt"'
 check "T3: set 仍用英文 name" 'grep -q "set-property roleScale=120" "$XW_MOCK_LOG"'
+check "T8: 不污染全局 MODULE_WIDTH" '[ "$MODULE_WIDTH" = 500 ]'
 
 # ---- T4: combo 显示 label 全串 ----
 reset_state
