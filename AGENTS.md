@@ -356,6 +356,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `handle_random_videos_path_dark()` | wallpaper.sh (模块主菜单: 选择深色视频目录 → `random_video_dir_dark`) |
 | `handle_random_web_path_dark()` | wallpaper.sh (模块主菜单: 选择深色网页壁纸目录 → `random_web_dir_dark`) |
 | `handle_fps()` | wallpaper.sh (模块主菜单: 设置视频帧率上限 → `video-render.fps`, 0=不限; setter 仅写入新值时返回 0, `&&` 串联 `reapply_video_wallpaper` 即时生效) |
+| `handle_property()` | wallpaper.sh (模块主菜单: web/scene 可调属性 — `prop_tunables` 取 `--list-properties` 中 slider+color+file 行 (bool/combo 不可调, 菜单状态位复用其计数), 多项经 `module_sub_rofi` 选中 (color 值显示为 hex, 纯表现层, 选择仍按首列 name); slider: `prop_range` 读 `<dir>/project.json:general.properties.<name>.min/max` (非法 fallback 0..100), FIFO + `yad --scale --print-partial` 逐值 `xwallpaper --set-property`; color: `prop_color_hex` 转初始色 + `yad --color`, set 前 `prop_hex_to_rgb` 转回 triple (scene 透传字符串给 JS 只认 triple, web 两者都认); file: `yad --file` (起始于壁纸目录, 当前值存在时用其所在目录); color/file 经 `prop_commit_once` OK 单次应用 / 取消恢复原值 (yad 无 partial, `--changed-action` 仅 CHK/CB/SW 有效); image/video 无 props 与 group/Screen (`-m` 无法寻址 -g 窗口) 通知返回) |
 | `handle_group()`              | wallpaper.sh (模块主菜单: 组管理 — 新建/编辑/启停/删除) |
 
 ### tools/wallpaper-lib.sh
