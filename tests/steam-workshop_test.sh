@@ -22,8 +22,9 @@ FAKE_BIN="$TEST_DIR/bin"
 mkdir -p "$FAKE_BIN"
 cat >"$FAKE_BIN/steamcmd" <<'EOF'
 #!/usr/bin/env bash
+echo "$*" >>"${STEAMCMD_ARGS_LOG:-/dev/null}"
 case "${STEAMCMD_MODE:-success}" in
-success) echo "Success. Downloaded item 3810650535 to \"$STEAMCMD_OUTDIR/3810650535\" (100 bytes)" ;;
+success) mkdir -p "$STEAMCMD_OUTDIR/3810650535"; echo "Success. Downloaded item 3810650535 to \"$STEAMCMD_OUTDIR/3810650535\" (100 bytes)" ;;
 auth) echo "ERROR! Download item 3810650535 failed (Access Denied)."; echo "ERROR: Invalid Password" ;;
 error) echo "ERROR! Download item 3810650535 failed (Connection Timeout)." ;;
 esac
@@ -122,19 +123,54 @@ assert_cond "users: oldest last" '[[ ${_users[1]} == "second_user|Second" ]]'
 export STEAM_LOGINUSERS="$TEST_DIR/nonexistent.vdf"
 assert_cond "users: missing file fails" '! sw_list_users >/dev/null'
 
+# ---- safe_app ----
+assert_cond "safe_app: strips spaces" '[[ $(sw_safe_app "Wallpaper Engine" 431960) == "WallpaperEngine" ]]'
+assert_cond "safe_app: empty falls back to appid" '[[ $(sw_safe_app "" 431960) == "431960" ]]'
+assert_cond "safe_app: slash sanitized" '[[ $(sw_safe_app "A/B" 1) == "A_B" ]]'
+assert_cond "safe_app: dots fall back to appid" '[[ $(sw_safe_app ".." 431960) == "431960" && $(sw_safe_app "." 431960) == "431960" ]]'
+
 # ---- download ----
 export STEAM_LOGINUSERS="$TEST_DIR/loginusers.vdf"
 export STEAMCMD_OUTDIR="$TEST_DIR/real"
+export STEAMCMD_ARGS_LOG="$TEST_DIR/steamcmd.args"
 mkdir -p "$STEAMCMD_OUTDIR/3810650535"
 export STEAMCMD_MODE=success
-_out=$(sw_download 431960 3810650535 anonymous)
+export STEAMCMD_INSTALL_DIR="$TEST_DIR/isolated"
+rm -f "$STEAMCMD_ARGS_LOG"
+_out=$(sw_download 431960 3810650535 anonymous "Wallpaper Engine")
 assert_cond "download: success rc=0" '[[ $? -eq 0 ]]'
-assert_cond "download: stdout is real path" '[[ $_out == "$STEAMCMD_OUTDIR/3810650535" ]]'
+assert_cond "download: stdout is flat path" '[[ $_out == "$STEAMCMD_INSTALL_DIR/WallpaperEngine/3810650535" ]]'
+assert_cond "download: flat dir exists" '[[ -d "$STEAMCMD_INSTALL_DIR/WallpaperEngine/3810650535" ]]'
+assert_cond "download: deep path moved away" '[[ ! -e "$STEAMCMD_OUTDIR/3810650535" ]]'
 assert_cond "download: leaves no dir farm behind" '[[ ! -d $TEST_DIR/dl ]]'
+assert_cond "download: passes force_install_dir" 'grep -Fq "+force_install_dir $STEAMCMD_INSTALL_DIR" "$STEAMCMD_ARGS_LOG"'
+assert_cond "download: creates isolated dir" '[[ -d $STEAMCMD_INSTALL_DIR ]]'
+_out2=$(sw_download 431960 3810650535 anonymous)
+assert_cond "download: no appname falls back to appid" '[[ $_out2 == "$STEAMCMD_INSTALL_DIR/431960/3810650535" ]]'
 export STEAMCMD_MODE=auth
 assert_cond "download: auth failure rc=2" 'sw_download 431960 3810650535 someuser >/dev/null 2>&1; [[ $? -eq 2 ]]'
 export STEAMCMD_MODE=error
 assert_cond "download: other failure rc=1" 'sw_download 431960 3810650535 anonymous >/dev/null 2>&1; [[ $? -eq 1 ]]'
+# compat + precedence + default
+export STEAMCMD_MODE=success
+rm -f "$STEAMCMD_ARGS_LOG"
+sw_download 431960 notanid anonymous >/dev/null 2>&1
+assert_cond "download: non-numeric itemid rejected without steamcmd" '[[ $? -eq 1 && ! -f $STEAMCMD_ARGS_LOG ]]'
+export STEAMCMD_MODE=success
+export STEAM_WORKSHOP_DIR="$TEST_DIR/legacy-root"
+unset STEAMCMD_INSTALL_DIR
+rm -f "$STEAMCMD_ARGS_LOG"
+sw_download 431960 3810650535 anonymous >/dev/null
+assert_cond "download: STEAM_WORKSHOP_DIR compat" 'grep -Fq "+force_install_dir $STEAM_WORKSHOP_DIR" "$STEAMCMD_ARGS_LOG" && [[ -d $STEAM_WORKSHOP_DIR ]]'
+export STEAMCMD_INSTALL_DIR="$TEST_DIR/preferred-root"
+rm -f "$STEAMCMD_ARGS_LOG"
+sw_download 431960 3810650535 anonymous >/dev/null
+assert_cond "download: STEAMCMD_INSTALL_DIR wins" 'grep -Fq "+force_install_dir $STEAMCMD_INSTALL_DIR" "$STEAMCMD_ARGS_LOG"'
+unset STEAMCMD_INSTALL_DIR STEAM_WORKSHOP_DIR
+rm -f "$STEAMCMD_ARGS_LOG"
+HOME="$TEST_DIR/fakehome" sw_download 431960 3810650535 anonymous >/dev/null
+assert_cond "download: default is ~/Downloads/steamcmd" 'grep -Fq "+force_install_dir $TEST_DIR/fakehome/Downloads/steamcmd" "$STEAMCMD_ARGS_LOG" && [[ -d $TEST_DIR/fakehome/Downloads/steamcmd ]]'
+export STEAMCMD_INSTALL_DIR="$TEST_DIR/isolated"
 
 # ---- short_error ----
 assert_cond "err: cached credentials" '[[ $(sw_short_error <<<"Loading Steam API...OK Cached credentials not found.") == "Cached credentials not found." ]]'

@@ -12,9 +12,16 @@
 #   sw_api_info <itemid>         → stdout "appid|app名|资源名" (免 key WebAPI, 登录门条目可用; 需 jq)
 #   sw_item_info <url-or-id>     → stdout "appid|app名|资源名" (页面 → WebAPI → 失败)
 #   sw_list_users                → stdout "AccountName|PersonaName" 行 (按 Timestamp 倒序)
-#   sw_download <appid> <itemid> <user> → stdout 实际落盘路径; rc=0 成功, 2=需终端登录, 1=其他失败
+#   sw_safe_app <appname> <appid>  → stdout 扁平首层目录名 (应用名去空格/非法字符, 为空回退 appid)
+#   sw_download <appid> <itemid> [user] [appname] → stdout 扁平落盘路径 <隔离根>/<应用>/<itemid>; rc=0 成功, 2=需终端登录, 1=其他失败
+#     隔离根经 +force_install_dir 写入 (见 STEAMCMD_INSTALL_DIR)，缺省 ~/Downloads/steamcmd (自动 mkdir -p)
 
 STEAM_LOGINUSERS="${STEAM_LOGINUSERS:-$HOME/.local/share/Steam/config/loginusers.vdf}"
+# 隔离根: steamcmd +force_install_dir 的值 (非最终内容目录)。
+# 最终落盘为 <隔离根>/steamapps/workshop/content/<appid>/<itemid>，
+# 不同 appid 各占子目录、互不混；Steam 客户端卸载不触及此处。
+# STEAMCMD_INSTALL_DIR 优先，兼容 STEAM_WORKSHOP_DIR，缺省 ~/Downloads/steamcmd。
+STEAMCMD_INSTALL_DIR="${STEAMCMD_INSTALL_DIR:-${STEAM_WORKSHOP_DIR:-$HOME/Downloads/steamcmd}}"
 
 sw_parse_itemid() {
     local in="$1" id=""
@@ -137,18 +144,43 @@ sw_list_users() {
     echo "$out"
 }
 
+sw_safe_app() { # appname appid → 扁平首层目录名
+    local app="$1" id="$2"
+    app=$(printf '%s' "$app" | sed 's/[[:space:]]\+//g; s/[^A-Za-z0-9._-]/_/g; s/__*/_/g; s/^_//; s/_$//')
+    [[ "$app" == "." || "$app" == ".." ]] && app=""
+    if [[ -z "$app" ]]; then
+        app=$(printf '%s' "$id" | sed 's/[^A-Za-z0-9._-]/_/g')
+        [[ -z "$app" || "$app" == "." || "$app" == ".." ]] && app="unknown"
+    fi
+    printf '%s' "$app"
+}
+
 sw_download() {
-    local appid="$1" itemid="$2" user="${3:-anonymous}"
+    local appid="$1" itemid="$2" user="${3:-anonymous}" appname="${4:-}"
+    [[ "$itemid" =~ ^[0-9]+$ ]] || return 1
     local -a login_arg=(+login anonymous)
     [[ "$user" != "anonymous" ]] && login_arg=(+login "$user")
 
+    local install_dir="${STEAMCMD_INSTALL_DIR:-${STEAM_WORKSHOP_DIR:-$HOME/Downloads/steamcmd}}"
+    mkdir -p "$install_dir" 2>/dev/null || return 1
+
     local log rc=0 path=""
     log=$(mktemp)
-    steamcmd "${login_arg[@]}" +workshop_download_item "$appid" "$itemid" +quit >"$log" 2>&1
+    steamcmd +force_install_dir "$install_dir" "${login_arg[@]}" +workshop_download_item "$appid" "$itemid" +quit >"$log" 2>&1
     rc=$?
 
     path=$(grep -o 'Success\. Downloaded item [0-9]* to "[^"]*"' "$log" | head -1 | sed 's/.* to "//; s/"$//')
     if [[ $rc -eq 0 && -n "$path" && -e "$path" ]]; then
+        local flat_parent flat_dir
+        flat_parent="$install_dir/$(sw_safe_app "$appname" "$appid")"
+        flat_dir="$flat_parent/$itemid"
+        if [[ "$path" != "$flat_dir" ]]; then
+            mkdir -p "$flat_parent" 2>/dev/null || { cat "$log" >&2; rm -f "$log"; return 1; }
+            rm -rf "$flat_dir" 2>/dev/null
+            if mv "$path" "$flat_dir" 2>/dev/null; then
+                path="$flat_dir"
+            fi
+        fi
         echo "$path"
     elif grep -qiE 'invalid password|steam guard|not logged on|access denied|no subscription|logon failure|rate limit' "$log"; then
         rc=2

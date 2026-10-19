@@ -305,7 +305,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `sw_api_info()` | sw_item_info (免 key WebAPI `GetPublishedFileDetails` 取 appid+标题, store `appdetails` 取 app 名; 登录门条目可用, 需 jq) |
 | `sw_item_info()`      | steam-workshop.sh `_go` (一次抓页返回 `appid\|app名\|资源名`; 页面无 appid → WebAPI 兜底 → 都失败才手输) |
 | `sw_list_users()`   | steam-workshop.sh `_pick_user` (解析 loginusers.vdf `AccountName\|PersonaName`, Timestamp 倒序; 0→anonymous, 1→直用, N→rofi 选) |
-| `sw_download()`     | steam-workshop.sh `_download` (后台: steamcmd `+login <user> +workshop_download_item`; rc=0 成功回落盘路径, 2=认证失败提示终端登录, 1=其他失败) |
+| `sw_safe_app()`     | sw_download (app 名去空格/非法字符作扁平首层目录, `.`/`..`/空回退 appid, 仍非法回退 `unknown`) |
+| `sw_download()`     | steam-workshop.sh `_download` (隔离根 `STEAMCMD_INSTALL_DIR`(兼容 `STEAM_WORKSHOP_DIR`, 缺省 `~/Downloads/steamcmd`) 经 `+force_install_dir` 写入, 自动 `mkdir -p`; 成功后 `mv` 深路径到扁平 `<隔离根>/<应用>/<itemid>` 并返回扁平路径, 非数字 itemid 直接 rc=1; 2=认证失败提示终端登录, 1=其他失败) |
 
 ### rofi/scripts/yt-dlp-wrapper.sh
 
@@ -325,7 +326,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | 函数                 | 调用者                                              |
 | -------------------- | --------------------------------------------------- |
 | `_pick_user()`       | steam-workshop.sh `_go` (0 用户→anonymous, 1→直用, N→`module_sub_rofi` 选 `acc — pers`, ESC 返回 1) |
-| `_download()`        | steam-workshop.sh `_go` (后台下载 + notify: 标题 `资源名 — App名`; 0→Done+`Open folder` action (notify-send -A, 点击 `xdg-open` 落盘路径), 2→critical 终端登录指令, 其他→critical rc) |
+| `_download()`        | steam-workshop.sh `_go` (后台下载 + notify: 标题 `资源名 — App名`, appname 透传 sw_download 作扁平首层; 0→Done+`Open folder` action (notify-send -A, 点击 `xdg-open` 落盘路径), 2→critical 终端登录指令, 其他→critical rc) |
 | `_go()`              | steam-workshop.sh handle_input / handle_clipboard (parse→info→user→download 全链) |
 | `handle_input()`     | steam-workshop.sh (模块主菜单: 输入 URL/ID, 剪贴板预填) |
 | `handle_clipboard()` | steam-workshop.sh (模块主菜单: 剪贴板链接直接下载)  |

@@ -44,13 +44,13 @@ _pick_user() {
 }
 
 _download() {
-    local appid="$1" itemid="$2" user="$3" label="$4"
+    local appid="$1" itemid="$2" user="$3" label="$4" appname="$5"
 
     system-notify low "Steam Workshop" "Downloading\n$label"
 
     (
         local rc=0 out err msg act
-        out=$(sw_download "$appid" "$itemid" "$user" 2>&1) || rc=$?
+        out=$(sw_download "$appid" "$itemid" "$user" "$appname" 2>&1) || rc=$?
         if [[ $rc -eq 0 ]]; then
             act=$(notify-send -u normal " Steam Workshop" "Done\n$label\n$out" -A open="Open folder" 2>/dev/null)
             [[ "$act" == "open" || "$act" == "0" ]] && xdg-open "$out"
@@ -90,7 +90,7 @@ _go() {
     [[ ${#label} -gt 65 ]] && label="${label:0:62}..."
     [[ -n "$appname" ]] && label="$label — $appname"
     user=$(_pick_user) || return
-    _download "$appid" "$itemid" "$user" "$label"
+    _download "$appid" "$itemid" "$user" "$label" "$appname"
 }
 
 # ------- handlers -------
