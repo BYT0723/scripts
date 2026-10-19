@@ -328,9 +328,13 @@ prop_hex_to_rgb() { # #rrggbb/#rgb → "r g b" (%.6f floats); 非法输入失败
     # set 一律转回 triple, 两后端通用。
     local h="${1#\#}" r g b
     if [[ "$h" =~ ^[0-9a-fA-F]{6}$ ]]; then
-        r=$((16#${h:0:2})); g=$((16#${h:2:2})); b=$((16#${h:4:2}))
+        r=$((16#${h:0:2}))
+        g=$((16#${h:2:2}))
+        b=$((16#${h:4:2}))
     elif [[ "$h" =~ ^[0-9a-fA-F]{3}$ ]]; then
-        r=$((16#${h:0:1}${h:0:1})); g=$((16#${h:1:1}${h:1:1})); b=$((16#${h:2:1}${h:2:1}))
+        r=$((16#${h:0:1}${h:0:1}))
+        g=$((16#${h:1:1}${h:1:1}))
+        b=$((16#${h:2:1}${h:2:1}))
     else
         return 1
     fi
@@ -366,7 +370,7 @@ handle_property() {
         name=$(while IFS=$'\t' read -r pn pt pv; do
             [ -n "$pn" ] || continue
             [ "$pt" = color ] && pv=$(prop_color_hex "$pv" 2>/dev/null || printf '%s' "$pv")
-            printf '%-8s %26s\n' "$pn" "$pv"
+            printf '%-26s %12s\n' "$pn" "$pv"
         done <<<"$tunables" |
             module_sub_rofi "Property ($MONITOR)" "Select a slider/color/file/bool/combo property")
         [ -z "$name" ] && return
