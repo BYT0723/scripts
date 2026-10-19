@@ -182,6 +182,13 @@ assert_cond "download: success rc=0" '[[ $? -eq 0 ]]'
 assert_cond "download: stdout is flat path with appid" '[[ $_out == "$STEAMCMD_INSTALL_DIR/WallpaperEngine_431960/3810650535" ]]'
 assert_cond "download: flat dir exists" '[[ -d "$STEAMCMD_INSTALL_DIR/WallpaperEngine_431960/3810650535" ]]'
 assert_cond "download: deep path moved away" '[[ ! -e "$STEAMCMD_OUTDIR/3810650535" ]]'
+# 深路径在隔离根内时, mv 后逐层回收空架子
+export STEAMCMD_OUTDIR="$STEAMCMD_INSTALL_DIR/steamapps/workshop/content/431960"
+rm -f "$STEAMCMD_ARGS_LOG"
+_out=$(sw_download 431960 3810650535 anonymous "Wallpaper Engine")
+assert_cond "download: deep-in-root lands flat" '[[ $_out == "$STEAMCMD_INSTALL_DIR/WallpaperEngine_431960/3810650535" ]]'
+assert_cond "download: empty scaffolding pruned" '[[ ! -e "$STEAMCMD_INSTALL_DIR/steamapps" ]]'
+export STEAMCMD_OUTDIR="$TEST_DIR/real"
 assert_cond "download: leaves no dir farm behind" '[[ ! -d $TEST_DIR/dl ]]'
 assert_cond "download: passes force_install_dir" 'grep -Fq "+force_install_dir $STEAMCMD_INSTALL_DIR" "$STEAMCMD_ARGS_LOG"'
 assert_cond "download: creates isolated dir" '[[ -d $STEAMCMD_INSTALL_DIR ]]'

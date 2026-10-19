@@ -241,7 +241,8 @@ sw_download() {
 
     path=$(grep -o 'Success\. Downloaded item [0-9]* to "[^"]*"' "$log" | head -1 | sed 's/.* to "//; s/"$//')
     if [[ $rc -eq 0 && -n "$path" && -e "$path" ]]; then
-        local safe flat_leaf flat_parent flat_dir
+        local safe flat_leaf flat_parent flat_dir deep
+        deep="$path"
         safe=$(sw_safe_app "$appname" "$appid")
         flat_leaf="$safe"
         [[ "$safe" != "$appid" ]] && flat_leaf="${safe}_${appid}"
@@ -254,6 +255,14 @@ sw_download() {
                 path="$flat_dir"
             fi
         fi
+        # steamcmd 深路径架子是写死的, mv 后只剩空目录: 逐层 rmdir 回收到隔离根为止
+        # (单 rmdir 不带 -p, 循环条件钉死在隔离根内, 不会删到外面)
+        local prune
+        prune=$(dirname "$deep")
+        while [[ "$prune" != "$install_dir" && "$prune" == "$install_dir"/* ]]; do
+            rmdir "$prune" 2>/dev/null || break
+            prune=$(dirname "$prune")
+        done
         echo "$path"
     elif grep -qiE 'invalid password|steam guard|not logged on|access denied|no subscription|logon failure|rate limit' "$log"; then
         rc=2
