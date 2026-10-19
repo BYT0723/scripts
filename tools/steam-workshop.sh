@@ -113,6 +113,12 @@ sw_api_info() {
     echo "$appid|$(sw_decode_entities "$appname")|$(sw_decode_entities "$title")"
 }
 
+_sw_dir_appid() { # 目录名 → appid (纯数字直接用; 取 _<digits> 后缀; 取不到输出空)
+    local d="$1"
+    if [[ "$d" =~ _([0-9]+)$ ]]; then echo "${BASH_REMATCH[1]}"
+    elif [[ "$d" =~ ^[0-9]+$ ]]; then echo "$d"; fi
+}
+
 sw_api_time() { # itemid → "appid|time_updated" (更新检查用)
     local itemid="$1" resp="" appid="" updated=""
     command -v jq >/dev/null || return 1
@@ -129,10 +135,9 @@ sw_api_time() { # itemid → "appid|time_updated" (更新检查用)
 sw_check_updates() { # root [scope: appdir 或 appid] → 待更新/现状/跳过行
     local root="$1" scope="${2:-}"
     [[ -d "$root" ]] || return 1
-    # scope 归一化为 appid: 纯数字直接用; 目录名取 _<digits> 后缀; 取不到则为空(仅精确目录名匹配)
+    # scope 归一化为 appid (纯数字直接用; 目录名取 _<digits> 后缀; 取不到则为空)
     local scope_appid=""
-    if [[ "$scope" =~ ^[0-9]+$ ]]; then scope_appid="$scope"
-    elif [[ "$scope" =~ _([0-9]+)$ ]]; then scope_appid="${BASH_REMATCH[1]}"; fi
+    scope_appid=$(_sw_dir_appid "$scope")
     local -a cand=() # "itemid|path"
     local d itemid parent parent_appid
     while IFS= read -r -d '' d; do
@@ -140,9 +145,7 @@ sw_check_updates() { # root [scope: appdir 或 appid] → 待更新/现状/跳�
         [[ "$itemid" =~ ^[0-9]+$ ]] || continue
         parent=$(basename "$(dirname "$d")")
         if [[ -n "$scope" && "$parent" != "$scope" ]]; then
-            parent_appid=""
-            if [[ "$parent" =~ _([0-9]+)$ ]]; then parent_appid="${BASH_REMATCH[1]}"
-            elif [[ "$parent" =~ ^[0-9]+$ ]]; then parent_appid="$parent"; fi
+            parent_appid=$(_sw_dir_appid "$parent")
             [[ -n "$scope_appid" && "$parent_appid" == "$scope_appid" ]] || continue
         fi
         cand+=("$itemid|$d")
