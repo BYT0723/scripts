@@ -287,13 +287,29 @@ handle_fps() {
     set_video_render_config "$MONITOR" fps "FPS" "Video frame rate limit (0 = unlimited, ≥ 0)" 0 &&
         reapply_video_wallpaper "$MONITOR"
 }
-# ---- Wallpaper user property (web/scene slider/color/file, yad 调控) ----
+# ---- Wallpaper user property (web/scene slider/color/file/bool/combo) ----
 # --list-properties 仅 web/scene 有输出 (image/video 直接失败);
 # group/Screen 属 -g 几何窗口, -m 无法寻址同样失败 → 通知后返回 (限定单 monitor)。
 # slider 走 yad --scale --print-partial 逐值实时 set;
 # color/file 的 yad 对话框无 partial (--changed-action 仅 CHK/CB/SW 有效),
-# 只能 OK 单次应用 / 取消恢复原值。
-prop_tunables() { xwallpaper --list-properties -m "$1" 2>/dev/null | awk -F'\t' '$2=="slider" || $2=="color" || $2=="file"'; }
+# 只能 OK 单次应用 / 取消恢复原值;
+# bool 一键翻转直接 set, 无需对话框;
+# combo 经 project.json options 用 rofi 选 label → set value (无 options 则自由输入)。
+prop_tunables() { xwallpaper --list-properties -m "$1" 2>/dev/null | awk -F'\t' '$2 ~ /^(slider|color|file|bool|combo)$/'; }
+prop_combo_options() { # <dir> <name> → "value\tlabel" 行; 无 options/空数组返回 1
+    # options 三种变体: [{label,value}] (value 可为数字) / 纯字符串数组 (value=序号索引) / 缺失
+    local dir="$1" name="$2" opts
+    opts=$(jq -r --arg n "$name" '
+        .general.properties[$n].options
+        | if type != "array" or length == 0 then empty
+          elif .[0] | type == "object" then
+            .[] | "\(.value | tostring)\t\(.label // (.value | tostring))"
+          else
+            to_entries[] | "\(.key)\t\(.value | tostring)"
+          end' "$dir/project.json" 2>/dev/null)
+    [ -n "$opts" ] || return 1
+    printf '%s\n' "$opts"
+}
 prop_commit_once() { # <name> <original> <yad-status> <yad-output>: OK 非空即应用 / 取消则恢复原值
     if (($3 == 0)); then
         [ -n "$4" ] && xwallpaper --set-property "$1=$4" -m "$MONITOR" 2>/dev/null
@@ -352,7 +368,7 @@ handle_property() {
             [ "$pt" = color ] && pv=$(prop_color_hex "$pv" 2>/dev/null || printf '%s' "$pv")
             printf '%-8s %26s\n' "$pn" "$pv"
         done <<<"$tunables" |
-            module_sub_rofi "Property ($MONITOR)" "Select a slider/color/file property")
+            module_sub_rofi "Property ($MONITOR)" "Select a slider/color/file/bool/combo property")
         [ -z "$name" ] && return
         read -r name _ <<<"$name"
         _apply_property "$name"
@@ -361,14 +377,53 @@ handle_property() {
         [ -n "$tunables" ] || return
     done
 }
-_apply_property() { # <name>: 按 type 调起对应 yad 编辑器 ($tunables 取自调用者, bash 动态作用域)
-    local name="$1" type cur path dir min max value last yad_fd yad_pid tmpdir fifo status original new init start
+_apply_property() { # <name>: 按 type 调起对应编辑器 ($tunables 取自调用者, bash 动态作用域)
+    local name="$1" type cur path dir opts chosen new original init start min max value last v l yad_fd yad_pid tmpdir fifo status
+    local -a _vals=() _menu=()
     type=$(printf '%s\n' "$tunables" | awk -F'\t' -v n="$name" '$1==n {print $2; exit}')
     cur=$(printf '%s\n' "$tunables" | awk -F'\t' -v n="$name" '$1==n {print $3; exit}')
     original="$cur"
     path=$(xwallpaper --state 2>/dev/null | awk -F'\t' -v n="$MONITOR" '$1==n {print $3; exit}')
     dir="$path"
     [ -d "$dir" ] || dir=$(dirname "$path")
+    if [ "$type" = "bool" ]; then
+        # 开关一键翻转, 无需对话框
+        case "${cur,,}" in true | 1 | on) new="false" ;; *) new="true" ;; esac
+        xwallpaper --set-property "$name=$new" -m "$MONITOR" 2>/dev/null
+        return
+    fi
+    if [ "$type" = "combo" ]; then
+        if ! opts=$(prop_combo_options "$dir" "$name"); then
+            # 无 options 定义: 自由输入, 当前值作默认值
+            new=$(module_input "Wallpaper Property" "$MONITOR : $name" "$cur")
+            [ -n "$new" ] && xwallpaper --set-property "$name=$new" -m "$MONITOR" 2>/dev/null
+            return
+        fi
+        # 菜单行构建一次 (_menu), 显示加 ✓ 与回查共用
+        while IFS=$'\t' read -r v l; do
+            [ -n "$v" ] || continue
+            _vals+=("$v")
+            [ -n "$l" ] && [ "$l" != "$v" ] && v="$l ($v)"
+            _menu+=("$v")
+        done <<<"$opts"
+        [ "${#_vals[@]}" -gt 0 ] || return
+        chosen=$(
+            for i in "${!_vals[@]}"; do
+                v="${_menu[$i]}"
+                [ "${_vals[$i]}" = "$cur" ] && v="$v ✓"
+                printf '%s\n' "$v"
+            done | module_sub_rofi "Property ($MONITOR)" "$name: select option"
+        )
+        [ -z "$chosen" ] && return
+        chosen="${chosen% ✓}"
+        for i in "${!_vals[@]}"; do
+            if [ "${_menu[$i]}" = "$chosen" ]; then
+                xwallpaper --set-property "$name=${_vals[$i]}" -m "$MONITOR" 2>/dev/null
+                return
+            fi
+        done
+        return
+    fi
     if [ "$type" = "color" ]; then
         init=$(prop_color_hex "$cur")
         new=$(yad --color --title="Wallpaper Property" --text="$MONITOR : $name" \
