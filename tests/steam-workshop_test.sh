@@ -33,6 +33,7 @@ chmod +x "$FAKE_BIN/steamcmd"
 cat >"$FAKE_BIN/curl" <<'EOF'
 #!/usr/bin/env bash
 : >>"$CURL_CALLED"
+printf '%s\n' "$*" >>"${CURL_ARGS_LOG:-/dev/null}"
 case "$*" in
 *GetPublishedFileDetails*)
     if [[ -n "${API_DYNAMIC:-}" ]]; then
@@ -100,6 +101,15 @@ EOF
 assert_cond "parse: workshop URL -> id" '[[ $(sw_parse_itemid "https://steamcommunity.com/sharedfiles/filedetails/?id=2858284176") == 2858284176 ]]'
 assert_cond "parse: bare id" '[[ $(sw_parse_itemid "3810650535") == 3810650535 ]]'
 assert_cond "parse: garbage fails" '! sw_parse_itemid "https://example.com/foo" >/dev/null'
+
+# ---- fetch_page (URL 必须透传给 curl; 回归 local 同行赋值 bug) ----
+export CURL_ARGS_LOG="$TEST_DIR/curl.args"
+rm -f "$CURL_ARGS_LOG"
+sw_fetch_page "https://steamcommunity.com/sharedfiles/filedetails/?id=2858284176" >/dev/null
+assert_cond "fetch: passes full URL to curl" 'grep -Fq "https://steamcommunity.com/sharedfiles/filedetails/?id=2858284176" "$CURL_ARGS_LOG"'
+rm -f "$CURL_ARGS_LOG"
+sw_fetch_page "2858284176" >/dev/null
+assert_cond "fetch: numeric id expanded to URL" 'grep -Fq "https://steamcommunity.com/sharedfiles/filedetails/?id=2858284176" "$CURL_ARGS_LOG"'
 
 # ---- resolve_appid ----
 rm -f "$CURL_CALLED"
@@ -200,7 +210,19 @@ rm -f "$STEAMCMD_ARGS_LOG"
 _out=$(sw_download 431960 3810650535 anonymous "Wallpaper Engine")
 assert_cond "download: deep-in-root lands flat" '[[ $_out == "$STEAMCMD_INSTALL_DIR/WallpaperEngine_431960/3810650535" ]]'
 assert_cond "download: empty scaffolding pruned" '[[ ! -e "$STEAMCMD_INSTALL_DIR/steamapps" ]]'
+# ---- download: stale acf 不得残留 (幽灵 Installed 致下次同 appid 整单 Failure) ----
 export STEAMCMD_OUTDIR="$TEST_DIR/real"
+mkdir -p "$STEAMCMD_OUTDIR/3810650535" "$STEAMCMD_INSTALL_DIR/steamapps/workshop"
+printf '"AppWorkshop"\n{\n\t"appid"\t\t"431960"\n}\n' >"$STEAMCMD_INSTALL_DIR/steamapps/workshop/appworkshop_431960.acf"
+export STEAMCMD_MODE=success
+sw_download 431960 3810650535 anonymous "Wallpaper Engine" >/dev/null
+assert_cond "download: stale acf removed on success" '[[ ! -e $STEAMCMD_INSTALL_DIR/steamapps/workshop/appworkshop_431960.acf ]]'
+printf 'stale' >"$STEAMCMD_INSTALL_DIR/steamapps/workshop/appworkshop_431960.acf"
+export STEAMCMD_MODE=error
+sw_download 431960 3810650535 anonymous >/dev/null 2>&1
+assert_cond "download: acf kept on failure (resume)" '[[ -f $STEAMCMD_INSTALL_DIR/steamapps/workshop/appworkshop_431960.acf ]]'
+rm -f "$STEAMCMD_INSTALL_DIR/steamapps/workshop/appworkshop_431960.acf"
+export STEAMCMD_MODE=success
 assert_cond "download: leaves no dir farm behind" '[[ ! -d $TEST_DIR/dl ]]'
 assert_cond "download: passes force_install_dir" 'grep -Fq "+force_install_dir $STEAMCMD_INSTALL_DIR" "$STEAMCMD_ARGS_LOG"'
 assert_cond "download: creates isolated dir" '[[ -d $STEAMCMD_INSTALL_DIR ]]'

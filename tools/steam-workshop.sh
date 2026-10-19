@@ -40,7 +40,7 @@ sw_parse_itemid() {
 }
 
 sw_fetch_page() {
-    local in="$1" url="$in"
+    local url="$1"
     [[ "$url" =~ ^[0-9]+$ ]] && url="https://steamcommunity.com/sharedfiles/filedetails/?id=$url"
     curl -sSL --max-time 20 --proto '=https' "$url" 2>/dev/null
 }
@@ -289,6 +289,12 @@ sw_download() {
             rmdir "$prune" 2>/dev/null || break
             prune=$(dirname "$prune")
         done
+        # 落盘已搬离深路径, acf 里该 appid 的 Installed/manifest 记录即成幽灵:
+        # 下次同 appid 下载时 steamcmd 会按 acf 校验 content/ 下已不存在的文件
+        # (content_log: CFileReader errno 2 → Missing game files → 整单 Failure)。
+        # 成功即删 (下次全量重下, 反正 content 已搬空); 失败保留以便续传。
+        # (appid 已在函数入口校验为纯数字, 路径钉死在隔离根内)
+        rm -f "$install_dir/steamapps/workshop/appworkshop_${appid}.acf" 2>/dev/null
         echo "$path"
     elif grep -qiE 'invalid password|steam guard|not logged on|access denied|no subscription|logon failure|rate limit' "$log"; then
         rc=2
