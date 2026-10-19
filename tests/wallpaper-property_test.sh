@@ -72,7 +72,7 @@ source "$DWM/tools/wallpaper-lib.sh"
 source "$DWM/tools/wallpaper-render.sh"
 
 # 被测函数提取 (rofi 脚本顶层含 module_loop, 仅提取 handle_property + helper)
-eval "$(awk '/^(prop_tunables|prop_combo_options|prop_range|prop_color_hex|prop_hex_to_rgb|prop_commit_once|prop_label|handle_property|_apply_property)\(\) \{/{f=1} f{print} f && /^}/{f=0}' "$DWM/rofi/scripts/wallpaper.sh")"
+eval "$(awk '/^(prop_tunables|prop_combo_options|prop_range|prop_color_hex|prop_hex_to_rgb|prop_commit_once|prop_label|prop_wall_dir|handle_property|_apply_property)\(\) \{/{f=1} f{print} f && /^}/{f=0}' "$DWM/rofi/scripts/wallpaper.sh")"
 
 module_sub_rofi() { echo "rofi $*" >>"$XW_MOCK_LOG"; cat >>"$TEST_DIR/rofi_in.txt"; [ -e "$SEL_FLAG" ] && return; touch "$SEL_FLAG"; printf '%s' "$MOCK_PICK"; }
 module_input() { echo "input $*" >>"$XW_MOCK_LOG"; printf '%s' "$MOCK_INPUT"; }
@@ -212,7 +212,7 @@ printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
 export YAD_OUT='50
 ' YAD_RC=0
 MONITOR="DP-1" MOCK_PICK="volume" handle_property
-check "M: 第二次列表显示新值" 'grep -Fq ": 50" "$TEST_DIR/rofi_in.txt"'
+check "M: 第二次列表显示新值" 'grep -q "volume *50" "$TEST_DIR/rofi_in.txt"'
 check "M: set 已落盘" 'grep -q "set-property volume=50" "$XW_MOCK_LOG"'
 
 # ---- N: 单 bool true → 一键翻转为 false, 无 yad/rofi ----
@@ -301,7 +301,7 @@ JSON
 printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
 export YAD_OUT='120
 ' YAD_RC=0
-T3_LINE=$(printf '%-28s: %s' "角色缩放 / Role Scale" "100")
+T3_LINE=$(printf '%-36s %10s' "角色缩放 / Role Scale" "100")
 MODULE_WIDTH=500
 MONITOR="DP-1" MOCK_PICK="$T3_LINE" handle_property
 check "T3: 列表显示 text 全串" 'grep -Fq "角色缩放 / Role Scale" "$TEST_DIR/rofi_in.txt"'
@@ -332,5 +332,13 @@ MONITOR="DP-1" MOCK_PICK="相同/Same (b)" MOCK_INPUT="" handle_property
 check "T5: 碰撞项带 value 后缀" 'grep -Fq "相同/Same (b)" "$TEST_DIR/rofi_in.txt"'
 check "T5: 唯一 label 无后缀" 'grep -Fq "其他/Other" "$TEST_DIR/rofi_in.txt" && ! grep -Fq "其他/Other (" "$TEST_DIR/rofi_in.txt"'
 check "T5: 选中碰撞项 set 对应 value" 'grep -q "set-property mode=b" "$XW_MOCK_LOG"'
+
+# ---- T9: prop_wall_dir 解析 (目录原样 / 文件取 dirname) ----
+reset_state
+mkdir -p "$TEST_DIR/wd/wall"
+printf 'DP-1\tweb\t%s\t0\n' "$TEST_DIR/wd/wall" >"$XW_MOCK_STATE/state"
+check "T9: state 是目录则原样" '[ "$(MONITOR="DP-1" prop_wall_dir)" = "$TEST_DIR/wd/wall" ]'
+printf 'DP-1\tweb\t%s/index.html\t0\n' "$TEST_DIR/wd/wall" >"$XW_MOCK_STATE/state"
+check "T9: state 是文件则取 dirname" '[ "$(MONITOR="DP-1" prop_wall_dir)" = "$TEST_DIR/wd/wall" ]'
 
 exit $fail

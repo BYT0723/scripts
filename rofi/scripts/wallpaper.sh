@@ -325,6 +325,11 @@ prop_label() { # <dir> <name> → 显示标签 (project.json text 原样显示, 
     [ -n "$text" ] || text="$name"
     printf '%s' "$text"
 }
+prop_wall_dir() { # → 当前 MONITOR 的壁纸目录 (state path 是目录则原样, 文件取 dirname)
+    local path
+    path=$(xwallpaper --state 2>/dev/null | awk -F'\t' -v n="$MONITOR" '$1==n {print $3; exit}')
+    [ -d "$path" ] && printf '%s' "$path" || dirname "$path"
+}
 prop_color_hex() { # "r g b" (0..1 floats) → #rrggbb; 非法输入输出空
     [[ "$1" =~ ^[0-9.]+[[:space:]]+[0-9.]+[[:space:]]+[0-9.]+$ ]] || return 1
     awk '{r=$1*255+0.5; g=$2*255+0.5; b=$3*255+0.5;
@@ -373,12 +378,10 @@ handle_property() {
         _apply_property "$(printf '%s' "$tunables" | cut -f1)"
         return
     fi
-    local path dir
-    path=$(xwallpaper --state 2>/dev/null | awk -F'\t' -v n="$MONITOR" '$1==n {print $3; exit}')
-    dir="$path"
-    [ -d "$dir" ] || dir=$(dirname "$path")
+    local dir
+    dir=$(prop_wall_dir)
     # text 全串较长, property 流程窗口加宽 (local 仅作用域内, 主菜单/其它模块保持 500)
-    local MODULE_WIDTH=800
+    local MODULE_WIDTH=600
     while true; do
         # 显示 project.json text 全串 (prop_label, 无 text 回退 name), 寻址仍用英文 name:
         # display line → name 关联映射 (label 含空格, 不能再按列切), 另保留
@@ -389,7 +392,7 @@ handle_property() {
             [ -n "$pn" ] || continue
             [ "$pt" = color ] && pv=$(prop_color_hex "$pv" 2>/dev/null || printf '%s' "$pv")
             label=$(prop_label "$dir" "$pn")
-            line=$(printf '%-28s: %s' "$label" "$pv")
+            line=$(printf '%-36s %10s' "$label" "$pv")
             _line_to_name["$line"]="$pn"
             menu+="$line"$'\n'
         done <<<"$tunables"
@@ -405,14 +408,12 @@ handle_property() {
     done
 }
 _apply_property() { # <name>: 按 type 调起对应编辑器 ($tunables 取自调用者, bash 动态作用域)
-    local name="$1" type cur path dir label opts chosen new original init start min max value last v l yad_fd yad_pid tmpdir fifo status
+    local name="$1" type cur dir label opts chosen new original init start min max value last v l yad_fd yad_pid tmpdir fifo status
     local -a _vals=() _menu=()
     type=$(printf '%s\n' "$tunables" | awk -F'\t' -v n="$name" '$1==n {print $2; exit}')
     cur=$(printf '%s\n' "$tunables" | awk -F'\t' -v n="$name" '$1==n {print $3; exit}')
     original="$cur"
-    path=$(xwallpaper --state 2>/dev/null | awk -F'\t' -v n="$MONITOR" '$1==n {print $3; exit}')
-    dir="$path"
-    [ -d "$dir" ] || dir=$(dirname "$path")
+    dir=$(prop_wall_dir)
     # 展示用 text 全串 (prop_label), --set-property 仍用英文 $name
     label=$(prop_label "$dir" "$name")
     if [ "$type" = "bool" ]; then
