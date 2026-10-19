@@ -19,6 +19,8 @@ desktop_setting() {
     launch check picom "picom --config $HOME/.config/dwm/picom.conf"
     # wallpaper management (xwallpaper daemon + bash random deamon)
     /bin/bash "$TOOLS_DIR"/wallpaper.sh -r &
+    # 工坊壁纸开机异步自动更新 (一次性后台任务, 只通知不重设壁纸; 缺省 431960)
+    /bin/bash "$TOOLS_DIR"/steam-workshop-auto.sh 431960 &
     # systray sni
     launch check snixembed "snixembed"
     # 启动通知

@@ -38,7 +38,9 @@ dwm-windowhook.sh ──sources──► dwm-status-tools.sh (handle_refresh_mai
 
 tools/yt-dlp.sh ◄──sourced by── rofi/scripts/yt-dlp-wrapper.sh
 
-tools/steam-workshop.sh ◄──sourced by── rofi/scripts/steam-workshop.sh
+tools/steam-workshop.sh ◄──sourced by── rofi/scripts/steam-workshop.sh, tools/steam-workshop-auto.sh
+
+tools/steam-workshop-auto.sh ◄──autostart.sh 后台直起──► sw_check_updates + sw_run_updates (flock 单实例 `/tmp/dwm-status/steam-workshop-auto.lock`, 日志 `~/.local/state/dwm/steam-workshop-auto.log`)
 
 rofi/scripts/yt-dlp-wrapper.sh ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh, tools/yt-dlp.sh
 
@@ -308,7 +310,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `sw_safe_app()`     | sw_download (app 名去空格/非法字符作扁平首层应用部分, `.`/`..`/空回退 appid, 仍非法回退 `unknown`) |
 | `sw_download()`     | steam-workshop.sh `_download` / `handle_update` 循环 (隔离根 `STEAMCMD_INSTALL_DIR`(兼容 `STEAM_WORKSHOP_DIR`, 缺省 `~/Downloads/steam-workshop`) 经 `+force_install_dir` 写入, 自动 `mkdir -p`; 成功后 `mv` 深路径到扁平 `<隔离根>/<safe>_<appid>/<itemid>`(无 app 名时首层即 appid) 并返回扁平路径, `mv` 后逐层回收深路径空架子到隔离根为止(保留 `.acf` 清单); 非数字 appid/itemid 直接 rc=1; 2=认证失败提示终端登录, 1=其他失败) |
 | `sw_api_time()`     | sw_check_updates (单条 GetPublishedFileDetails 取 `appid\|time_updated`, 需 jq) |
-| `sw_check_updates()` | steam-workshop.sh `handle_update` (枚举 flat 新/老式 + legacy 深, 非数字叶跳过;逐条 `sw_api_time` 比 `mtime`, 输出 `UPDATE\|…/CURRENT\|…/SKIP\|…` 排序行; 无候选/根非法返回 1) |
+| `sw_check_updates()` | steam-workshop.sh `handle_update` / auto (scope 为空=全部, 完整目录名精确匹配, 纯数字/app 后缀解析为 appid 后同 app 的 flat+deep 一并纳入; 枚举 flat 新/老式 + legacy 深, 非数字叶跳过;逐条 `sw_api_time` 比 `mtime`, 输出 `UPDATE\|…/CURRENT\|…/SKIP\|…` 排序行; 无候选或根非法返回 1) |
+| `sw_run_updates()` | steam-workshop.sh `handle_update` 后台循环 / auto (stdin UPDATE 行逐条 `sw_download`+删源, stdout `ok fail[ fids...]`, 只回显不 notify) |
 
 ### rofi/scripts/yt-dlp-wrapper.sh
 
@@ -457,6 +460,7 @@ DWM 启动
     → setxkbmap ...
     → bash keyboard.sh &
     → bash wallpaper.sh &
+    → bash steam-workshop-auto.sh 431960 &  # 工坊壁纸开机异步自动更新 (一次性, 只通知)
     → bash dwm-status.sh &                  # 状态栏
     → bash screen.sh &                      # DPMS 守护 (parec 录默认输出判响度, 有声不熄屏)
     → bash brightness.sh &
