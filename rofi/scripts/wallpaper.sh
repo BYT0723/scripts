@@ -151,6 +151,7 @@ random_switch||Random|cmd:icon toggle conf wallpaper random number "$MONITOR"
 random_type|󱧶|Type|cmd:t=$(getConfig -m "$MONITOR" random_type); case "$t" in video) echo "";; web) echo "";; scene) echo "";; *) echo "";; esac
 random_duration|󰔟|Duration|cmd:getConfig -m "$MONITOR" duration
 fps||FPS|cmd:get_video_render_config "$MONITOR" fps
+property|󰔉|Property|cmd:n=$(prop_tunables "$MONITOR" 2>/dev/null | grep -c .); [ "${n:-0}" -gt 0 ] 2>/dev/null && echo "$n"
 random_images_path||Images Path|
 random_videos_path||Videos Path|
 random_web_path||Web Path|
@@ -200,7 +201,10 @@ select_marker_wallpaper() {
         [ -n "$preview" ] && [ -f "$d/$preview" ] && icon="$d/$preview"
         if [ -z "$icon" ]; then
             for p in preview.gif preview.png preview.jpg preview.jpeg preview.webp; do
-                if [ -s "$d/$p" ]; then icon="$d/$p"; break; fi
+                if [ -s "$d/$p" ]; then
+                    icon="$d/$p"
+                    break
+                fi
             done
         fi
         # NUL 字节 bash 变量装不下: 行尾先写 \001 占位, 喂 rofi 前统一 tr 成 NUL (同 windows-selector)
@@ -225,7 +229,7 @@ select_marker_wallpaper() {
         case "$rc" in
         0) ;;            # 正常选中, 走下面原流程
         10 | 11 | 12) ;; # Alt+1/2/3, 需序号定位条目
-        *) return 0 ;;    # ESC/其他直接返回
+        *) return 0 ;;   # ESC/其他直接返回
         esac
         case "$sel" in
         '' | *[!0-9]*) picked="" ;;
@@ -282,6 +286,136 @@ handle_fps() {
     # setter 仅在写入新值时返回 0 (取消/非法/未改变直接返回)；有改变才重建 video 壁纸
     set_video_render_config "$MONITOR" fps "FPS" "Video frame rate limit (0 = unlimited, ≥ 0)" 0 &&
         reapply_video_wallpaper "$MONITOR"
+}
+# ---- Wallpaper user property (web/scene slider/color/file, yad 调控) ----
+# --list-properties 仅 web/scene 有输出 (image/video 直接失败);
+# group/Screen 属 -g 几何窗口, -m 无法寻址同样失败 → 通知后返回 (限定单 monitor)。
+# slider 走 yad --scale --print-partial 逐值实时 set;
+# color/file 的 yad 对话框无 partial (--changed-action 仅 CHK/CB/SW 有效),
+# 只能 OK 单次应用 / 取消恢复原值。
+prop_tunables() { xwallpaper --list-properties -m "$1" 2>/dev/null | awk -F'\t' '$2=="slider" || $2=="color" || $2=="file"'; }
+prop_commit_once() { # <name> <original> <yad-status> <yad-output>: OK 非空即应用 / 取消则恢复原值
+    if (($3 == 0)); then
+        [ -n "$4" ] && xwallpaper --set-property "$1=$4" -m "$MONITOR" 2>/dev/null
+    else
+        xwallpaper --set-property "$1=$2" -m "$MONITOR" 2>/dev/null
+    fi
+}
+prop_color_hex() { # "r g b" (0..1 floats) → #rrggbb; 非法输入输出空
+    [[ "$1" =~ ^[0-9.]+[[:space:]]+[0-9.]+[[:space:]]+[0-9.]+$ ]] || return 1
+    awk '{r=$1*255+0.5; g=$2*255+0.5; b=$3*255+0.5;
+        if (r<0||r>255.5||g<0||g>255.5||b<0||b>255.5) exit 1;
+        printf "#%02x%02x%02x", int(r), int(g), int(b)}' <<<"$1" 2>/dev/null
+}
+prop_hex_to_rgb() { # #rrggbb/#rgb → "r g b" (%.6f floats); 非法输入失败
+    # scene 把 color 原样透传给 JS (按空格 split), 不认 hex; web 两者都认。
+    # set 一律转回 triple, 两后端通用。
+    local h="${1#\#}" r g b
+    if [[ "$h" =~ ^[0-9a-fA-F]{6}$ ]]; then
+        r=$((16#${h:0:2})); g=$((16#${h:2:2})); b=$((16#${h:4:2}))
+    elif [[ "$h" =~ ^[0-9a-fA-F]{3}$ ]]; then
+        r=$((16#${h:0:1}${h:0:1})); g=$((16#${h:1:1}${h:1:1})); b=$((16#${h:2:1}${h:2:1}))
+    else
+        return 1
+    fi
+    awk -v r="$r" -v g="$g" -v b="$b" 'BEGIN {printf "%.6f %.6f %.6f", r/255, g/255, b/255}'
+}
+prop_range() { # <dir> <name> → "min max" (project.json 缺失/非法时 fallback 0 100)
+    local dir="$1" name="$2" out min max
+    out=$(jq -r --arg n "$name" '.general.properties[$n] | "\(.min // 0) \(.max // 100)"' "$dir/project.json" 2>/dev/null)
+    read min max <<<"$out"
+    [[ "$min" =~ ^-?[0-9]+$ ]] || min=0
+    [[ "$max" =~ ^-?[0-9]+$ ]] || max=100
+    [ "$max" -gt "$min" ] 2>/dev/null || {
+        min=0
+        max=100
+    }
+    printf '%s %s' "$min" "$max"
+}
+handle_property() {
+    local tunables type name cur path dir min max value last yad_fd yad_pid tmpdir fifo status original new init start
+    tunables=$(prop_tunables "$MONITOR")
+    [ -n "$tunables" ] || {
+        system-notify low "Wallpaper" "No adjustable properties on $MONITOR"
+        return
+    }
+    if [ "$(printf '%s\n' "$tunables" | wc -l)" = 1 ]; then
+        name=$(printf '%s' "$tunables" | cut -f1)
+    else
+        # color 值显示为 hex (纯表现层, 选择仍按首列 name; 转换失败回退原值)
+        name=$(while IFS=$'\t' read -r pn pt pv; do
+            [ -n "$pn" ] || continue
+            [ "$pt" = color ] && pv=$(prop_color_hex "$pv" 2>/dev/null || printf '%s' "$pv")
+            printf '%-8s %26s\n' "$pn" "$pv"
+        done <<<"$tunables" |
+            module_sub_rofi "Property ($MONITOR)" "Select a slider/color/file property")
+        [ -z "$name" ] && return
+        read -r name _ <<<"$name"
+    fi
+    type=$(printf '%s\n' "$tunables" | awk -F'\t' -v n="$name" '$1==n {print $2; exit}')
+    cur=$(printf '%s\n' "$tunables" | awk -F'\t' -v n="$name" '$1==n {print $3; exit}')
+    original="$cur"
+    path=$(xwallpaper --state 2>/dev/null | awk -F'\t' -v n="$MONITOR" '$1==n {print $3; exit}')
+    dir="$path"
+    [ -d "$dir" ] || dir=$(dirname "$path")
+    if [ "$type" = "color" ]; then
+        init=$(prop_color_hex "$cur")
+        new=$(yad --color --title="Wallpaper Property" --text="$MONITOR : $name" \
+            ${init:+--init-color="$init"} 2>/dev/null)
+        # yad 输出 hex; set 前转回 triple (scene 只认 triple, web 两者都认)。
+        # 取消/ESC 恢复原值 (OK 但输出为空视为无改动, 不恢复)
+        prop_commit_once "$name" "$original" "$?" "$(prop_hex_to_rgb "$(printf '%s' "$new" | tr -d '\n')")"
+        return
+    fi
+    if [ "$type" = "file" ]; then
+        # yad --file 同样无 partial, OK 单次应用 / 取消恢复原值
+        start="$dir"
+        [ -f "$cur" ] && start=$(dirname "$cur")
+        [ -d "$start" ] || start="$HOME"
+        new=$(yad --file --title="Wallpaper Property" --text="$MONITOR : $name" \
+            --filename="$start/" 2>/dev/null)
+        prop_commit_once "$name" "$original" "$?" "$(printf '%s' "$new" | tr -d '\n')"
+        return
+    fi
+    [[ "$cur" =~ ^-?[0-9]+$ ]] || cur=0
+    read min max <<<"$(prop_range "$dir" "$name")"
+    [ "$cur" -ge "$min" ] 2>/dev/null || cur="$min"
+    [ "$cur" -le "$max" ] 2>/dev/null || cur="$max"
+
+    # 复用 theme.sh handle_monitor_brightness 的 FIFO + 后台 pid 模式
+    # (set-property ~1ms, 无需 DDC 那套 drain, 逐值即时应用)
+    tmpdir=$(mktemp -d) || return
+    fifo="$tmpdir/out"
+    mkfifo "$fifo" || {
+        rm -rf "$tmpdir"
+        return
+    }
+    yad \
+        --scale \
+        --title="Wallpaper Property" \
+        --text="$MONITOR : $name" \
+        --min-value="$min" \
+        --max-value="$max" \
+        --value="$cur" \
+        --step=1 \
+        --print-partial >"$fifo" 2>/dev/null &
+    yad_pid=$!
+    exec {yad_fd}<"$fifo"
+
+    while IFS= read -r value <&"$yad_fd"; do
+        last="$value"
+        xwallpaper --set-property "$name=$value" -m "$MONITOR" 2>/dev/null
+    done
+    exec {yad_fd}<&-
+    rm -rf "$tmpdir"
+
+    wait "$yad_pid"
+    status=$?
+
+    if ((status != 0)); then
+        # 取消/ESC: 恢复原值
+        xwallpaper --set-property "$name=$original" -m "$MONITOR" 2>/dev/null
+    fi
 }
 handle_random_images_path() { pick_config_dir "$MONITOR" random_image_dir; }
 handle_random_videos_path() { pick_config_dir "$MONITOR" random_video_dir; }
