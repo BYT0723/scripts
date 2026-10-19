@@ -11,7 +11,8 @@
 #   sw_resolve_appid <url-or-id> → stdout appid (先 ?appid= 参数, 后抓页面)
 #   sw_api_info <itemid>         → stdout "appid|app名|资源名" (免 key WebAPI, 登录门条目可用; 需 jq)
 #   sw_api_time <itemid>         → stdout "appid|time_updated" (更新检查用; 需 jq)
-#   sw_check_updates <root> [appdir] → stdout 状态行 (UPDATE|appid|itemid|path / CURRENT|itemid|path / SKIP|itemid|path|reason); 无候选或根非法返回 1
+#   sw_check_updates <root> [scope: appdir 或 appid] → stdout 状态行 (UPDATE|appid|itemid|path / CURRENT|itemid|path / SKIP|itemid|path|reason); 无候选或根非法返回 1
+#   sw_run_updates <user>          → stdin UPDATE 行逐条下载+删源; stdout "ok fail[ fids...]"; 只回显, 不 notify
 #   sw_item_info <url-or-id>     → stdout "appid|app名|资源名" (页面 → WebAPI → 失败)
 #   sw_list_users                → stdout "AccountName|PersonaName" 行 (按 Timestamp 倒序)
 #   sw_safe_app <appname> <appid>  → stdout 扁平首层目录名 (应用名去空格/非法字符, 为空回退 appid)
@@ -125,26 +126,35 @@ sw_api_time() { # itemid → "appid|time_updated" (更新检查用)
     echo "$appid|$updated"
 }
 
-sw_check_updates() { # root [appdir] → 待更新/现状/跳过行
+sw_check_updates() { # root [scope: appdir 或 appid] → 待更新/现状/跳过行
     local root="$1" scope="${2:-}"
     [[ -d "$root" ]] || return 1
+    # scope 归一化为 appid: 纯数字直接用; 目录名取 _<digits> 后缀; 取不到则为空(仅精确目录名匹配)
+    local scope_appid=""
+    if [[ "$scope" =~ ^[0-9]+$ ]]; then scope_appid="$scope"
+    elif [[ "$scope" =~ _([0-9]+)$ ]]; then scope_appid="${BASH_REMATCH[1]}"; fi
     local -a cand=() # "itemid|path"
-    local d itemid parent
+    local d itemid parent parent_appid
     while IFS= read -r -d '' d; do
         itemid=$(basename "$d")
         [[ "$itemid" =~ ^[0-9]+$ ]] || continue
         parent=$(basename "$(dirname "$d")")
         if [[ -n "$scope" && "$parent" != "$scope" ]]; then
-            continue
+            parent_appid=""
+            if [[ "$parent" =~ _([0-9]+)$ ]]; then parent_appid="${BASH_REMATCH[1]}"
+            elif [[ "$parent" =~ ^[0-9]+$ ]]; then parent_appid="$parent"; fi
+            [[ -n "$scope_appid" && "$parent_appid" == "$scope_appid" ]] || continue
         fi
         cand+=("$itemid|$d")
     done < <(find "$root" -mindepth 2 -maxdepth 2 -type d -print0 2>/dev/null \
         | LC_ALL=C sort -z | grep -zvzF "$root/steamapps/")
-    if [[ -z "$scope" && -d "$root/steamapps/workshop/content" ]]; then
+    if [[ -d "$root/steamapps/workshop/content" ]] && [[ -z "$scope" || -n "$scope_appid" ]]; then
         while IFS= read -r -d '' d; do
             itemid=$(basename "$d")
             [[ "$itemid" =~ ^[0-9]+$ ]] || continue
-            [[ "$(basename "$(dirname "$d")")" =~ ^[0-9]+$ ]] || continue
+            parent=$(basename "$(dirname "$d")")
+            [[ "$parent" =~ ^[0-9]+$ ]] || continue
+            [[ -z "$scope" || "$parent" == "$scope_appid" ]] || continue
             cand+=("$itemid|$d")
         done < <(find "$root/steamapps/workshop/content" -mindepth 2 -maxdepth 2 -type d -print0 2>/dev/null | LC_ALL=C sort -z)
     fi
@@ -170,6 +180,27 @@ sw_check_updates() { # root [appdir] → 待更新/现状/跳过行
     done
     printf '%s\n' "${out[@]}" | LC_ALL=C sort
     return 0
+}
+
+sw_run_updates() { # stdin UPDATE|appid|itemid|path 行; $1 = steam 用户
+    # 逐条下载, 成功且落盘路径变化时删源 (沿用 handle_update 的迁移规则); 只回显, 不 notify
+    # stdout: "ok fail[ fids...]" (fids 空格分隔, 全成功时省略)
+    local user="${1:-anonymous}" ok=0 fail=0
+    local -a failed=()
+    local status appid itemid path parent app out
+    while IFS='|' read -r status appid itemid path; do
+        [[ "$status" == "UPDATE" && -n "$appid" && -n "$itemid" && -n "$path" ]] || continue
+        parent=$(basename "$(dirname "$path")")
+        app="${parent%_"$appid"}"
+        if out=$(sw_download "$appid" "$itemid" "$user" "$app" 2>&1); then
+            ((ok++))
+            [[ "$out" != "$path" ]] && rm -rf "$path" 2>/dev/null
+        else
+            ((fail++))
+            failed+=("$itemid")
+        fi
+    done
+    if ((${#failed[@]})); then echo "$ok $fail ${failed[*]}"; else echo "$ok $fail"; fi
 }
 
 sw_item_info() {

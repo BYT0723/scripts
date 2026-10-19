@@ -163,8 +163,20 @@ UPDATE|431960|666|$UPROOT/steamapps/workshop/content/431960/666"
 assert_cond "check: full enumeration" '[[ "$_got" == "$_exp" ]]'
 _got=$(sw_check_updates "$UPROOT" "WallpaperEngine_431960")
 _exp="CURRENT|222|$UPROOT/WallpaperEngine_431960/222
-UPDATE|431960|111|$UPROOT/WallpaperEngine_431960/111"
-assert_cond "check: scope filter" '[[ "$_got" == "$_exp" ]]'
+UPDATE|431960|111|$UPROOT/WallpaperEngine_431960/111
+UPDATE|431960|555|$UPROOT/431960/555
+UPDATE|431960|666|$UPROOT/steamapps/workshop/content/431960/666"
+assert_cond "check: dirname scope 纳入同 appid flat+deep" '[[ "$_got" == "$_exp" ]]'
+_got=$(sw_check_updates "$UPROOT" "431960")
+_exp="CURRENT|222|$UPROOT/WallpaperEngine_431960/222
+UPDATE|431960|111|$UPROOT/WallpaperEngine_431960/111
+UPDATE|431960|555|$UPROOT/431960/555
+UPDATE|431960|666|$UPROOT/steamapps/workshop/content/431960/666"
+assert_cond "check: appid scope 命中 flat+deep, 排除他 app" '[[ "$_got" == "$_exp" ]]'
+_got=$(sw_check_updates "$UPROOT" "999999")
+assert_cond "check: 不匹配的 appid scope" '[[ "$_got" == "SKIP|333|$UPROOT/OtherApp_999999/333|api-failed" ]]'
+_got=$(sw_check_updates "$UPROOT" "LegacyName")
+assert_cond "check: 无 appid 的老式目录名 scope" '[[ "$_got" == "UPDATE|431960|444|$UPROOT/LegacyName/444" ]]'
 mkdir -p "$TEST_DIR/emptyroot"
 assert_cond "check: empty root rc=1" '! sw_check_updates "$TEST_DIR/emptyroot" >/dev/null'
 assert_cond "check: missing root rc=1" '! sw_check_updates "$TEST_DIR/nonexistent" >/dev/null'
@@ -226,5 +238,23 @@ export STEAMCMD_INSTALL_DIR="$TEST_DIR/isolated"
 assert_cond "err: cached credentials" '[[ $(sw_short_error <<<"Loading Steam API...OK Cached credentials not found.") == "Cached credentials not found." ]]'
 assert_cond "err: first ERROR line" '[[ $(sw_short_error <<<"foo ERROR (Invalid Password) bar") == "ERROR (Invalid Password) bar" ]]'
 assert_cond "err: empty when nothing useful" '[[ -z $(sw_short_error <<<"nothing useful here") ]]'
+
+# ---- run_updates ----
+RROOT="$TEST_DIR/runroot"
+mkdir -p "$RROOT/WallpaperEngine_431960/3810650535" "$RROOT/steamapps/workshop/content/431960/3810650535"
+export STEAMCMD_INSTALL_DIR="$RROOT" STEAMCMD_OUTDIR="$TEST_DIR/dl-out" STEAMCMD_MODE=success
+_run_in="UPDATE|431960|3810650535|$RROOT/WallpaperEngine_431960/3810650535
+UPDATE|431960|3810650535|$RROOT/steamapps/workshop/content/431960/3810650535
+CURRENT|222|$RROOT/WallpaperEngine_431960/222
+SKIP|333|/y|api-failed"
+_got=$(sw_run_updates anonymous <<<"$_run_in")
+assert_cond "run: summary ok fail" '[[ "$_got" == "2 0" ]]'
+assert_cond "run: deep source pruned after move" '[[ ! -e "$RROOT/steamapps/workshop/content/431960/3810650535" && -d "$RROOT/WallpaperEngine_431960/3810650535" ]]'
+export STEAMCMD_MODE=error
+_got=$(sw_run_updates anonymous <<<"UPDATE|431960|3810650535|$RROOT/WallpaperEngine_431960/3810650535")
+assert_cond "run: failure counted with id" '[[ "$_got" == "0 1 3810650535" ]]'
+export STEAMCMD_MODE=success
+_got=$(sw_run_updates anonymous </dev/null)
+assert_cond "run: empty stdin" '[[ "$_got" == "0 0" ]]'
 
 exit $FAIL
