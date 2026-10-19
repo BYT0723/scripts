@@ -105,7 +105,7 @@ handle_download() {
 }
 
 handle_update() {
-    local root="${STEAMCMD_INSTALL_DIR:-$HOME/Downloads/steamcmd}"
+    local root="${STEAMCMD_INSTALL_DIR:-$HOME/Downloads/steam-workshop}"
     local sel scope="" lines updates skips user
     if [[ ! -d "$root/steamapps/workshop/content" ]] \
         && ! find "$root" -mindepth 1 -maxdepth 1 -type d ! -name 'steamapps' -print -quit 2>/dev/null | grep -q .; then
@@ -161,7 +161,7 @@ handle_update() {
 }
 
 handle_open() {
-    local root="${STEAMCMD_INSTALL_DIR:-$HOME/Downloads/steamcmd}"
+    local root="${STEAMCMD_INSTALL_DIR:-$HOME/Downloads/steam-workshop}"
     mkdir -p "$root" 2>/dev/null || {
         system-notify critical "Steam Workshop" "Cannot create directory"$'\n'"$root"
         return

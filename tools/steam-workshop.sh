@@ -16,14 +16,14 @@
 #   sw_list_users                → stdout "AccountName|PersonaName" 行 (按 Timestamp 倒序)
 #   sw_safe_app <appname> <appid>  → stdout 扁平首层目录名 (应用名去空格/非法字符, 为空回退 appid)
 #   sw_download <appid> <itemid> [user] [appname] → stdout 扁平落盘路径 <隔离根>/<应用>/<itemid>; rc=0 成功, 2=需终端登录, 1=其他失败
-#     隔离根经 +force_install_dir 写入 (见 STEAMCMD_INSTALL_DIR)，缺省 ~/Downloads/steamcmd (自动 mkdir -p)
+#     隔离根经 +force_install_dir 写入 (见 STEAMCMD_INSTALL_DIR)，缺省 ~/Downloads/steam-workshop (自动 mkdir -p)
 
 STEAM_LOGINUSERS="${STEAM_LOGINUSERS:-$HOME/.local/share/Steam/config/loginusers.vdf}"
 # 隔离根: steamcmd +force_install_dir 的值 (非最终内容目录)。
 # 最终落盘为 <隔离根>/steamapps/workshop/content/<appid>/<itemid>，
 # 不同 appid 各占子目录、互不混；Steam 客户端卸载不触及此处。
-# STEAMCMD_INSTALL_DIR 优先，兼容 STEAM_WORKSHOP_DIR，缺省 ~/Downloads/steamcmd。
-STEAMCMD_INSTALL_DIR="${STEAMCMD_INSTALL_DIR:-${STEAM_WORKSHOP_DIR:-$HOME/Downloads/steamcmd}}"
+# STEAMCMD_INSTALL_DIR 优先，兼容 STEAM_WORKSHOP_DIR，缺省 ~/Downloads/steam-workshop。
+STEAMCMD_INSTALL_DIR="${STEAMCMD_INSTALL_DIR:-${STEAM_WORKSHOP_DIR:-$HOME/Downloads/steam-workshop}}"
 
 sw_parse_itemid() {
     local in="$1" id=""
@@ -223,7 +223,7 @@ sw_download() {
     local -a login_arg=(+login anonymous)
     [[ "$user" != "anonymous" ]] && login_arg=(+login "$user")
 
-    local install_dir="${STEAMCMD_INSTALL_DIR:-${STEAM_WORKSHOP_DIR:-$HOME/Downloads/steamcmd}}"
+    local install_dir="${STEAMCMD_INSTALL_DIR:-${STEAM_WORKSHOP_DIR:-$HOME/Downloads/steam-workshop}}"
     mkdir -p "$install_dir" 2>/dev/null || return 1
 
     local log rc=0 path=""

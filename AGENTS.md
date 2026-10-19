@@ -306,7 +306,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `sw_item_info()`      | steam-workshop.sh `_go` (一次抓页返回 `appid\|app名\|资源名`; 页面无 appid → WebAPI 兜底 → 都失败才手输) |
 | `sw_list_users()`   | steam-workshop.sh `_pick_user` (解析 loginusers.vdf `AccountName\|PersonaName`, Timestamp 倒序; 0→anonymous, 1→直用, N→rofi 选) |
 | `sw_safe_app()`     | sw_download (app 名去空格/非法字符作扁平首层应用部分, `.`/`..`/空回退 appid, 仍非法回退 `unknown`) |
-| `sw_download()`     | steam-workshop.sh `_download` / `handle_update` 循环 (隔离根 `STEAMCMD_INSTALL_DIR`(兼容 `STEAM_WORKSHOP_DIR`, 缺省 `~/Downloads/steamcmd`) 经 `+force_install_dir` 写入, 自动 `mkdir -p`; 成功后 `mv` 深路径到扁平 `<隔离根>/<safe>_<appid>/<itemid>`(无 app 名时首层即 appid) 并返回扁平路径, `mv` 后逐层回收深路径空架子到隔离根为止(保留 `.acf` 清单); 非数字 appid/itemid 直接 rc=1; 2=认证失败提示终端登录, 1=其他失败) |
+| `sw_download()`     | steam-workshop.sh `_download` / `handle_update` 循环 (隔离根 `STEAMCMD_INSTALL_DIR`(兼容 `STEAM_WORKSHOP_DIR`, 缺省 `~/Downloads/steam-workshop`) 经 `+force_install_dir` 写入, 自动 `mkdir -p`; 成功后 `mv` 深路径到扁平 `<隔离根>/<safe>_<appid>/<itemid>`(无 app 名时首层即 appid) 并返回扁平路径, `mv` 后逐层回收深路径空架子到隔离根为止(保留 `.acf` 清单); 非数字 appid/itemid 直接 rc=1; 2=认证失败提示终端登录, 1=其他失败) |
 | `sw_api_time()`     | sw_check_updates (单条 GetPublishedFileDetails 取 `appid\|time_updated`, 需 jq) |
 | `sw_check_updates()` | steam-workshop.sh `handle_update` (枚举 flat 新/老式 + legacy 深, 非数字叶跳过;逐条 `sw_api_time` 比 `mtime`, 输出 `UPDATE\|…/CURRENT\|…/SKIP\|…` 排序行; 无候选/根非法返回 1) |
 

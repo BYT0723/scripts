@@ -219,7 +219,7 @@ assert_cond "download: STEAMCMD_INSTALL_DIR wins" 'grep -Fq "+force_install_dir 
 unset STEAMCMD_INSTALL_DIR STEAM_WORKSHOP_DIR
 rm -f "$STEAMCMD_ARGS_LOG"
 HOME="$TEST_DIR/fakehome" sw_download 431960 3810650535 anonymous >/dev/null
-assert_cond "download: default is ~/Downloads/steamcmd" 'grep -Fq "+force_install_dir $TEST_DIR/fakehome/Downloads/steamcmd" "$STEAMCMD_ARGS_LOG" && [[ -d $TEST_DIR/fakehome/Downloads/steamcmd ]]'
+assert_cond "download: default is ~/Downloads/steam-workshop" 'grep -Fq "+force_install_dir $TEST_DIR/fakehome/Downloads/steam-workshop" "$STEAMCMD_ARGS_LOG" && [[ -d $TEST_DIR/fakehome/Downloads/steam-workshop ]]'
 export STEAMCMD_INSTALL_DIR="$TEST_DIR/isolated"
 
 # ---- short_error ----
