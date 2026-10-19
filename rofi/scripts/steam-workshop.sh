@@ -5,7 +5,7 @@ WORK_DIR="$(dirname "$ROFI_DIR")"
 
 MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
 MODULE_NAME="󰉋 Steam Workshop"
-MODULE_MESG="Download workshop item via steamcmd"
+MODULE_MESG="Download / update workshop items via steamcmd"
 
 source "$(dirname "$0")"/util.sh
 source "$(dirname "$0")"/lib-module.sh
@@ -95,22 +95,83 @@ _go() {
 
 # ------- handlers -------
 
-handle_input() {
-    local url
-    url=$(module_input "Workshop URL" "Enter workshop link or numeric ID" "${CLIP_URL:-}")
-    [[ -z "$url" ]] && return
+handle_download() {
+    local url="$CLIP_URL"
+    if ! sw_parse_itemid "$url" >/dev/null 2>&1; then
+        url=$(module_input "Workshop URL" "Enter workshop link or numeric ID" "${CLIP_URL:-}")
+        [[ -z "$url" ]] && return
+    fi
     _go "$url"
 }
 
-handle_clipboard() {
-    [[ -z "$CLIP_URL" ]] && return
-    _go "$CLIP_URL"
+handle_update() {
+    local root="${STEAMCMD_INSTALL_DIR:-$HOME/Downloads/steamcmd}"
+    local sel scope="" lines updates skips user
+    if [[ ! -d "$root/steamapps/workshop/content" ]] \
+        && ! find "$root" -mindepth 1 -maxdepth 1 -type d ! -name 'steamapps' -print -quit 2>/dev/null | grep -q .; then
+        system-notify normal "Steam Workshop" "No downloads yet"$'\n'"$root"
+        return
+    fi
+    sel=$( {
+        echo "All Apps"
+        find "$root" -mindepth 1 -maxdepth 1 -type d ! -name 'steamapps' -printf '%f\n' 2>/dev/null | LC_ALL=C sort
+    } | module_sub_rofi "Steam Workshop" "Select scope to update")
+    [[ -z "$sel" ]] && return
+    [[ "$sel" != "All Apps" ]] && scope="$sel"
+    if [[ -z "$scope" ]]; then
+        lines=$(sw_check_updates "$root") || {
+            system-notify normal "Steam Workshop" "No downloads yet"$'\n'"$root"
+            return
+        }
+    else
+        lines=$(sw_check_updates "$root" "$scope") || {
+            system-notify normal "Steam Workshop" "No downloads yet"$'\n'"$scope"
+            return
+        }
+    fi
+    updates=$(grep -c '^UPDATE|' <<<"$lines")
+    skips=$(grep -c '^SKIP|' <<<"$lines")
+    if [[ "$updates" -eq 0 ]]; then
+        system-notify normal "Steam Workshop" "All up to date${skips:+ ($skips skipped)}"
+        return
+    fi
+    module_confirm "Update $updates item(s)${skips:+ ($skips skipped)}?" || return
+    user=$(_pick_user) || return
+    (
+        local ok=0 fail=0 fids="" status appid itemid path parent app out
+        while IFS='|' read -r status appid itemid path; do
+            parent=$(basename "$(dirname "$path")")
+            app="${parent%_"$appid"}"
+            if out=$(sw_download "$appid" "$itemid" "$user" "$app" 2>&1); then
+                ((ok++))
+                [[ "$out" != "$path" ]] && rm -rf "$path" 2>/dev/null
+            else
+                ((fail++))
+                fids+="$itemid "
+            fi
+        done < <(grep '^UPDATE|' <<<"$lines")
+        if [[ "$fail" -eq 0 ]]; then
+            system-notify normal "Steam Workshop" "Update done"$'\n'"$ok updated"
+        else
+            system-notify critical "Steam Workshop" "Update done"$'\n'"$ok updated, $fail failed: $fids"
+        fi
+    ) &
+}
+
+handle_open() {
+    local root="${STEAMCMD_INSTALL_DIR:-$HOME/Downloads/steamcmd}"
+    mkdir -p "$root" 2>/dev/null || {
+        system-notify critical "Steam Workshop" "Cannot create directory"$'\n'"$root"
+        return
+    }
+    xdg-open "$root" &>/dev/null &
 }
 
 # ------- main -------
 
-_menu="input|󰋩|Input URL|"$'\n'
-[[ -n "$CLIP_URL" ]] && _menu+="clipboard|󰅐|Clipboard|"$'\n'
+_menu="download|󰇚|Download|"$'\n'
+_menu+="update|󰑓|Update|"$'\n'
+_menu+="open|󰝰|Open Directory|"$'\n'
 
 module_parse <<<"$_menu"
 

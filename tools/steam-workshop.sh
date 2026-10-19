@@ -10,6 +10,8 @@
 #   sw_short_error                → steamcmd 全量输出摘一行人类可读错误
 #   sw_resolve_appid <url-or-id> → stdout appid (先 ?appid= 参数, 后抓页面)
 #   sw_api_info <itemid>         → stdout "appid|app名|资源名" (免 key WebAPI, 登录门条目可用; 需 jq)
+#   sw_api_time <itemid>         → stdout "appid|time_updated" (更新检查用; 需 jq)
+#   sw_check_updates <root> [appdir] → stdout 状态行 (UPDATE|appid|itemid|path / CURRENT|itemid|path / SKIP|itemid|path|reason); 无候选或根非法返回 1
 #   sw_item_info <url-or-id>     → stdout "appid|app名|资源名" (页面 → WebAPI → 失败)
 #   sw_list_users                → stdout "AccountName|PersonaName" 行 (按 Timestamp 倒序)
 #   sw_safe_app <appname> <appid>  → stdout 扁平首层目录名 (应用名去空格/非法字符, 为空回退 appid)
@@ -110,6 +112,74 @@ sw_api_info() {
     echo "$appid|$(sw_decode_entities "$appname")|$(sw_decode_entities "$title")"
 }
 
+sw_api_time() { # itemid → "appid|time_updated" (更新检查用)
+    local itemid="$1" resp="" appid="" updated=""
+    command -v jq >/dev/null || return 1
+    [[ "$itemid" =~ ^[0-9]+$ ]] || return 1
+    resp=$(curl -sSL --max-time 20 --proto '=https' -X POST \
+        'https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/' \
+        --data-urlencode 'itemcount=1' --data-urlencode "publishedfileids[0]=$itemid" 2>/dev/null) || return 1
+    appid=$(jq -r '.response.publishedfiledetails[0] | select(.result == 1) | .consumer_app_id' <<<"$resp")
+    updated=$(jq -r '.response.publishedfiledetails[0] | select(.result == 1) | .time_updated' <<<"$resp")
+    [[ "$appid" =~ ^[0-9]+$ && "$updated" =~ ^[0-9]+$ ]] || return 1
+    echo "$appid|$updated"
+}
+
+sw_check_updates() { # root [appdir] → 待更新/现状/跳过行
+    local root="$1" scope="${2:-}"
+    [[ -d "$root" ]] || return 1
+    local -a cand=() # "appid|itemid|path" (appid 可空)
+    local d itemid parent appid
+    while IFS= read -r -d '' d; do
+        itemid=$(basename "$d")
+        [[ "$itemid" =~ ^[0-9]+$ ]] || continue
+        parent=$(basename "$(dirname "$d")")
+        appid=""
+        if [[ "$parent" =~ _([0-9]+)$ ]]; then
+            appid="${BASH_REMATCH[1]}"
+        elif [[ "$parent" =~ ^[0-9]+$ ]]; then
+            appid="$parent"
+        fi
+        if [[ -n "$scope" && "$parent" != "$scope" ]]; then
+            continue
+        fi
+        cand+=("$appid|$itemid|$d")
+    done < <(find "$root" -mindepth 2 -maxdepth 2 -type d -print0 2>/dev/null \
+        | LC_ALL=C sort -z | grep -zvzF "$root/steamapps/")
+    if [[ -z "$scope" && -d "$root/steamapps/workshop/content" ]]; then
+        while IFS= read -r -d '' d; do
+            itemid=$(basename "$d")
+            [[ "$itemid" =~ ^[0-9]+$ ]] || continue
+            appid=$(basename "$(dirname "$d")")
+            [[ "$appid" =~ ^[0-9]+$ ]] || continue
+            cand+=("$appid|$itemid|$d")
+        done < <(find "$root/steamapps/workshop/content" -mindepth 2 -maxdepth 2 -type d -print0 2>/dev/null | LC_ALL=C sort -z)
+    fi
+    [[ ${#cand[@]} -gt 0 ]] || return 1
+    local entry known time_info api_appid updated mtime
+    local -a out=()
+    for entry in "${cand[@]}"; do
+        IFS='|' read -r known itemid d <<<"$entry"
+        if ! time_info=$(sw_api_time "$itemid"); then
+            out+=("SKIP|$itemid|$d|api-failed")
+            continue
+        fi
+        IFS='|' read -r api_appid updated <<<"$time_info"
+        [[ -n "$known" ]] && api_appid="$known"
+        mtime=$(stat -c %Y "$d" 2>/dev/null) || {
+            out+=("SKIP|$itemid|$d|stat-failed")
+            continue
+        }
+        if ((updated > mtime)); then
+            out+=("UPDATE|$api_appid|$itemid|$d")
+        else
+            out+=("CURRENT|$itemid|$d")
+        fi
+    done
+    printf '%s\n' "${out[@]}" | LC_ALL=C sort
+    return 0
+}
+
 sw_item_info() {
     local in="$1" page="" appid="" itemid=""
     [[ "$in" =~ [\?\&]appid=([0-9]+) ]] && {
@@ -157,7 +227,7 @@ sw_safe_app() { # appname appid → 扁平首层目录名
 
 sw_download() {
     local appid="$1" itemid="$2" user="${3:-anonymous}" appname="${4:-}"
-    [[ "$itemid" =~ ^[0-9]+$ ]] || return 1
+    [[ "$appid" =~ ^[0-9]+$ && "$itemid" =~ ^[0-9]+$ ]] || return 1
     local -a login_arg=(+login anonymous)
     [[ "$user" != "anonymous" ]] && login_arg=(+login "$user")
 
@@ -171,8 +241,11 @@ sw_download() {
 
     path=$(grep -o 'Success\. Downloaded item [0-9]* to "[^"]*"' "$log" | head -1 | sed 's/.* to "//; s/"$//')
     if [[ $rc -eq 0 && -n "$path" && -e "$path" ]]; then
-        local flat_parent flat_dir
-        flat_parent="$install_dir/$(sw_safe_app "$appname" "$appid")"
+        local safe flat_leaf flat_parent flat_dir
+        safe=$(sw_safe_app "$appname" "$appid")
+        flat_leaf="$safe"
+        [[ "$safe" != "$appid" ]] && flat_leaf="${safe}_${appid}"
+        flat_parent="$install_dir/$flat_leaf"
         flat_dir="$flat_parent/$itemid"
         if [[ "$path" != "$flat_dir" ]]; then
             mkdir -p "$flat_parent" 2>/dev/null || { cat "$log" >&2; rm -f "$log"; return 1; }

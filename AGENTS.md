@@ -305,8 +305,10 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `sw_api_info()` | sw_item_info (免 key WebAPI `GetPublishedFileDetails` 取 appid+标题, store `appdetails` 取 app 名; 登录门条目可用, 需 jq) |
 | `sw_item_info()`      | steam-workshop.sh `_go` (一次抓页返回 `appid\|app名\|资源名`; 页面无 appid → WebAPI 兜底 → 都失败才手输) |
 | `sw_list_users()`   | steam-workshop.sh `_pick_user` (解析 loginusers.vdf `AccountName\|PersonaName`, Timestamp 倒序; 0→anonymous, 1→直用, N→rofi 选) |
-| `sw_safe_app()`     | sw_download (app 名去空格/非法字符作扁平首层目录, `.`/`..`/空回退 appid, 仍非法回退 `unknown`) |
-| `sw_download()`     | steam-workshop.sh `_download` (隔离根 `STEAMCMD_INSTALL_DIR`(兼容 `STEAM_WORKSHOP_DIR`, 缺省 `~/Downloads/steamcmd`) 经 `+force_install_dir` 写入, 自动 `mkdir -p`; 成功后 `mv` 深路径到扁平 `<隔离根>/<应用>/<itemid>` 并返回扁平路径, 非数字 itemid 直接 rc=1; 2=认证失败提示终端登录, 1=其他失败) |
+| `sw_safe_app()`     | sw_download (app 名去空格/非法字符作扁平首层应用部分, `.`/`..`/空回退 appid, 仍非法回退 `unknown`) |
+| `sw_download()`     | steam-workshop.sh `_download` / `handle_update` 循环 (隔离根 `STEAMCMD_INSTALL_DIR`(兼容 `STEAM_WORKSHOP_DIR`, 缺省 `~/Downloads/steamcmd`) 经 `+force_install_dir` 写入, 自动 `mkdir -p`; 成功后 `mv` 深路径到扁平 `<隔离根>/<safe>_<appid>/<itemid>`(无 app 名时首层即 appid) 并返回扁平路径, 非数字 appid/itemid 直接 rc=1; 2=认证失败提示终端登录, 1=其他失败) |
+| `sw_api_time()`     | sw_check_updates (单条 GetPublishedFileDetails 取 `appid\|time_updated`, 需 jq) |
+| `sw_check_updates()` | steam-workshop.sh `handle_update` (枚举 flat 新/老式 + legacy 深, 非数字叶跳过;逐条 `sw_api_time` 比 `mtime`, 输出 `UPDATE\|…/CURRENT\|…/SKIP\|…` 排序行; 无候选/根非法返回 1) |
 
 ### rofi/scripts/yt-dlp-wrapper.sh
 
@@ -326,10 +328,11 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | 函数                 | 调用者                                              |
 | -------------------- | --------------------------------------------------- |
 | `_pick_user()`       | steam-workshop.sh `_go` (0 用户→anonymous, 1→直用, N→`module_sub_rofi` 选 `acc — pers`, ESC 返回 1) |
-| `_download()`        | steam-workshop.sh `_go` (后台下载 + notify: 标题 `资源名 — App名`, appname 透传 sw_download 作扁平首层; 0→Done+`Open folder` action (notify-send -A, 点击 `xdg-open` 落盘路径), 2→critical 终端登录指令, 其他→critical rc) |
-| `_go()`              | steam-workshop.sh handle_input / handle_clipboard (parse→info→user→download 全链) |
-| `handle_input()`     | steam-workshop.sh (模块主菜单: 输入 URL/ID, 剪贴板预填) |
-| `handle_clipboard()` | steam-workshop.sh (模块主菜单: 剪贴板链接直接下载)  |
+| `_download()`        | steam-workshop.sh `_go` (后台下载 + notify: 标题 `资源名 — App名`, appname 透传 sw_download 作扁平应用部分; 0→Done+`Open folder` action (notify-send -A, 点击 `xdg-open` 落盘路径), 2→critical 终端登录指令, 其他→critical rc) |
+| `_go()`              | steam-workshop.sh handle_download (parse→info→user→download 全链) |
+| `handle_download()`  | steam-workshop.sh (剪贴板合法直下, 否则 `module_input` 预填剪贴板供输入, 空输入返回) |
+| `handle_update()`    | steam-workshop.sh (scope 子菜单 All/各 app → `sw_check_updates` → 0 条提示 up-to-date → `module_confirm`(数量+skip) → `_pick_user` 一次 → 后台逐个 `sw_download`(app 名从源父目录反推), 成功且路径变化删源, 汇总成功/失败 id) |
+| `handle_open()`      | steam-workshop.sh (建隔离根(失败 critical)后 `xdg-open`) |
 
 ### rofi/scripts/wallpaper.sh
 
