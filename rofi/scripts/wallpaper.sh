@@ -317,20 +317,37 @@ prop_commit_once() { # <name> <original> <yad-status> <yad-output>: OK 非空即
         xwallpaper --set-property "$1=$2" -m "$MONITOR" 2>/dev/null
     fi
 }
+prop_label() { # <dir> <name> → 显示标签 (project.json text 原样显示, 缺失回退 name)
+    local dir="$1" name="$2" text=""
+    if [ -n "$dir" ] && [ -f "$dir/project.json" ]; then
+        text=$(jq -r --arg n "$name" '.general.properties[$n].text // empty' "$dir/project.json" 2>/dev/null)
+    fi
+    [ -n "$text" ] || text="$name"
+    printf '%s' "$text"
+}
+prop_wall_dir() { # → 当前 MONITOR 的壁纸目录 (state path 是目录则原样, 文件取 dirname)
+    local path
+    path=$(xwallpaper --state 2>/dev/null | awk -F'\t' -v n="$MONITOR" '$1==n {print $3; exit}')
+    [ -d "$path" ] && printf '%s' "$path" || dirname "$path"
+}
 prop_color_hex() { # "r g b" (0..1 floats) → #rrggbb; 非法输入输出空
     [[ "$1" =~ ^[0-9.]+[[:space:]]+[0-9.]+[[:space:]]+[0-9.]+$ ]] || return 1
     awk '{r=$1*255+0.5; g=$2*255+0.5; b=$3*255+0.5;
         if (r<0||r>255.5||g<0||g>255.5||b<0||b>255.5) exit 1;
-        printf "#%02x%02x%02x", int(r), int(g), int(b)}' <<<"$1" 2>/dev/null
+        printf "#%02X%02X%02X", int(r), int(g), int(b)}' <<<"$1" 2>/dev/null
 }
 prop_hex_to_rgb() { # #rrggbb/#rgb → "r g b" (%.6f floats); 非法输入失败
     # scene 把 color 原样透传给 JS (按空格 split), 不认 hex; web 两者都认。
     # set 一律转回 triple, 两后端通用。
     local h="${1#\#}" r g b
     if [[ "$h" =~ ^[0-9a-fA-F]{6}$ ]]; then
-        r=$((16#${h:0:2})); g=$((16#${h:2:2})); b=$((16#${h:4:2}))
+        r=$((16#${h:0:2}))
+        g=$((16#${h:2:2}))
+        b=$((16#${h:4:2}))
     elif [[ "$h" =~ ^[0-9a-fA-F]{3}$ ]]; then
-        r=$((16#${h:0:1}${h:0:1})); g=$((16#${h:1:1}${h:1:1})); b=$((16#${h:2:1}${h:2:1}))
+        r=$((16#${h:0:1}${h:0:1}))
+        g=$((16#${h:1:1}${h:1:1}))
+        b=$((16#${h:2:1}${h:2:1}))
     else
         return 1
     fi
@@ -361,16 +378,29 @@ handle_property() {
         _apply_property "$(printf '%s' "$tunables" | cut -f1)"
         return
     fi
+    local dir
+    dir=$(prop_wall_dir)
+    # text 全串较长, property 流程窗口加宽 (local 仅作用域内, 主菜单/其它模块保持 500)
+    local MODULE_WIDTH=600
     while true; do
-        # color 值显示为 hex (纯表现层, 选择仍按首列 name; 转换失败回退原值)
-        name=$(while IFS=$'\t' read -r pn pt pv; do
+        # 显示 project.json text 全串 (prop_label, 无 text 回退 name), 寻址仍用英文 name:
+        # display line → name 关联映射 (label 含空格, 不能再按列切), 另保留
+        # raw-name 精确命中作兼容回退; color 值显示为 hex (纯表现层, 转换失败回退原值)。
+        local -A _line_to_name=()
+        local menu="" chosen line label pn pt pv
+        while IFS=$'\t' read -r pn pt pv; do
             [ -n "$pn" ] || continue
             [ "$pt" = color ] && pv=$(prop_color_hex "$pv" 2>/dev/null || printf '%s' "$pv")
-            printf '%-8s %26s\n' "$pn" "$pv"
-        done <<<"$tunables" |
-            module_sub_rofi "Property ($MONITOR)" "Select a slider/color/file/bool/combo property")
-        [ -z "$name" ] && return
-        read -r name _ <<<"$name"
+            label=$(prop_label "$dir" "$pn")
+            line=$(printf '%-36s %10s' "$label" "$pv")
+            _line_to_name["$line"]="$pn"
+            menu+="$line"$'\n'
+        done <<<"$tunables"
+        chosen=$(printf '%s' "$menu" | module_sub_rofi "Property ($MONITOR)" "Select a slider/color/file/bool/combo property")
+        [ -z "$chosen" ] && return
+        name="${_line_to_name[$chosen]}"
+        [ -n "$name" ] || name=$(printf '%s\n' "$tunables" | awk -F'\t' -v c="$chosen" '$1==c {print $1; exit}')
+        [ -z "$name" ] && continue
         _apply_property "$name"
         # 上轮改完重取: 选择列表显示新值 (壁纸被换掉则静默回主菜单)
         tunables=$(prop_tunables "$MONITOR")
@@ -378,14 +408,14 @@ handle_property() {
     done
 }
 _apply_property() { # <name>: 按 type 调起对应编辑器 ($tunables 取自调用者, bash 动态作用域)
-    local name="$1" type cur path dir opts chosen new original init start min max value last v l yad_fd yad_pid tmpdir fifo status
+    local name="$1" type cur dir label opts chosen new original init start min max value last v l yad_fd yad_pid tmpdir fifo status
     local -a _vals=() _menu=()
     type=$(printf '%s\n' "$tunables" | awk -F'\t' -v n="$name" '$1==n {print $2; exit}')
     cur=$(printf '%s\n' "$tunables" | awk -F'\t' -v n="$name" '$1==n {print $3; exit}')
     original="$cur"
-    path=$(xwallpaper --state 2>/dev/null | awk -F'\t' -v n="$MONITOR" '$1==n {print $3; exit}')
-    dir="$path"
-    [ -d "$dir" ] || dir=$(dirname "$path")
+    dir=$(prop_wall_dir)
+    # 展示用 text 全串 (prop_label), --set-property 仍用英文 $name
+    label=$(prop_label "$dir" "$name")
     if [ "$type" = "bool" ]; then
         # 开关一键翻转, 无需对话框
         case "${cur,,}" in true | 1 | on) new="false" ;; *) new="true" ;; esac
@@ -395,24 +425,33 @@ _apply_property() { # <name>: 按 type 调起对应编辑器 ($tunables 取自�
     if [ "$type" = "combo" ]; then
         if ! opts=$(prop_combo_options "$dir" "$name"); then
             # 无 options 定义: 自由输入, 当前值作默认值
-            new=$(module_input "Wallpaper Property" "$MONITOR : $name" "$cur")
+            new=$(module_input "Wallpaper Property" "$MONITOR : $label" "$cur")
             [ -n "$new" ] && xwallpaper --set-property "$name=$new" -m "$MONITOR" 2>/dev/null
             return
         fi
-        # 菜单行构建一次 (_menu), 显示加 ✓ 与回查共用
+        # 菜单只显示 options label 全串 (label 碰撞才加 " (value)" 区分, 不掺改写);
+        # 显示加 ✓ 与回查共用 _menu, set 一律英文 value
+        local -a _labels=()
         while IFS=$'\t' read -r v l; do
             [ -n "$v" ] || continue
+            [ -n "$l" ] || l="$v"
             _vals+=("$v")
-            [ -n "$l" ] && [ "$l" != "$v" ] && v="$l ($v)"
-            _menu+=("$v")
+            _labels+=("$l")
         done <<<"$opts"
         [ "${#_vals[@]}" -gt 0 ] || return
+        local -A _dup=()
+        for l in "${_labels[@]}"; do _dup["$l"]=$((${_dup["$l"]:-0} + 1)); done
+        for i in "${!_vals[@]}"; do
+            v="${_labels[$i]}"
+            [ "${_dup[$v]:-0}" -gt 1 ] && v="$v (${_vals[$i]})"
+            _menu+=("$v")
+        done
         chosen=$(
             for i in "${!_vals[@]}"; do
                 v="${_menu[$i]}"
                 [ "${_vals[$i]}" = "$cur" ] && v="$v ✓"
                 printf '%s\n' "$v"
-            done | module_sub_rofi "Property ($MONITOR)" "$name: select option"
+            done | module_sub_rofi "Property ($MONITOR)" "$label: select option"
         )
         [ -z "$chosen" ] && return
         chosen="${chosen% ✓}"
@@ -426,7 +465,7 @@ _apply_property() { # <name>: 按 type 调起对应编辑器 ($tunables 取自�
     fi
     if [ "$type" = "color" ]; then
         init=$(prop_color_hex "$cur")
-        new=$(yad --color --title="Wallpaper Property" --text="$MONITOR : $name" \
+        new=$(yad --color --title="Wallpaper Property" --text="$MONITOR : $label" \
             ${init:+--init-color="$init"} 2>/dev/null)
         # yad 输出 hex; set 前转回 triple (scene 只认 triple, web 两者都认)。
         # 取消/ESC 恢复原值 (OK 但输出为空视为无改动, 不恢复)
@@ -438,7 +477,7 @@ _apply_property() { # <name>: 按 type 调起对应编辑器 ($tunables 取自�
         start="$dir"
         [ -f "$cur" ] && start=$(dirname "$cur")
         [ -d "$start" ] || start="$HOME"
-        new=$(yad --file --title="Wallpaper Property" --text="$MONITOR : $name" \
+        new=$(yad --file --title="Wallpaper Property" --text="$MONITOR : $label" \
             --filename="$start/" 2>/dev/null)
         prop_commit_once "$name" "$original" "$?" "$(printf '%s' "$new" | tr -d '\n')"
         return
@@ -459,7 +498,7 @@ _apply_property() { # <name>: 按 type 调起对应编辑器 ($tunables 取自�
     yad \
         --scale \
         --title="Wallpaper Property" \
-        --text="$MONITOR : $name" \
+        --text="$MONITOR : $label" \
         --min-value="$min" \
         --max-value="$max" \
         --value="$cur" \

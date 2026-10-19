@@ -72,7 +72,7 @@ source "$DWM/tools/wallpaper-lib.sh"
 source "$DWM/tools/wallpaper-render.sh"
 
 # 被测函数提取 (rofi 脚本顶层含 module_loop, 仅提取 handle_property + helper)
-eval "$(awk '/^(prop_tunables|prop_combo_options|prop_range|prop_color_hex|prop_hex_to_rgb|prop_commit_once|handle_property|_apply_property)\(\) \{/{f=1} f{print} f && /^}/{f=0}' "$DWM/rofi/scripts/wallpaper.sh")"
+eval "$(awk '/^(prop_tunables|prop_combo_options|prop_range|prop_color_hex|prop_hex_to_rgb|prop_commit_once|prop_label|prop_wall_dir|handle_property|_apply_property)\(\) \{/{f=1} f{print} f && /^}/{f=0}' "$DWM/rofi/scripts/wallpaper.sh")"
 
 module_sub_rofi() { echo "rofi $*" >>"$XW_MOCK_LOG"; cat >>"$TEST_DIR/rofi_in.txt"; [ -e "$SEL_FLAG" ] && return; touch "$SEL_FLAG"; printf '%s' "$MOCK_PICK"; }
 module_input() { echo "input $*" >>"$XW_MOCK_LOG"; printf '%s' "$MOCK_INPUT"; }
@@ -144,7 +144,7 @@ export YAD_OUT='#ff0000
 MONITOR="DP-1" MOCK_PICK="" handle_property
 check "F: color OK 时 set 三元组" 'grep -q "set-property schemecolor=1.000000 0.000000 0.000000" "$XW_MOCK_LOG"'
 check "F: color OK 后不恢复原值" '! grep -q "set-property schemecolor=0.168627" "$XW_MOCK_LOG"'
-check "F: yad color 带初始色" 'grep -q -- "--color" "$XW_MOCK_LOG" && grep -q "init-color=#2b2b2b" "$XW_MOCK_LOG"'
+check "F: yad color 带初始色" 'grep -q -- "--color" "$XW_MOCK_LOG" && grep -q "init-color=#2B2B2B" "$XW_MOCK_LOG"'
 
 # ---- G: color + 取消 → 恢复原三元组 ----
 reset_state
@@ -189,7 +189,7 @@ printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
 export YAD_OUT='#ff0000
 ' YAD_RC=0
 MONITOR="DP-1" MOCK_PICK="schemecolor" handle_property
-check "K: 列表中 color 显示 hex" 'grep -q "#2b2b2b" "$TEST_DIR/rofi_in.txt"'
+check "K: 列表中 color 显示 hex" 'grep -q "#2B2B2B" "$TEST_DIR/rofi_in.txt"'
 check "K: 列表中 slider 保持原值" 'grep -q " 35" "$TEST_DIR/rofi_in.txt"'
 check "K: 列表中无原始三元组" '! grep -q "0.168627 0.168627 0.168627" "$TEST_DIR/rofi_in.txt"'
 check "K: 选中 color 正常 set 三元组" 'grep -q "set-property schemecolor=1.000000 0.000000 0.000000" "$XW_MOCK_LOG"'
@@ -244,9 +244,10 @@ cat >"$XW_MOCK_STATE/wall/project.json" <<'JSON'
 {"general":{"properties":{"bg_size":{"type":"combo","value":"auto","options":[{"label":"铺满/Cover","value":"cover"},{"label":"包含/Contain","value":"contain"},{"label":"拉伸/Stretch","value":"100% 100%"},{"label":"原始大小/Auto","value":"auto"}]}}}}
 JSON
 printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
-MONITOR="DP-1" MOCK_PICK="铺满/Cover (cover)" MOCK_INPUT="" handle_property
+MONITOR="DP-1" MOCK_PICK="铺满/Cover" MOCK_INPUT="" handle_property
 check "P: combo 选中 set value" 'grep -q "set-property bg_size=cover" "$XW_MOCK_LOG"'
-check "P: 菜单列出全部 label" 'grep -q "原始大小/Auto (auto)" "$TEST_DIR/rofi_in.txt"'
+check "P: 菜单显示 text 全串" 'grep -q "原始大小/Auto" "$TEST_DIR/rofi_in.txt"'
+check "P: 菜单无括号 value 后缀" '! grep -q "(cover)" "$TEST_DIR/rofi_in.txt"'
 check "P: 当前值标 ✓" 'grep -q "✓" "$TEST_DIR/rofi_in.txt"'
 
 # ---- Q: combo 纯字符串 options → value 为序号索引 ----
@@ -256,7 +257,7 @@ cat >"$XW_MOCK_STATE/wall/project.json" <<'JSON'
 {"general":{"properties":{"alignment":{"type":"combo","value":0,"options":["居中","左上","右上","左下","右下"]}}}}
 JSON
 printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
-MONITOR="DP-1" MOCK_PICK="左上 (1)" MOCK_INPUT="" handle_property
+MONITOR="DP-1" MOCK_PICK="左上" MOCK_INPUT="" handle_property
 check "Q: 字符串 options 选中 set 索引" 'grep -q "set-property alignment=1" "$XW_MOCK_LOG"'
 
 # ---- R: combo 数字 value → 原样 set 数字串 ----
@@ -266,7 +267,7 @@ cat >"$XW_MOCK_STATE/wall/project.json" <<'JSON'
 {"general":{"properties":{"gridSize":{"type":"combo","value":160,"options":[{"label":"120x120","value":120},{"label":"160x160","value":160},{"label":"320x320","value":320}]}}}}
 JSON
 printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
-MONITOR="DP-1" MOCK_PICK="320x320 (320)" MOCK_INPUT="" handle_property
+MONITOR="DP-1" MOCK_PICK="320x320" MOCK_INPUT="" handle_property
 check "R: 数字 value 正常 set" 'grep -q "set-property gridSize=320" "$XW_MOCK_LOG"'
 
 # ---- S: combo 无 options → 回退自由输入 ----
@@ -279,5 +280,65 @@ printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
 MONITOR="DP-1" MOCK_PICK="" MOCK_INPUT="custom" handle_property
 check "S: 无 options 时走自由输入" 'grep -q "^input " "$XW_MOCK_LOG"'
 check "S: 输入值被 set" 'grep -q "set-property foo=custom" "$XW_MOCK_LOG"'
+
+# ---- T2: prop_label 取 text 全串 ----
+reset_state
+mkdir -p "$TEST_DIR/labelwall"
+cat >"$TEST_DIR/labelwall/project.json" <<'JSON'
+{"general":{"properties":{"audioIntensity":{"type":"slider","value":1,"text":"音频响应强度 / Audio Intensity"},"plain":{"type":"slider","value":1}}}}
+JSON
+check "T2: 显示 text 全串（不切分）" '[ "$(prop_label "$TEST_DIR/labelwall" audioIntensity)" = "音频响应强度 / Audio Intensity" ]'
+check "T2: 无 text 回退 name" '[ "$(prop_label "$TEST_DIR/labelwall" plain)" = "plain" ]'
+check "T2: 无 project.json 回退 name" '[ "$(prop_label "$TEST_DIR/nonexist" audioIntensity)" = "audioIntensity" ]'
+
+# ---- T3: 列表显示 text 全串，set 仍用英文 name ----
+reset_state
+printf 'volume\tslider\t35\nroleScale\tslider\t100\n' >"$XW_MOCK_STATE/props"; export XW_PROPS_RC=0
+mkdir -p "$XW_MOCK_STATE/wall"
+cat >"$XW_MOCK_STATE/wall/project.json" <<'JSON'
+{"general":{"properties":{"volume":{"type":"slider","value":35,"min":0,"max":100,"text":"音量 / Volume"},"roleScale":{"type":"slider","value":100,"min":50,"max":200,"text":"角色缩放 / Role Scale"}}}}
+JSON
+printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
+export YAD_OUT='120
+' YAD_RC=0
+T3_LINE=$(printf '%-36s %10s' "角色缩放 / Role Scale" "100")
+MODULE_WIDTH=500
+MONITOR="DP-1" MOCK_PICK="$T3_LINE" handle_property
+check "T3: 列表显示 text 全串" 'grep -Fq "角色缩放 / Role Scale" "$TEST_DIR/rofi_in.txt"'
+check "T3: 列表不显示英文 name" '! grep -q "roleScale" "$TEST_DIR/rofi_in.txt"'
+check "T3: set 仍用英文 name" 'grep -q "set-property roleScale=120" "$XW_MOCK_LOG"'
+check "T8: 不污染全局 MODULE_WIDTH" '[ "$MODULE_WIDTH" = 500 ]'
+
+# ---- T4: combo 显示 label 全串 ----
+reset_state
+printf 'bg_size\tcombo\tauto\n' >"$XW_MOCK_STATE/props"; export XW_PROPS_RC=0
+cat >"$XW_MOCK_STATE/wall/project.json" <<'JSON'
+{"general":{"properties":{"bg_size":{"type":"combo","value":"auto","text":"背景尺寸 / Background Size","options":[{"label":"铺满/Cover","value":"cover"},{"label":"包含/Contain","value":"contain"},{"label":"原始大小/Auto","value":"auto"}]}}}}
+JSON
+printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
+MONITOR="DP-1" MOCK_PICK="铺满/Cover" MOCK_INPUT="" handle_property
+check "T4: combo 选中 set value" 'grep -q "set-property bg_size=cover" "$XW_MOCK_LOG"'
+check "T4: 菜单显示 label 全串" 'grep -Fq "原始大小/Auto" "$TEST_DIR/rofi_in.txt"'
+check "T4: 无括号 value 后缀" '! grep -q "(cover)" "$TEST_DIR/rofi_in.txt"'
+
+# ---- T5: label 碰撞时才加 " (value)" 后缀区分 ----
+reset_state
+printf 'mode\tcombo\ta\n' >"$XW_MOCK_STATE/props"; export XW_PROPS_RC=0
+cat >"$XW_MOCK_STATE/wall/project.json" <<'JSON'
+{"general":{"properties":{"mode":{"type":"combo","value":"a","text":"模式 / Mode","options":[{"label":"相同/Same","value":"a"},{"label":"相同/Same","value":"b"},{"label":"其他/Other","value":"c"}]}}}}
+JSON
+printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
+MONITOR="DP-1" MOCK_PICK="相同/Same (b)" MOCK_INPUT="" handle_property
+check "T5: 碰撞项带 value 后缀" 'grep -Fq "相同/Same (b)" "$TEST_DIR/rofi_in.txt"'
+check "T5: 唯一 label 无后缀" 'grep -Fq "其他/Other" "$TEST_DIR/rofi_in.txt" && ! grep -Fq "其他/Other (" "$TEST_DIR/rofi_in.txt"'
+check "T5: 选中碰撞项 set 对应 value" 'grep -q "set-property mode=b" "$XW_MOCK_LOG"'
+
+# ---- T9: prop_wall_dir 解析 (目录原样 / 文件取 dirname) ----
+reset_state
+mkdir -p "$TEST_DIR/wd/wall"
+printf 'DP-1\tweb\t%s\t0\n' "$TEST_DIR/wd/wall" >"$XW_MOCK_STATE/state"
+check "T9: state 是目录则原样" '[ "$(MONITOR="DP-1" prop_wall_dir)" = "$TEST_DIR/wd/wall" ]'
+printf 'DP-1\tweb\t%s/index.html\t0\n' "$TEST_DIR/wd/wall" >"$XW_MOCK_STATE/state"
+check "T9: state 是文件则取 dirname" '[ "$(MONITOR="DP-1" prop_wall_dir)" = "$TEST_DIR/wd/wall" ]'
 
 exit $fail
