@@ -333,15 +333,19 @@ prop_range() { # <dir> <name> → "min max" (project.json 缺失/非法时 fallb
     printf '%s %s' "$min" "$max"
 }
 handle_property() {
-    local tunables type name cur path dir min max value last yad_fd yad_pid tmpdir fifo status original new init start
+    local tunables name
     tunables=$(prop_tunables "$MONITOR")
     [ -n "$tunables" ] || {
         system-notify low "Wallpaper" "No adjustable properties on $MONITOR"
         return
     }
+    # 单属性直接调完回主菜单; 多属性循环停留在选择层, ESC 返回主菜单
+    # (复用 theme.sh handle_monitor_brightness 的内层循环模式)
     if [ "$(printf '%s\n' "$tunables" | wc -l)" = 1 ]; then
-        name=$(printf '%s' "$tunables" | cut -f1)
-    else
+        _apply_property "$(printf '%s' "$tunables" | cut -f1)"
+        return
+    fi
+    while true; do
         # color 值显示为 hex (纯表现层, 选择仍按首列 name; 转换失败回退原值)
         name=$(while IFS=$'\t' read -r pn pt pv; do
             [ -n "$pn" ] || continue
@@ -351,7 +355,14 @@ handle_property() {
             module_sub_rofi "Property ($MONITOR)" "Select a slider/color/file property")
         [ -z "$name" ] && return
         read -r name _ <<<"$name"
-    fi
+        _apply_property "$name"
+        # 上轮改完重取: 选择列表显示新值 (壁纸被换掉则静默回主菜单)
+        tunables=$(prop_tunables "$MONITOR")
+        [ -n "$tunables" ] || return
+    done
+}
+_apply_property() { # <name>: 按 type 调起对应 yad 编辑器 ($tunables 取自调用者, bash 动态作用域)
+    local name="$1" type cur path dir min max value last yad_fd yad_pid tmpdir fifo status original new init start
     type=$(printf '%s\n' "$tunables" | awk -F'\t' -v n="$name" '$1==n {print $2; exit}')
     cur=$(printf '%s\n' "$tunables" | awk -F'\t' -v n="$name" '$1==n {print $3; exit}')
     original="$cur"

@@ -22,6 +22,7 @@ BIN="$TEST_DIR/bin"
 mkdir -p "$BIN"
 
 # ---- mock xwallpaper: --state / --list-properties / --set-property ----
+# --set-property 会回写 props 文件 (模拟 daemon 状态变更, 供 M 测试列表刷新)
 cat >"$BIN/xwallpaper" <<'EOF'
 #!/usr/bin/env bash
 echo "xwallpaper $*" >>"$XW_MOCK_LOG"
@@ -34,6 +35,14 @@ case "$*" in
     exit "${XW_PROPS_RC:-0}"
     ;;
 *--set-property*)
+    kv=""
+    for a in "$@"; do case "$a" in *=*) kv="$a";; esac; done
+    n="${kv%%=*}"; v="${kv#*=}"
+    if [ -n "$n" ] && [ -f "$XW_MOCK_STATE/props" ]; then
+        awk -F'\t' -v OFS='\t' -v n="$n" -v v="$v" '$1==n {$3=v} 1' \
+            "$XW_MOCK_STATE/props" >"$XW_MOCK_STATE/props.tmp" &&
+            mv "$XW_MOCK_STATE/props.tmp" "$XW_MOCK_STATE/props"
+    fi
     exit 0
     ;;
 esac
@@ -53,15 +62,16 @@ export PATH="$BIN:$PATH"
 XW_MOCK_LOG="$TEST_DIR/xw.log"
 export XW_MOCK_LOG XW_MOCK_STATE="$TEST_DIR/state"
 mkdir -p "$XW_MOCK_STATE"
-reset_state() { : >"$XW_MOCK_LOG"; }
+SEL_FLAG="$TEST_DIR/sel.done"
+reset_state() { : >"$XW_MOCK_LOG"; : >"$TEST_DIR/rofi_in.txt"; rm -f "$SEL_FLAG"; }
 
 source "$DWM/tools/wallpaper-lib.sh"
 source "$DWM/tools/wallpaper-render.sh"
 
 # 被测函数提取 (rofi 脚本顶层含 module_loop, 仅提取 handle_property + helper)
-eval "$(awk '/^(prop_tunables|prop_range|prop_color_hex|prop_hex_to_rgb|prop_commit_once|handle_property)\(\) \{/{f=1} f{print} f && /^}/{f=0}' "$DWM/rofi/scripts/wallpaper.sh")"
+eval "$(awk '/^(prop_tunables|prop_range|prop_color_hex|prop_hex_to_rgb|prop_commit_once|handle_property|_apply_property)\(\) \{/{f=1} f{print} f && /^}/{f=0}' "$DWM/rofi/scripts/wallpaper.sh")"
 
-module_sub_rofi() { cat >"$TEST_DIR/rofi_in.txt"; printf '%s' "$MOCK_PICK"; }
+module_sub_rofi() { echo "rofi $*" >>"$XW_MOCK_LOG"; cat >>"$TEST_DIR/rofi_in.txt"; [ -e "$SEL_FLAG" ] && return; touch "$SEL_FLAG"; printf '%s' "$MOCK_PICK"; }
 system-notify() { echo "notify $*" >>"$XW_MOCK_LOG"; }
 
 fail=0
@@ -93,6 +103,8 @@ check "B: yad 取到正确 range" 'grep -q "min-value=0" "$XW_MOCK_LOG" && grep 
 
 # ---- C: 取消 → 恢复原值 ----
 reset_state
+printf 'volume\tslider\t35\n' >"$XW_MOCK_STATE/props"
+printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
 export YAD_OUT='80
 ' YAD_RC=1
 MONITOR="DP-1" MOCK_PICK="" handle_property
@@ -132,6 +144,8 @@ check "F: yad color 带初始色" 'grep -q -- "--color" "$XW_MOCK_LOG" && grep -
 
 # ---- G: color + 取消 → 恢复原三元组 ----
 reset_state
+printf 'schemecolor\tcolor\t0.168627 0.168627 0.168627\n' >"$XW_MOCK_STATE/props"
+printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
 export YAD_OUT='#00ff00
 ' YAD_RC=1
 MONITOR="DP-1" MOCK_PICK="" handle_property
@@ -174,5 +188,26 @@ check "K: 列表中 color 显示 hex" 'grep -q "#2b2b2b" "$TEST_DIR/rofi_in.txt"
 check "K: 列表中 slider 保持原值" 'grep -q " 35" "$TEST_DIR/rofi_in.txt"'
 check "K: 列表中无原始三元组" '! grep -q "0.168627 0.168627 0.168627" "$TEST_DIR/rofi_in.txt"'
 check "K: 选中 color 正常 set 三元组" 'grep -q "set-property schemecolor=1.000000 0.000000 0.000000" "$XW_MOCK_LOG"'
+
+# ---- L: 多属性调完回到选择层, ESC 才回主菜单 ----
+reset_state
+printf 'volume\tslider\t35\nschemecolor\tcolor\t0.100000 0.200000 0.300000\n' >"$XW_MOCK_STATE/props"; export XW_PROPS_RC=0
+printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
+export YAD_OUT='40
+' YAD_RC=0
+MONITOR="DP-1" MOCK_PICK="volume" handle_property
+check "L: 选择层出现两次 (调完回退)" '[ "$(grep -c "^rofi " "$XW_MOCK_LOG")" = 2 ]'
+check "L: yad 只调一次" '[ "$(grep -c "^yad " "$XW_MOCK_LOG")" = 1 ]'
+check "L: 选中项已应用" 'grep -q "set-property volume=40" "$XW_MOCK_LOG"'
+
+# ---- M: 调完后选择列表值刷新 ----
+reset_state
+printf 'volume\tslider\t35\nschemecolor\tcolor\t0.100000 0.200000 0.300000\n' >"$XW_MOCK_STATE/props"; export XW_PROPS_RC=0
+printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
+export YAD_OUT='50
+' YAD_RC=0
+MONITOR="DP-1" MOCK_PICK="volume" handle_property
+check "M: 第二次列表显示新值" 'grep -q "volume *50" "$TEST_DIR/rofi_in.txt"'
+check "M: set 已落盘" 'grep -q "set-property volume=50" "$XW_MOCK_LOG"'
 
 exit $fail
