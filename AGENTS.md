@@ -331,7 +331,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `_download()`        | steam-workshop.sh `_go` (后台下载 + notify: 标题 `资源名 — App名`, appname 透传 sw_download 作扁平应用部分; 0→Done+`Open folder` action (notify-send -A, 点击 `xdg-open` 落盘路径), 2→critical 终端登录指令, 其他→critical rc) |
 | `_go()`              | steam-workshop.sh handle_download (parse→info→user→download 全链) |
 | `handle_download()`  | steam-workshop.sh (剪贴板合法直下, 否则 `module_input` 预填剪贴板供输入, 空输入返回) |
-| `handle_update()`    | steam-workshop.sh (scope 子菜单 All/各 app → `sw_check_updates` → 0 条提示 up-to-date → `module_confirm`(数量+skip) → `_pick_user` 一次 → 后台逐个 `sw_download`(app 名从源父目录反推), 成功且路径变化删源, 汇总成功/失败 id) |
+| `handle_update()`    | steam-workshop.sh (scope 子菜单 All/各 app → Checking 通知 → `sw_check_updates` → 0 条提示 up-to-date → `module_confirm`(数量+skip) → `_pick_user` 一次 → 后台先 Updating 通知再逐个 `sw_download`(app 名从源父目录反推), 成功且路径变化删源, 汇总成功/失败 id) |
 | `handle_open()`      | steam-workshop.sh (建隔离根(失败 critical)后 `xdg-open`) |
 
 ### rofi/scripts/wallpaper.sh

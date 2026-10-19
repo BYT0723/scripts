@@ -118,6 +118,7 @@ handle_update() {
     } | module_sub_rofi "Steam Workshop" "Select scope to update")
     [[ -z "$sel" ]] && return
     [[ "$sel" != "All Apps" ]] && scope="$sel"
+    system-notify low "Steam Workshop" "Checking for updates"$'\n'"$sel"
     if [[ -z "$scope" ]]; then
         lines=$(sw_check_updates "$root") || {
             system-notify normal "Steam Workshop" "No downloads yet"$'\n'"$root"
@@ -139,6 +140,7 @@ handle_update() {
     user=$(_pick_user) || return
     (
         local ok=0 fail=0 fids="" status appid itemid path parent app out
+        system-notify low "Steam Workshop" "Updating $updates item(s)..."
         while IFS='|' read -r status appid itemid path; do
             parent=$(basename "$(dirname "$path")")
             app="${parent%_"$appid"}"

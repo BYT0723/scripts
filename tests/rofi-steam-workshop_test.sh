@@ -94,6 +94,7 @@ SW_CHECK_RET="CURRENT|222|/x"$'\n'"SKIP|333|/y|api-failed"
 SW_CHECK_RC=0
 handle_update
 check "update: 无更新则提示且不确认不下载" 'grep -q "All up to date (1 skipped)" "$NOTIFY_LOG" && [[ ! -f $TEST_DIR/confirm.called ]] && [[ ! -f $TEST_DIR/dl.log ]]'
+check "update: 检查前有 Checking 反馈" 'grep -q "Checking for updates" "$NOTIFY_LOG"'
 
 reset_marks
 MODULE_SUB_RET="All Apps"
@@ -106,6 +107,7 @@ wait
 check "update: 逐条下载且 appname 正确派生" 'grep -q "DL:431960|111|testuser|WallpaperEngine" "$TEST_DIR/dl.log" && grep -q "DL:431960|666|testuser|431960" "$TEST_DIR/dl.log"'
 check "update: 成功后删源目录" '[[ ! -e $TEST_DIR/uproot/WallpaperEngine_431960/111 && ! -e $TEST_DIR/uproot/steamapps/workshop/content/431960/666 ]]'
 check "update: 汇总成功通知" 'grep -q "2 updated" "$NOTIFY_LOG"'
+check "update: 开跑有 Updating 反馈" 'grep -q "Updating 2 item(s)" "$NOTIFY_LOG"'
 
 mkdir -p "$TEST_DIR/uproot2/A_1/111" "$TEST_DIR/uproot2/A_1/222"
 export STEAMCMD_INSTALL_DIR="$TEST_DIR/uproot2"
