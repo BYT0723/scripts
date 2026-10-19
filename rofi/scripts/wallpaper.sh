@@ -325,28 +325,6 @@ prop_label() { # <dir> <name> → 显示标签 (project.json text 原样显示, 
     [ -n "$text" ] || text="$name"
     printf '%s' "$text"
 }
-prop_dwidth() { # <str> → 显示宽度 (CJK 按双宽计; UTF-8 下 3 字节字符多占 1 格)
-    local s="$1" chars bytes
-    [ -z "$s" ] && {
-        printf '0'
-        return
-    }
-    chars=$(printf '%s' "$s" | LC_CTYPE=C.UTF-8 wc -m)
-    bytes=$(printf '%s' "$s" | LC_CTYPE=C.UTF-8 wc -c)
-    printf '%d' $((chars + (bytes - chars) / 2))
-}
-prop_pad_r() { # <width> <str> → 左对齐补空格到显示宽度
-    local w="$1" s="$2" dw i
-    dw=$(prop_dwidth "$s")
-    printf '%s' "$s"
-    for ((i = dw; i < w; i++)); do printf ' '; done
-}
-prop_pad_l() { # <width> <str> → 右对齐补空格到显示宽度
-    local w="$1" s="$2" dw i
-    dw=$(prop_dwidth "$s")
-    for ((i = dw; i < w; i++)); do printf ' '; done
-    printf '%s' "$s"
-}
 prop_color_hex() { # "r g b" (0..1 floats) → #rrggbb; 非法输入输出空
     [[ "$1" =~ ^[0-9.]+[[:space:]]+[0-9.]+[[:space:]]+[0-9.]+$ ]] || return 1
     awk '{r=$1*255+0.5; g=$2*255+0.5; b=$3*255+0.5;
@@ -403,14 +381,13 @@ handle_property() {
         # 显示 project.json text 全串 (prop_label, 无 text 回退 name), 寻址仍用英文 name:
         # display line → name 关联映射 (label 含空格, 不能再按列切), 另保留
         # raw-name 精确命中作兼容回退; color 值显示为 hex (纯表现层, 转换失败回退原值)。
-        # 列按显示宽度补齐 (prop_pad_*, CJK 双宽), bash printf 按字符数补空格会对不齐。
         local -A _line_to_name=()
         local menu="" chosen line label pn pt pv
         while IFS=$'\t' read -r pn pt pv; do
             [ -n "$pn" ] || continue
             [ "$pt" = color ] && pv=$(prop_color_hex "$pv" 2>/dev/null || printf '%s' "$pv")
             label=$(prop_label "$dir" "$pn")
-            line="$(prop_pad_r 26 "$label") $(prop_pad_l 12 "$pv")"
+            line=$(printf '%-26s %12s' "$label" "$pv")
             _line_to_name["$line"]="$pn"
             menu+="$line"$'\n'
         done <<<"$tunables"

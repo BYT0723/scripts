@@ -72,7 +72,7 @@ source "$DWM/tools/wallpaper-lib.sh"
 source "$DWM/tools/wallpaper-render.sh"
 
 # 被测函数提取 (rofi 脚本顶层含 module_loop, 仅提取 handle_property + helper)
-eval "$(awk '/^(prop_tunables|prop_combo_options|prop_range|prop_color_hex|prop_hex_to_rgb|prop_commit_once|prop_label|prop_dwidth|prop_pad_r|prop_pad_l|handle_property|_apply_property)\(\) \{/{f=1} f{print} f && /^}/{f=0}' "$DWM/rofi/scripts/wallpaper.sh")"
+eval "$(awk '/^(prop_tunables|prop_combo_options|prop_range|prop_color_hex|prop_hex_to_rgb|prop_commit_once|prop_label|handle_property|_apply_property)\(\) \{/{f=1} f{print} f && /^}/{f=0}' "$DWM/rofi/scripts/wallpaper.sh")"
 
 module_sub_rofi() { echo "rofi $*" >>"$XW_MOCK_LOG"; cat >>"$TEST_DIR/rofi_in.txt"; [ -e "$SEL_FLAG" ] && return; touch "$SEL_FLAG"; printf '%s' "$MOCK_PICK"; }
 module_input() { echo "input $*" >>"$XW_MOCK_LOG"; printf '%s' "$MOCK_INPUT"; }
@@ -301,7 +301,7 @@ JSON
 printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
 export YAD_OUT='120
 ' YAD_RC=0
-T3_LINE="$(prop_pad_r 26 "角色缩放 / Role Scale") $(prop_pad_l 12 "100")"
+T3_LINE=$(printf '%-26s %12s' "角色缩放 / Role Scale" "100")
 MONITOR="DP-1" MOCK_PICK="$T3_LINE" handle_property
 check "T3: 列表显示 text 全串" 'grep -Fq "角色缩放 / Role Scale" "$TEST_DIR/rofi_in.txt"'
 check "T3: 列表不显示英文 name" '! grep -q "roleScale" "$TEST_DIR/rofi_in.txt"'
@@ -330,17 +330,5 @@ MONITOR="DP-1" MOCK_PICK="相同/Same (b)" MOCK_INPUT="" handle_property
 check "T5: 碰撞项带 value 后缀" 'grep -Fq "相同/Same (b)" "$TEST_DIR/rofi_in.txt"'
 check "T5: 唯一 label 无后缀" 'grep -Fq "其他/Other" "$TEST_DIR/rofi_in.txt" && ! grep -Fq "其他/Other (" "$TEST_DIR/rofi_in.txt"'
 check "T5: 选中碰撞项 set 对应 value" 'grep -q "set-property mode=b" "$XW_MOCK_LOG"'
-
-# ---- T6: 显示宽度按 CJK 双宽计 ----
-check "T6: 纯 Latin 宽=字符数" '[ "$(prop_dwidth "abc")" = 3 ]'
-check "T6: CJK 双宽" '[ "$(prop_dwidth "音频")" = 4 ]'
-check "T6: 混合" '[ "$(prop_dwidth "a音B")" = 4 ]'
-check "T6: 空串宽 0" '[ "$(prop_dwidth "")" = 0 ]'
-check "T6: 数字" '[ "$(prop_dwidth "100")" = 3 ]'
-
-# ---- T7: 补齐后显示等宽 (中英标签同列对齐) ----
-check "T7: CJK 标签补齐到 26" '[ "$(prop_dwidth "$(prop_pad_r 26 "音频响应 / Audio Intensity")")" = 26 ]'
-check "T7: Latin 标签补齐到 26" '[ "$(prop_dwidth "$(prop_pad_r 26 "roleScale")")" = 26 ]'
-check "T7: 值列右对齐到 12" '[ "$(prop_dwidth "$(prop_pad_l 12 "100")")" = 12 ]'
 
 exit $fail
