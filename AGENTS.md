@@ -45,7 +45,7 @@ rofi/scripts/yt-dlp-wrapper.sh ──sources──► rofi/scripts/lib-module.sh
 rofi/scripts/quicklinks-mode.sh──sources──► utils/form.sh, utils/notify.sh, utils/url.sh, utils/string.sh, rofi/scripts/lib-module.sh (module_confirm); ──挂载于── rofi/launchers/type-3/launcher.sh (combi 模式 quicklinks modi)
 rofi/scripts/steam-workshop.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh, tools/steam-workshop.sh; ──calls──► steamcmd (+login <user> +workshop_download_item, 后台子 shell + system-notify)
 rofi/scripts/module.sh      ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
-rofi/scripts/wallpaper.sh   ──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh, tools/wallpaper-lib.sh, tools/wallpaper-render.sh
+rofi/scripts/wallpaper.sh   ──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh, utils/notify.sh, tools/wallpaper-lib.sh, tools/wallpaper-render.sh
 rofi/scripts/notification.sh──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh
 rofi/scripts/sddm.sh       ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/screenshot.sh  ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
@@ -340,8 +340,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | ----------------------------- | ------------------------------------------------------- |
 | `monitor_selection()`         | wallpaper.sh (主入口: 选择 monitor/组)       |
 | `handle_next()`               | wallpaper.sh (模块主菜单: 下一张; `( tools/wallpaper.sh -m ... next & )` 后台执行, rofi 立即重开) |
-| `handle_select()`             | wallpaper.sh (模块主菜单: 选择文件; `random_type=web` 时走 `select_web_wallpaper` rofi 图文选择, 否则 yazi) |
-| `select_web_wallpaper()`      | handle_select (web 分支: `index.html` 去重到目录 → `project.json:title/preview` 解析标题+缩略图 → `rofi -dmenu -format i -show-icons` 按索引回映射目录 → `tools/wallpaper.sh -m <mon> file`) |
+| `handle_select()`             | wallpaper.sh (模块主菜单: 选择文件; `random_type=web/scene` 时走 `select_marker_wallpaper` rofi 图文选择, 否则 yazi) |
+| `select_marker_wallpaper()`   | handle_select (web/scene 分支: marker 去重到目录 → `project.json:title/preview` 解析标题+缩略图 → `rofi -dmenu -format i -show-icons` 按索引回映射目录; Alt+1 xdg-open / Alt+2 复制绝对路径(无换行) / Alt+3 `module_confirm` 后 `rm -rf`, 动作后循环重显(删除后回模块菜单), Enter 应用, ESC 返回) |
 | `handle_random_switch()`      | wallpaper.sh (模块主菜单: 随机开关 toggle)              |
 | `handle_random_type()`        | wallpaper.sh (模块主菜单: 类型三选一 selector image/video/web，状态行显示当前类型图标) |
 | `handle_random_duration()`    | wallpaper.sh (模块主菜单: 设置轮换间隔)                 |

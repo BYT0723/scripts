@@ -8,6 +8,7 @@ MODULE_MAX_LINES=8
 
 source "$(dirname "$0")"/util.sh
 source "$(dirname "$0")"/lib-module.sh
+source "$WORK_DIR/utils/notify.sh"
 source "$WORK_DIR/tools/wallpaper-lib.sh"
 source "$WORK_DIR/tools/wallpaper-render.sh"
 
@@ -208,18 +209,58 @@ select_marker_wallpaper() {
     done <<<"$files"
     tr '\001' '\000' <"$menu" >"$menu_nul"
 
-    local sel
-    # 网格主题 (双列卡片 + 128px 大缩略图): inputbar 只有 entry, prompt 经 -p 设置
-    sel=$(rofi -dmenu -i -p "$label" -format i -no-custom -show-icons \
-        -theme "$ROFI_DIR/launchers/type-3/style-6.rasi" \
-        -theme-str 'listview {columns: 4; lines: 4; flow: horizontal; }' \
-        -theme-str 'window {width: 800px;}' \
-        -hover-select -me-select-entry '' -me-accept-entry '' -me-accept-custom MousePrimary <"$menu_nul" 2>/dev/null) || return 0
-    case "$sel" in '' | *[!0-9]*) return 0 ;; esac
-    local picked
-    picked=$(sed -n "$((sel + 1))p" "$map")
-    [ -n "$picked" ] || return 0
-    "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" file "$picked"
+    local sel rc picked
+    # 网格主题 (双列卡片 + 128px 大缩略图): inputbar 只有 entry, prompt 经 -p 设置。
+    # Alt+1 打开目录 / Alt+2 复制绝对路径 / Alt+3 确认删除: config.rasi 已绑
+    # kb-custom-1/2/3, dmenu 下退出码 10/11/12, -format i 输出高亮序号。
+    # Alt+1/2 执行后循环重显继续挑；Alt+3 删完回模块菜单 (menu/map 是快照, 删后已过期)；
+    # Enter 应用后退出；ESC 直接返回。
+    while true; do
+        sel=$(rofi -dmenu -i -p "$label (Alt+1 open · Alt+2 copy · Alt+3 del)" -format i -no-custom -show-icons \
+            -theme "$ROFI_DIR/launchers/type-3/style-6.rasi" \
+            -theme-str 'listview {columns: 4; lines: 4; flow: horizontal; }' \
+            -theme-str 'window {width: 800px;}' \
+            -hover-select -me-select-entry '' -me-accept-entry '' -me-accept-custom MousePrimary <"$menu_nul" 2>/dev/null)
+        rc=$?
+        case "$rc" in
+        0) ;;            # 正常选中, 走下面原流程
+        10 | 11 | 12) ;; # Alt+1/2/3, 需序号定位条目
+        *) return 0 ;;    # ESC/其他直接返回
+        esac
+        case "$sel" in
+        '' | *[!0-9]*)
+            # Enter 空选回模块菜单；快捷键无序号则重显 (custom key 未输出序号时可重试，ESC 可出)
+            [ "$rc" = 0 ] && return 0
+            continue
+            ;;
+        esac
+        picked=$(sed -n "$((sel + 1))p" "$map")
+        if [ -z "$picked" ]; then
+            [ "$rc" = 0 ] && return 0
+            continue
+        fi
+        case "$rc" in
+        10) (xdg-open "$picked" &>/dev/null &) ;;
+        11)
+            printf '%s' "$picked" | xclip -selection clipboard 2>/dev/null
+            system-notify low "Wallpaper" "Copied"$'\n'"$picked"
+            ;;
+        12)
+            if module_confirm "Delete wallpaper?"$'\n'"$picked"; then
+                if rm -rf "$picked" 2>/dev/null; then
+                    system-notify normal "Wallpaper" "Deleted"$'\n'"$picked"
+                else
+                    system-notify critical "Wallpaper" "Delete failed"$'\n'"$picked"
+                fi
+                return 0
+            fi
+            ;;
+        0)
+            "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" file "$picked"
+            return 0
+            ;;
+        esac
+    done
 }
 handle_select() {
     case "$(getConfig -m "$MONITOR" random_type)" in
