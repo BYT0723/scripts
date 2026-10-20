@@ -152,6 +152,7 @@ random_type|󱧶|Type|cmd:t=$(getConfig -m "$MONITOR" random_type); case "$t" in
 random_duration|󰔟|Duration|cmd:getConfig -m "$MONITOR" duration
 fps||FPS|cmd:get_video_render_config "$MONITOR" fps
 property|󰔉|Property|cmd:n=$(prop_tunables "$MONITOR" 2>/dev/null | grep -c .); [ "${n:-0}" -gt 0 ] 2>/dev/null && echo "$n"
+property_reset|󰜉|Reset Property|
 random_images_path||Images Path|
 random_videos_path||Videos Path|
 random_web_path||Web Path|
@@ -317,6 +318,19 @@ prop_commit_once() { # <name> <original> <yad-status> <yad-output>: OK 非空即
         xwallpaper --set-property "$1=$2" -m "$MONITOR" 2>/dev/null
     fi
 }
+prop_reset() { # 确认后 xwallpaper --clear-properties, 清用户覆盖回 project.json 默认
+    [ -n "$(prop_tunables "$MONITOR")" ] || {
+        system-notify low "Wallpaper" "No adjustable properties on $MONITOR"
+        return 1
+    }
+    module_confirm "Reset all properties to defaults?"$'\n'"$MONITOR" || return 1
+    if xwallpaper --clear-properties -m "$MONITOR" 2>/dev/null; then
+        system-notify normal "Wallpaper" "Properties reset"$'\n'"$MONITOR"
+    else
+        system-notify critical "Wallpaper" "Reset failed"$'\n'"$MONITOR"
+        return 1
+    fi
+}
 prop_label() { # <dir> <name> → 显示标签 (project.json text 原样显示, 缺失回退 name)
     local dir="$1" name="$2" text=""
     if [ -n "$dir" ] && [ -f "$dir/project.json" ]; then
@@ -382,6 +396,7 @@ handle_property() {
     dir=$(prop_wall_dir)
     # text 全串较长, property 流程窗口加宽 (local 仅作用域内, 主菜单/其它模块保持 500)
     local MODULE_WIDTH=600
+    local RESET_LINE="󰜉 Reset to defaults"
     while true; do
         # 显示 project.json text 全串 (prop_label, 无 text 回退 name), 寻址仍用英文 name:
         # display line → name 关联映射 (label 含空格, 不能再按列切), 另保留
@@ -396,8 +411,16 @@ handle_property() {
             _line_to_name["$line"]="$pn"
             menu+="$line"$'\n'
         done <<<"$tunables"
+        menu+="$RESET_LINE"$'\n'
         chosen=$(printf '%s' "$menu" | module_sub_rofi "Property ($MONITOR)" "Select a slider/color/file/bool/combo property")
         [ -z "$chosen" ] && return
+        if [ "$chosen" = "$RESET_LINE" ]; then
+            prop_reset
+            # 重置后重取: 选择列表显示新默认值 (壁纸被换掉则静默回主菜单)
+            tunables=$(prop_tunables "$MONITOR")
+            [ -n "$tunables" ] || return
+            continue
+        fi
         name="${_line_to_name[$chosen]}"
         [ -n "$name" ] || name=$(printf '%s\n' "$tunables" | awk -F'\t' -v c="$chosen" '$1==c {print $1; exit}')
         [ -z "$name" ] && continue
@@ -522,6 +545,7 @@ _apply_property() { # <name>: 按 type 调起对应编辑器 ($tunables 取自�
         xwallpaper --set-property "$name=$original" -m "$MONITOR" 2>/dev/null
     fi
 }
+handle_property_reset() { prop_reset; }
 handle_random_images_path() { pick_config_dir "$MONITOR" random_image_dir; }
 handle_random_videos_path() { pick_config_dir "$MONITOR" random_video_dir; }
 handle_random_web_path() { pick_config_dir "$MONITOR" random_web_dir; }
