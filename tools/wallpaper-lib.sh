@@ -275,10 +275,28 @@ is_group_member() {
 }
 
 # Utility functions
+# 路径展开: envsubst ($HOME/${HOME}/任意$VAR) + 行首 ~ (仅 `~` 本身与 `~/...`;
+# `~other/...` 按字面保留, 不按他用户家目录解析)。
 expand_path() {
-    local path="$1"
-    path=$(printf '%s\n' "$path" | envsubst)
-    echo "${path/#\~/$HOME}"
+    local input="$1"
+    input=$(printf '%s\n' "$input" | envsubst)
+    case "$input" in
+    "~") printf '%s\n' "$HOME" ;;
+    "~"/*) printf '%s\n' "$HOME${input#\~}" ;;
+    *) printf '%s\n' "$input" ;;
+    esac
+}
+
+# 与 expand_path 对称的存储压缩: $HOME 前缀压缩为 ~ (可移植存储);
+# $HOME 之外原样; $HOME-other 这类前缀陷阱不压缩。空串返回非 0。
+shrink_path() {
+    local p="$1"
+    [ -n "$p" ] || return 1
+    case "$p" in
+    "$HOME") printf '~\n' ;;
+    "$HOME"/*) printf '~%s\n' "${p#$HOME}" ;;
+    *) printf '%s\n' "$p" ;;
+    esac
 }
 
 detect_file_type() {
@@ -555,6 +573,7 @@ pick_config_dir() {
     rm -f "$tmp"
     if [ -n "$chosen" ]; then
         [ -d "$chosen" ] && chosen="$chosen" || chosen=$(dirname "$chosen")
+        chosen=$(shrink_path "$chosen")
         jq --arg d "$chosen" "${json_path}.${key} = \$d" "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
     fi
 }

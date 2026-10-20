@@ -110,6 +110,7 @@ select_wallpaper() {
         ;;
     esac
 
+    dir=$(expand_path "$dir")
     YAZI_CONFIG_HOME=$HOME/.config/yazi_wallpaper $TERM yazi "$dir" --chooser-file="$tmp"
 
     local picked
