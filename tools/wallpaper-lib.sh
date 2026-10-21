@@ -435,8 +435,11 @@ find_wallpapers() {
     fi
 
     # Use mapfile to read all matching files into array
+    # -L: 跟随软链接 (壁纸池常含指向外部仓库的 symlink, 默认 find 不进入链接目录);
+    # prune: 排除构建模板与版本库目录 (如 dev 仓库自带的 templates/, .git/),
+    # 它们含 index.html 却无配套 assets, 选上也渲染不出 (注意加 -o 后须显式 -print)
     local files=()
-    if ! mapfile -t files < <(find "$dir" -maxdepth "$depth" -type f -regextype posix-extended -regex "$pattern" 2>/dev/null); then
+    if ! mapfile -t files < <(find -L "$dir" -maxdepth "$depth" \( -path '*/templates/*' -o -path '*/.git/*' \) -prune -o -type f -regextype posix-extended -regex "$pattern" -print 2>/dev/null); then
         error "Failed to search for wallpapers in $dir"
         return 1
     fi
