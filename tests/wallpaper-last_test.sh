@@ -135,4 +135,35 @@ printf 'image\t%s\t0\n' "$TEST_DIR/dark/img/d.jpg" >"$XW_MOCK_STATE/eDP.win"
 theme_wallpaper dark
 check "当前 d 记忆 c 时发 set 切到 c" "grep -q ' set ' \"$XW_MOCK_LOG\" && grep -q \"$TEST_DIR/dark/img/c.jpg\" \"$XW_MOCK_STATE/eDP.win\""
 
+# ---- 7. web/scene 目录记忆: -f 恒假导致每次 random 并覆盖记忆 (DP-1 实测) ----
+mkdir -p "$TEST_DIR/dark/web1" "$TEST_DIR/dark/web2" "$TEST_DIR/pinned-web"
+touch "$TEST_DIR/dark/web1/index.html" "$TEST_DIR/dark/web2/index.html" "$TEST_DIR/pinned-web/index.html"
+printf '{\n  "monitors": {\n    "eDP": {\n      "random": 1,\n      "random_type": "web",\n      "random_web_dir": "%s",\n      "random_depth": 3,\n      "duration": 30\n    }\n  },\n  "groups": {}\n}\n' \
+    "$TEST_DIR/dark" >"$HOME/.config/dwm/wallpaper.json"
+save_last_wallpaper "eDP" "dark" "$TEST_DIR/pinned-web"
+rm -f "$XW_MOCK_STATE"/*.win
+printf 'image\t%s\t0\n' "$TEST_DIR/dark/web1" >"$XW_MOCK_STATE/eDP.win"
+: >"$XW_MOCK_LOG"
+theme_wallpaper dark
+check "web 目录记忆被恢复 (非 random)" "grep -q \"$TEST_DIR/pinned-web\" \"$XW_MOCK_STATE/eDP.win\""
+check "web 目录记忆未被 random 覆盖" "[ \"\$(get_last_wallpaper eDP dark)\" = \"$TEST_DIR/pinned-web\" ]"
+
+# ---- 8. scene 目录记忆同理 (scene.pkg 标记目录) ----
+mkdir -p "$TEST_DIR/dark/scene1" "$TEST_DIR/pinned-scene"
+touch "$TEST_DIR/dark/scene1/scene.pkg" "$TEST_DIR/pinned-scene/scene.pkg"
+printf '{\n  "monitors": {\n    "eDP": {\n      "random": 1,\n      "random_type": "scene",\n      "random_scene_dir": "%s",\n      "random_depth": 3,\n      "duration": 30\n    }\n  },\n  "groups": {}\n}\n' \
+    "$TEST_DIR/dark" >"$HOME/.config/dwm/wallpaper.json"
+save_last_wallpaper "eDP" "dark" "$TEST_DIR/pinned-scene"
+rm -f "$XW_MOCK_STATE"/*.win
+printf 'image\t%s\t0\n' "$TEST_DIR/dark/scene1" >"$XW_MOCK_STATE/eDP.win"
+: >"$XW_MOCK_LOG"
+theme_wallpaper dark
+check "scene 目录记忆被恢复 (非 random)" "grep -q \"$TEST_DIR/pinned-scene\" \"$XW_MOCK_STATE/eDP.win\""
+check "scene 目录记忆未被 random 覆盖" "[ \"\$(get_last_wallpaper eDP dark)\" = \"$TEST_DIR/pinned-scene\" ]"
+# 反例: scene 记忆指向已删除目录 → 回退 random (dark 池内)
+rm -rf "$TEST_DIR/pinned-scene"
+rm -f "$XW_MOCK_STATE"/*.win
+theme_wallpaper dark
+check "scene 失效记忆回退到 scene 池" "grep -q \"$TEST_DIR/dark/scene1\" \"$XW_MOCK_STATE/eDP.win\""
+
 exit "$fail"

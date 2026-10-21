@@ -213,15 +213,27 @@ theme_wallpaper() {
         done < <(group_names)
     fi
 
-    local t file desired last win cur
+    local t file desired last win cur rt
     for t in "${targets[@]}"; do
         is_group_member "$t" && continue
-        # 记忆恢复优先 (文件仍存在才用, 否则回退 random)
+        # 记忆恢复优先 (仍存在才用, 否则回退 random):
+        # image/video 记忆是文件 (-f), web/scene 记忆是目录 (-d)。
+        # 不能统一用 -f: 目录恒判假, 每次走 random 还覆盖掉好记忆 (DP-1 实测)。
         desired=""
         last=$(get_last_wallpaper "$t" "$mode" 2>/dev/null)
-        if [ -n "$last" ] && [ -f "$last" ]; then
-            desired="$last"
-        else
+        if [ -n "$last" ]; then
+            rt=$(getConfig -m "$t" random_type)
+            case "$rt" in
+            web | scene) [ -d "$last" ] && desired="$last" ;;
+            image | video) [ -f "$last" ] && desired="$last" ;;
+            # 未知新类型: 文件目录都接受 (-e)。若默认 -f，新目录型一来就重蹈
+            # DP-1 的覆辙 (恒判假 → 每次 random 还覆盖记忆)；-e 不可能误杀，
+            # 最坏只是恢复了跨类型陈旧记忆，而 apply_wallpaper 经
+            # detect_file_type 文件/目录都能渲染，显示无碍。
+            *) [ -e "$last" ] && desired="$last" ;;
+            esac
+        fi
+        if [ -z "$desired" ]; then
             if ! file=$(random_wallpaper "$t" "$mode"); then
                 error "theme_wallpaper: no $mode wallpaper for $t" || true
                 continue
