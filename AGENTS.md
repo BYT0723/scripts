@@ -345,7 +345,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `monitor_selection()`         | wallpaper.sh (主入口: 选择 monitor/组)       |
 | `handle_next()`               | wallpaper.sh (模块主菜单: 下一张; `( tools/wallpaper.sh -m ... next & )` 后台执行, rofi 立即重开) |
 | `handle_select()`             | wallpaper.sh (模块主菜单: 选择文件; `random_type=web/scene` 时走 `select_marker_wallpaper` rofi 图文选择, 否则 yazi) |
-| `select_marker_wallpaper()`   | handle_select (web/scene 分支: marker 去重到目录 → `project.json:title/preview` 解析标题+缩略图 → `rofi -dmenu -format i -show-icons` 按索引回映射目录; Alt+1 xdg-open / Alt+2 复制绝对路径(无换行) / Alt+3 `module_confirm` 后 `rm -rf`, 动作后循环重显(删除后回模块菜单), Enter 应用, ESC 返回) |
+| `select_marker_wallpaper()`   | handle_select (web/scene 分支: marker 去重到目录 → `project.json:title/preview` 解析标题+缩略图 → `rofi -dmenu -format i -show-icons` 按索引回映射目录; 末条为 yazi 目录入口 (map 值 `__YAZI__`, Enter 经 `select_yazi_directory` 选目录, Alt+1/2/3 落其上忽略重显); Alt+1 xdg-open / Alt+2 复制绝对路径(无换行) / Alt+3 `module_confirm` 后 `rm -rf`, 动作后循环重显(删除后回模块菜单), Enter 应用, ESC 返回) |
+| `select_yazi_directory()`   | select_marker_wallpaper (末条 yazi 入口: 起始于主题目录 (`get_theme_dir`+`expand_path`, 缺失回退 `$HOME`), 文件输入归一到上层, web 验 `index.html` / scene 验 `scene.pkg|json`, 非法 critical 通知, 成功经 `tools/wallpaper.sh -m file` 应用; 成功返回 0, 取消/非法返回 1 由调用方继续循环) |
 | `handle_random_switch()`      | wallpaper.sh (模块主菜单: 随机开关 toggle)              |
 | `handle_random_type()`        | wallpaper.sh (模块主菜单: 类型三选一 selector image/video/web，状态行显示当前类型图标) |
 | `handle_random_duration()`    | wallpaper.sh (模块主菜单: 设置轮换间隔)                 |

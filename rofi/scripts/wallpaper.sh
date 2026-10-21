@@ -162,8 +162,38 @@ random_videos_path_dark||Videos Path (Dark)|
 random_web_path_dark||Web Path (Dark)|
 MODULES
 handle_next() { ("$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" next &) }
+# yazi 选目录 (web/scene): 起始于主题目录, 文件输入归一到上层,
+# 校验 marker (web 要 index.html, scene 要 scene.pkg|json) 后直接应用。
+# 成功 (已应用) 返回 0, 取消/非法返回 1 (调用方继续循环重显)。
+# Usage: select_yazi_directory <config-base> (kind 按 base 名推导: *scene* 即 scene)
+select_yazi_directory() {
+    local base="$1" kind="web" start tmp picked
+    [[ "$base" == *scene* ]] && kind="scene"
+    start=$(expand_path "$(get_theme_dir "$MONITOR" "$base")")
+    [ -d "$start" ] || start="$HOME"
+    tmp=$(mktemp) || return 1
+    YAZI_CONFIG_HOME=$HOME/.config/yazi_wallpaper $TERM yazi "$start" --chooser-file="$tmp" 2>/dev/null
+    picked=$(cat "$tmp" 2>/dev/null)
+    rm -f "$tmp"
+    [ -n "$picked" ] || return 1
+    [ -e "$picked" ] || return 1
+    [ -f "$picked" ] && picked=$(dirname "$picked")
+    if [ "$kind" = "web" ]; then
+        [ -f "$picked/index.html" ] || {
+            system-notify critical "Wallpaper" "Not a web wallpaper (missing index.html)"$'\n'"$picked"
+            return 1
+        }
+    else
+        { [ -f "$picked/scene.pkg" ] || [ -f "$picked/scene.json" ]; } || {
+            system-notify critical "Wallpaper" "Not a scene wallpaper (missing scene.pkg/json)"$'\n'"$picked"
+            return 1
+        }
+    fi
+    "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" file "$picked"
+}
 # web/scene 用 rofi 图文选择器 (标题+预览缩略图): yazi 顶层只见数字 id,
 # 名字在 project.json:title 里, 预览在 preview 字段/preview.* 里。image/video 保留 yazi 大图预览。
+# 末条为 yazi 目录入口 (map 值为 __YAZI__), 同 image/video 选择逻辑按目录挑选。
 # Usage: select_marker_wallpaper <label> <config-base> <find-regex>
 select_marker_wallpaper() {
     local label="$1" base="$2" pattern="$3"
@@ -212,6 +242,9 @@ select_marker_wallpaper() {
         printf '%s (%s)\001icon\x1f%s\x1f\n' "$title" "$id" "$icon" >>"$menu"
         printf '%s\n' "$d" >>"$map"
     done <<<"$files"
+    # 末条 yazi 目录入口 (同 image/video 按目录挑选): menu/map 行号保持一一对应
+    printf '%s\001icon\x1f%s\x1f\n' "󰉋 Browse directory (yazi)" "" >>"$menu"
+    printf '%s\n' "__YAZI__" >>"$map"
     tr '\001' '\000' <"$menu" >"$menu_nul"
 
     local sel rc picked
@@ -240,6 +273,15 @@ select_marker_wallpaper() {
         # (custom key 未输出序号时可重试，ESC 可出)
         if [ -z "$picked" ]; then
             [ "$rc" = 0 ] && return 0
+            continue
+        fi
+        if [ "$picked" = "__YAZI__" ]; then
+            # yazi 目录入口: Alt+1/2/3 忽略重显; Enter 选目录,
+            # 成功应用后退出, 取消/非法回 selector 继续挑
+            [ "$rc" = 0 ] || continue
+            if select_yazi_directory "$base"; then
+                return 0
+            fi
             continue
         fi
         case "$rc" in
