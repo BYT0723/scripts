@@ -334,8 +334,10 @@ handle_fps() {
 # --list-properties 仅 web/scene 有输出 (image/video 直接失败);
 # group/Screen 属 -g 几何窗口, -m 无法寻址同样失败 → 通知后返回 (限定单 monitor)。
 # slider 走 yad --scale --print-partial 逐值实时 set;
-# color/file 的 yad 对话框无 partial (--changed-action 仅 CHK/CB/SW 有效),
+# color 的 yad 对话框无 partial (--changed-action 仅 CHK/CB/SW 有效),
 # 只能 OK 单次应用 / 取消恢复原值;
+# file 走 prop_pick_file (与 image/video select 同样的 yazi 选择器),
+# 选中即单次 set / 取消恢复原值;
 # bool 一键翻转直接 set, 无需对话框;
 # combo 经 project.json options 用 rofi 选 label → set value (无 options 则自由输入)。
 prop_tunables() { xwallpaper --list-properties -m "$1" 2>/dev/null | awk -F'\t' '$2 ~ /^(slider|color|file|bool|combo)$/'; }
@@ -385,6 +387,16 @@ prop_wall_dir() { # → 当前 MONITOR 的壁纸目录 (state path 是目录则�
     local path
     path=$(xwallpaper --state 2>/dev/null | awk -F'\t' -v n="$MONITOR" '$1==n {print $3; exit}')
     [ -d "$path" ] && printf '%s' "$path" || dirname "$path"
+}
+prop_pick_file() { # <start-dir> → 输出选中路径; 取消/空返回非 0 (与 image/video select 同样的 yazi 选择器)
+    local start="$1" tmp picked
+    [ -d "$start" ] || start="$HOME"
+    tmp=$(mktemp) || return 1
+    YAZI_CONFIG_HOME=$HOME/.config/yazi_wallpaper $TERM yazi "$start" --chooser-file="$tmp" 2>/dev/null
+    picked=$(cat "$tmp" 2>/dev/null)
+    rm -f "$tmp"
+    [ -n "$picked" ] || return 1
+    printf '%s' "$picked"
 }
 prop_color_hex() { # "r g b" (0..1 floats) → #rrggbb; 非法输入输出空
     [[ "$1" =~ ^[0-9.]+[[:space:]]+[0-9.]+[[:space:]]+[0-9.]+$ ]] || return 1
@@ -538,13 +550,15 @@ _apply_property() { # <name>: 按 type 调起对应编辑器 ($tunables 取自�
         return
     fi
     if [ "$type" = "file" ]; then
-        # yad --file 同样无 partial, OK 单次应用 / 取消恢复原值
+        # 与 image/video select 同样的 yazi 选择器 (起始于当前值所在目录, 无值时用壁纸目录);
+        # 选中即单次 set, 取消则恢复原值 (无 partial, 恢复即 no-op)
         start="$dir"
         [ -f "$cur" ] && start=$(dirname "$cur")
-        [ -d "$start" ] || start="$HOME"
-        new=$(yad --file --title="Wallpaper Property" --text="$MONITOR : $label" \
-            --filename="$start/" 2>/dev/null)
-        prop_commit_once "$name" "$original" "$?" "$(printf '%s' "$new" | tr -d '\n')"
+        if new=$(prop_pick_file "$start"); then
+            xwallpaper --set-property "$name=$new" -m "$MONITOR" 2>/dev/null
+        else
+            xwallpaper --set-property "$name=$original" -m "$MONITOR" 2>/dev/null
+        fi
         return
     fi
     [[ "$cur" =~ ^-?[0-9]+$ ]] || cur=0

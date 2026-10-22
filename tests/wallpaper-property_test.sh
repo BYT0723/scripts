@@ -11,8 +11,8 @@
 #   N/O. 单 bool true/false/1 → 翻转, 无 yad/rofi
 #   P/Q/R. 单 combo 对象/字符串/数字 options → rofi 选 label 设 value
 #   S. combo 无 options → 回退自由输入
-#   I. 单 file + OK → set 路径, 起始于壁纸目录
-#   J. file + 取消 → 恢复原值
+#   I. 单 file + OK → yazi 选中 set 路径, 起始于壁纸目录
+#   J. file + 取消 → 恢复原值, 起始于当前值所在目录
 #   K. 多属性列表中 color 显示为 hex; set 时 hex 转回三元组 (scene 只认 triple)
 # 运行: bash tests/wallpaper-property_test.sh
 
@@ -72,7 +72,7 @@ source "$DWM/tools/wallpaper-lib.sh"
 source "$DWM/tools/wallpaper-render.sh"
 
 # 被测函数提取 (rofi 脚本顶层含 module_loop, 仅提取 handle_property + helper)
-eval "$(awk '/^(prop_tunables|prop_combo_options|prop_range|prop_color_hex|prop_hex_to_rgb|prop_commit_once|prop_label|prop_wall_dir|handle_property|_apply_property)\(\) \{/{f=1} f{print} f && /^}/{f=0}' "$DWM/rofi/scripts/wallpaper.sh")"
+eval "$(awk '/^(prop_tunables|prop_combo_options|prop_range|prop_color_hex|prop_hex_to_rgb|prop_commit_once|prop_label|prop_wall_dir|prop_pick_file|handle_property|_apply_property)\(\) \{/{f=1} f{print} f && /^}/{f=0}' "$DWM/rofi/scripts/wallpaper.sh")"
 
 module_sub_rofi() { echo "rofi $*" >>"$XW_MOCK_LOG"; cat >>"$TEST_DIR/rofi_in.txt"; [ -e "$SEL_FLAG" ] && return; touch "$SEL_FLAG"; printf '%s' "$MOCK_PICK"; }
 module_input() { echo "input $*" >>"$XW_MOCK_LOG"; printf '%s' "$MOCK_INPUT"; }
@@ -163,24 +163,27 @@ MONITOR="DP-1" MOCK_PICK="autohide" handle_property
 check "H: bool 被翻转为 false" 'grep -q "set-property autohide=false" "$XW_MOCK_LOG"'
 check "H: 未选中 combo 不动" '! grep -q "set-property fit=" "$XW_MOCK_LOG"'
 
-# ---- I: 单 file + OK → set 路径, 无恢复 ----
+# ---- I: 单 file + OK → yazi 选中 set 路径, 起始于壁纸目录 ----
 reset_state
 printf 'bgImage\tfile\t\n' >"$XW_MOCK_STATE/props"; export XW_PROPS_RC=0
 printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
-export YAD_OUT='/tmp/bg.png
-' YAD_RC=0
+prop_pick_file() { echo "pick start=$1" >>"$XW_MOCK_LOG"; printf '/tmp/bg.png'; }
 MONITOR="DP-1" MOCK_PICK="" handle_property
 check "I: file OK 时 set 路径" 'grep -q "set-property bgImage=/tmp/bg.png" "$XW_MOCK_LOG"'
 check "I: file OK 后不恢复空值" '! grep -q "set-property bgImage=$" "$XW_MOCK_LOG"'
-check "I: yad file 起始于壁纸目录" 'grep -q -- "--file" "$XW_MOCK_LOG" && grep -q "filename=.*wall" "$XW_MOCK_LOG"'
+check "I: yazi 起始于壁纸目录" 'grep -q "pick start=.*wall" "$XW_MOCK_LOG"'
+check "I: 不调 yad --file" '! grep -q "^yad .*--file" "$XW_MOCK_LOG"'
 
-# ---- J: file + 取消 → 恢复原值 ----
+# ---- J: file + 取消 → 恢复原值 (yazi 起始于当前值所在目录) ----
 reset_state
-printf 'bgImage\tfile\t/old/bg.png\n' >"$XW_MOCK_STATE/props"
-export YAD_OUT='/tmp/bg.png
-' YAD_RC=1
+mkdir -p "$TEST_DIR/curdir"; touch "$TEST_DIR/curdir/cur.png"
+printf 'bgImage\tfile\t%s/cur.png\n' "$TEST_DIR/curdir" >"$XW_MOCK_STATE/props"
+prop_pick_file() { echo "pick start=$1" >>"$XW_MOCK_LOG"; return 1; }
 MONITOR="DP-1" MOCK_PICK="" handle_property
-check "J: file 取消时恢复原值" 'grep -q "set-property bgImage=/old/bg.png" "$XW_MOCK_LOG"'
+check "J: file 取消时恢复原值" 'grep -q "set-property bgImage=$TEST_DIR/curdir/cur.png" "$XW_MOCK_LOG"'
+check "J: yazi 起始于当前值目录" 'grep -q "pick start=$TEST_DIR/curdir" "$XW_MOCK_LOG"'
+unset -f prop_pick_file
+eval "$(awk '/^prop_pick_file\(\) \{/{f=1} f{print} f && /^}/{f=0}' "$DWM/rofi/scripts/wallpaper.sh")"
 
 # ---- K: 多属性列表中 color 显示为 hex, slider 保持原值 ----
 reset_state
