@@ -44,7 +44,7 @@ panes() {
     # net traffic monitor pane
     panes+="$(new_pane $black "${ST_NET_BYTE}^c$white^$(print_speed)")"
     # system monitor pane
-    panes+="$(new_pane $black "${ST_CPU_BYTE}$(print_cpu)$(print_temperature)" "${ST_MEM_BYTE}$(print_mem)" "${ST_DISK_BYTE}$(print_disk /)")"
+    panes+="$(new_pane $black "${ST_CPU_BYTE}$(print_cpu)" "${ST_MEM_BYTE}$(print_mem)" "${ST_DISK_BYTE}$(print_disk /)")"
 
     # notification pane
     if [[ -n $rss_str || -n $mail_str || -n $notification_str ]]; then

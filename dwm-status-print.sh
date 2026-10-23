@@ -16,12 +16,14 @@ icons["traffic_rx"]=""
 icons["traffic_tx"]=""
 icons["screencast"]=""
 
+STACKED_SPLIT="^s^"
+
 print_date() {
     timeIcons=('' '' '' '' '' '' '' '' '' '' '' '')
     local hour=$(date '+%l')
 
     if [ -f "$HOME/.local/state/dwm/status/date-collapse" ]; then
-        printf "%s^s^%s" "$(date '+%m/%d (%a)')" " ${timeIcons[$((hour % 12))]} $(date '+%R')"
+        printf "%s$STACKED_SPLIT%s" "$(date '+%m/%d (%a)')" " ${timeIcons[$((hour % 12))]} $(date '+%R')"
     else
         printf "%s %s" "$(date '+%m/%d(%a)')" "${timeIcons[$((hour % 12))]} $(date '+%R')"
     fi
@@ -163,16 +165,6 @@ print_mem() {
     printf "^c$fg^${icons[memory]} %4.1fG" $mem_used
 }
 
-print_cpu() {
-    read cpu_usage <"$cpu_usage_path"
-    fg=$white
-
-    ((cpu_usage >= 80)) && fg="$yellow"
-
-    # output
-    printf "^c$fg^${icons[cpu]} %3d%%" "$cpu_usage"
-}
-
 cpu_temperature_filepath=""
 
 print_temperature() {
@@ -199,6 +191,18 @@ print_temperature() {
     [ $temp -ge 70 ] && fg="$yellow"
 
     printf "^c$fg^${icons["temp"]} ${temp}°C"
+}
+
+print_cpu() {
+    read cpu_usage <"$cpu_usage_path"
+    fg=$white
+
+    ((cpu_usage >= 80)) && fg="$yellow"
+
+    # output
+    printf "^c$fg^${icons[cpu]} %3d%%" "$cpu_usage"
+    [ -f "$HOME/.local/state/dwm/status/cpu-collapse" ] && printf "$STACKED_SPLIT" || true
+    print_temperature
 }
 
 max_len_output() {
@@ -251,7 +255,7 @@ print_speed() {
 
     ((tx > 0)) && printf "${icons[traffic_tx]} " || printf "  "
     human_speed $tx
-    [ -f "$HOME/.local/state/dwm/status/net-traffic-collapse" ] && printf "^s^" || printf " "
+    [ -f "$HOME/.local/state/dwm/status/net-traffic-collapse" ] && printf "$STACKED_SPLIT" || printf " "
     ((rx > 0)) && printf "${icons[traffic_rx]} " || printf "  "
     human_speed $rx
 }
