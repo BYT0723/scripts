@@ -29,19 +29,16 @@ main() {
     fi
 
     auto_log "check appids=${appids[*]} root=$AUTO_ROOT"
-    local lines updates currents skips
-    lines=$(for a in "${appids[@]}"; do sw_check_updates "$AUTO_ROOT" "$a" 2>/dev/null; done)
-    updates=$(grep -c '^UPDATE|' <<<"$lines")
-    currents=$(grep -c '^CURRENT|' <<<"$lines")
-    skips=$(grep -c '^SKIP|' <<<"$lines")
+    local summary updates currents skips ok fail fids
+    summary=$(sw_sync_updates "$AUTO_ROOT" anonymous "${appids[@]}") || {
+        auto_log "check skipped (all SKIP or no candidates)"
+        return 0
+    }
+    read -r updates currents skips ok fail fids <<<"$summary"
     auto_log "result updates=$updates current=$currents skipped=$skips"
     if ((updates == 0)); then
-        ((currents == 0)) && auto_log "check skipped (all SKIP or no candidates)"
         return 0
     fi
-    local summary ok fail fids
-    summary=$(grep '^UPDATE|' <<<"$lines" | sw_run_updates anonymous)
-    read -r ok fail fids <<<"$summary"
     auto_log "done ok=$ok fail=$fail fids=$fids"
     if ((fail == 0)); then
         system-notify normal "Steam Workshop" "Auto update done"$'\n'"$ok updated"

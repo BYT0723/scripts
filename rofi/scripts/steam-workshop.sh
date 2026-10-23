@@ -106,7 +106,7 @@ handle_download() {
 
 handle_update() {
     local root="${STEAMCMD_INSTALL_DIR:-$HOME/Downloads/steam-workshop}"
-    local sel scope="" lines updates skips user
+    local sel scope="" user
     if [[ ! -d "$root/steamapps/workshop/content" ]] \
         && ! find "$root" -mindepth 1 -maxdepth 1 -type d ! -name 'steamapps' -print -quit 2>/dev/null | grep -q .; then
         system-notify normal "Steam Workshop" "No downloads yet"$'\n'"$root"
@@ -118,31 +118,27 @@ handle_update() {
     } | module_sub_rofi "Steam Workshop" "Select scope to update")
     [[ -z "$sel" ]] && return
     [[ "$sel" != "All Apps" ]] && scope="$sel"
-    system-notify low "Steam Workshop" "Checking for updates"$'\n'"$sel"
-    if [[ -z "$scope" ]]; then
-        lines=$(sw_check_updates "$root") || {
-            system-notify normal "Steam Workshop" "No downloads yet"$'\n'"$root"
-            return
-        }
-    else
-        lines=$(sw_check_updates "$root" "$scope") || {
-            system-notify normal "Steam Workshop" "No downloads yet"$'\n'"$scope"
-            return
-        }
-    fi
-    updates=$(grep -c '^UPDATE|' <<<"$lines")
-    skips=$(grep -c '^SKIP|' <<<"$lines")
-    if [[ "$updates" -eq 0 ]]; then
-        system-notify normal "Steam Workshop" "All up to date${skips:+ ($skips skipped)}"
-        return
-    fi
-    module_confirm "Update $updates item(s)${skips:+ ($skips skipped)}?" || return
     user=$(_pick_user) || return
+    system-notify low "Steam Workshop" "Checking for updates"$'\n'"$sel"
     (
-        local summary ok fail fids
+        local summary updates currents skips ok fail fids
+        if [[ -z "$scope" ]]; then
+            summary=$(sw_sync_updates "$root" "$user") || {
+                system-notify normal "Steam Workshop" "No downloads yet"$'\n'"$root"
+                return
+            }
+        else
+            summary=$(sw_sync_updates "$root" "$user" "$scope") || {
+                system-notify normal "Steam Workshop" "No downloads yet"$'\n'"$scope"
+                return
+            }
+        fi
+        read -r updates currents skips ok fail fids <<<"$summary"
+        if [[ "$updates" -eq 0 ]]; then
+            system-notify normal "Steam Workshop" "All up to date${skips:+ ($skips skipped)}"
+            return
+        fi
         system-notify low "Steam Workshop" "Updating $updates item(s)..."
-        summary=$(grep '^UPDATE|' <<<"$lines" | sw_run_updates "$user")
-        read -r ok fail fids <<<"$summary"
         if [[ "$fail" -eq 0 ]]; then
             system-notify normal "Steam Workshop" "Update done"$'\n'"$ok updated"
         else

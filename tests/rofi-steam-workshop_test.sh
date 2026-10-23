@@ -93,6 +93,7 @@ MODULE_SUB_RET="All Apps"
 SW_CHECK_RET="CURRENT|222|/x"$'\n'"SKIP|333|/y|api-failed"
 SW_CHECK_RC=0
 handle_update
+wait
 check "update: 无更新则提示且不确认不下载" 'grep -q "All up to date (1 skipped)" "$NOTIFY_LOG" && [[ ! -f $TEST_DIR/confirm.called ]] && [[ ! -f $TEST_DIR/dl.log ]]'
 check "update: 检查前有 Checking 反馈" 'grep -q "Checking for updates" "$NOTIFY_LOG"'
 
@@ -124,12 +125,12 @@ check "update: 失败汇总含 id 且成功源已删" 'grep -q "1 updated, 1 fai
 
 reset_marks
 MODULE_SUB_RET="All Apps"
-MODULE_CONFIRM_RET="No"
 SW_CHECK_RET="UPDATE|431960|111|/z"
+SW_DOWNLOAD_OUT="$TEST_DIR/new-flat-noconfirm"
 handle_update
 wait
-check "update: 拒绝确认不下载" '[[ ! -f $TEST_DIR/dl.log ]]'
-MODULE_CONFIRM_RET="Yes"
+check "update: 免确认直接下载" '[[ -f $TEST_DIR/dl.log ]]'
+check "update: 全程不弹确认" '[[ ! -f $TEST_DIR/confirm.called ]]'
 
 # ---- Open ----
 export STEAMCMD_INSTALL_DIR="$TEST_DIR/newroot"

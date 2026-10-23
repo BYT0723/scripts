@@ -13,6 +13,7 @@
 #   sw_api_time <itemid>         → stdout "appid|time_updated" (更新检查用; 需 jq)
 #   sw_check_updates <root> [scope: appdir 或 appid] → stdout 状态行 (UPDATE|appid|itemid|path / CURRENT|itemid|path / SKIP|itemid|path|reason); 无候选或根非法返回 1
 #   sw_run_updates <user>          → stdin UPDATE 行逐条下载+删源; stdout "ok fail[ fids...]"; 只回显, 不 notify
+#   sw_sync_updates <root> [user] [scope...] → stdout "updates currents skips ok fail[ fids...]"; 无候选返回 1; 公共编排 (auto 与 rofi 共用)
 #   sw_item_info <url-or-id>     → stdout "appid|app名|资源名" (页面 → WebAPI → 失败)
 #   sw_list_users                → stdout "AccountName|PersonaName" 行 (按 Timestamp 倒序)
 #   sw_safe_app <appname> <appid>  → stdout 扁平首层目录名 (应用名去空格/非法字符, 为空回退 appid)
@@ -204,6 +205,29 @@ sw_run_updates() { # stdin UPDATE|appid|itemid|path 行; $1 = steam 用户
         fi
     done
     if ((${#failed[@]})); then echo "$ok $fail ${failed[*]}"; else echo "$ok $fail"; fi
+}
+
+sw_sync_updates() { # root [user] [scope...] → stdout "updates currents skips ok fail[ fids...]"; 无候选返回 1; 只回显, 不 notify
+    # 公共编排: 逐 scope 检查合并 → 计数 → UPDATE 行跑 sw_run_updates (auto 与 rofi 共用, 调用方只做通知/日志/交互)
+    local root="$1"
+    local user="${2:-anonymous}"
+    shift 2
+    local lines="" l s
+    if (($# == 0)); then
+        lines=$(sw_check_updates "$root" 2>/dev/null) || return 1
+    else
+        for s in "$@"; do
+            l=$(sw_check_updates "$root" "$s" 2>/dev/null) || continue
+            lines+="$l"$'\n'
+        done
+        [[ -n "$lines" ]] || return 1
+    fi
+    local updates currents skips summary
+    updates=$(grep -c '^UPDATE|' <<<"$lines" || true)
+    currents=$(grep -c '^CURRENT|' <<<"$lines" || true)
+    skips=$(grep -c '^SKIP|' <<<"$lines" || true)
+    summary=$(grep '^UPDATE|' <<<"$lines" | sw_run_updates "$user")
+    echo "$updates $currents $skips $summary"
 }
 
 sw_item_info() {
