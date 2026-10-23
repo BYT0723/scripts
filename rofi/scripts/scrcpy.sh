@@ -18,6 +18,7 @@ SCRCPY_FLAGS=" \
 --max-size=1600 \
 --max-fps=60 \
 --audio-buffer=200 \
+--shortcut-mod=lalt \
 --keyboard=uhid \
 --turn-screen-off \
 --power-off-on-close \
