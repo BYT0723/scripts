@@ -13,7 +13,9 @@
 #   sw_api_time <itemid>         → stdout "appid|time_updated" (更新检查用; 需 jq)
 #   sw_check_updates <root> [scope: appdir 或 appid] → stdout 状态行 (UPDATE|appid|itemid|path / CURRENT|itemid|path / SKIP|itemid|path|reason); 无候选或根非法返回 1
 #   sw_run_updates <user>          → stdin UPDATE 行逐条下载+删源; stdout "ok fail[ fids...]"; 只回显, 不 notify
-#   sw_sync_updates <root> [user] [scope...] → stdout "updates currents skips ok fail[ fids...]"; 无候选返回 1; 公共编排 (auto 与 rofi 共用)
+#   sw_sync_updates <root> [user] [scope...] → stdout 首行 "updates currents skips ok fail[ fids...]" + 明细 "OK|itemid|label"/"FAIL|itemid|label"; 无候选返回 1; 公共编排 (auto 与 rofi 共用)
+#   sw_label_list [OK|FAIL]      → stdin 明细行 → stdout "label[, …][ (+N more)]" (最多列 10); 只回显
+#   sw_result_msg <ok> <ok_labels> <fail> <fail_labels> → stdout 汇总文案; 只回显
 #   sw_item_info <url-or-id>     → stdout "appid|app名|资源名" (页面 → WebAPI → 失败)
 #   sw_list_users                → stdout "AccountName|PersonaName" 行 (按 Timestamp 倒序)
 #   sw_safe_app <appname> <appid>  → stdout 扁平首层目录名 (应用名去空格/非法字符, 为空回退 appid)
@@ -207,8 +209,9 @@ sw_run_updates() { # stdin UPDATE|appid|itemid|path 行; $1 = steam 用户
     if ((${#failed[@]})); then echo "$ok $fail ${failed[*]}"; else echo "$ok $fail"; fi
 }
 
-sw_sync_updates() { # root [user] [scope...] → stdout "updates currents skips ok fail[ fids...]"; 无候选返回 1; 只回显, 不 notify
+sw_sync_updates() { # root [user] [scope...] → stdout 首行 "updates currents skips ok fail[ fids...]" + 明细 "OK|itemid|label"/"FAIL|itemid|label"; 无候选返回 1; 只回显, 不 notify
     # 公共编排: 逐 scope 检查合并 → 计数 → UPDATE 行跑 sw_run_updates (auto 与 rofi 共用, 调用方只做通知/日志/交互)
+    # label = 父目录名/itemid (如 WallpaperEngine_431960/111), 纯本地推导, 零新增网络
     local root="$1"
     local user="${2:-anonymous}"
     shift 2
@@ -226,8 +229,55 @@ sw_sync_updates() { # root [user] [scope...] → stdout "updates currents skips 
     updates=$(grep -c '^UPDATE|' <<<"$lines" || true)
     currents=$(grep -c '^CURRENT|' <<<"$lines" || true)
     skips=$(grep -c '^SKIP|' <<<"$lines" || true)
+    local -A label_of=()
+    local st aid iid pth parent
+    while IFS='|' read -r st aid iid pth; do
+        [[ "$st" == "UPDATE" && -n "$iid" && -n "$pth" ]] || continue
+        parent=$(basename "$(dirname "$pth")")
+        label_of["$iid"]="$parent/$iid"
+    done <<<"$(grep '^UPDATE|' <<<"$lines")"
     summary=$(grep '^UPDATE|' <<<"$lines" | sw_run_updates "$user")
     echo "$updates $currents $skips $summary"
+    local ok fail fids f id
+    read -r ok fail fids <<<"$summary"
+    local -A is_fail=()
+    for f in $fids; do is_fail["$f"]=1; done
+    for id in $(printf '%s\n' "${!label_of[@]}" | LC_ALL=C sort); do
+        if [[ -n "${is_fail[$id]:-}" ]]; then
+            echo "FAIL|$id|${label_of[$id]}"
+        else
+            echo "OK|$id|${label_of[$id]}"
+        fi
+    done
+}
+
+sw_label_list() { # [want: OK|FAIL, 缺省全要] → stdin 明细行 → stdout "label[, label…][ (+N more)]" (最多列 10); 只回显
+    local want="${1:-}" st iid lb
+    local -a labels=()
+    while IFS='|' read -r st iid lb; do
+        [[ -n "$want" && "$st" != "$want" ]] && continue
+        [[ -n "$lb" ]] && labels+=("$lb")
+    done
+    local out="" i
+    for ((i = 0; i < ${#labels[@]} && i < 10; i++)); do
+        [[ -n "$out" ]] && out+=", "
+        out+="${labels[i]}"
+    done
+    if ((${#labels[@]} > 10)); then
+        out+=" (+$((${#labels[@]} - 10)) more)"
+    fi
+    [[ -n "$out" ]] && echo "$out"
+}
+
+sw_result_msg() { # ok ok_labels fail fail_labels → stdout "N updated[: …][, M failed[: …]]"; 只回显
+    local ok="$1" ok_labels="$2" fail="$3" fail_labels="$4"
+    local msg="$ok updated"
+    [[ -n "$ok_labels" ]] && msg+=": $ok_labels"
+    if ((fail > 0)); then
+        msg+=", $fail failed"
+        [[ -n "$fail_labels" ]] && msg+=": $fail_labels"
+    fi
+    echo "$msg"
 }
 
 sw_item_info() {

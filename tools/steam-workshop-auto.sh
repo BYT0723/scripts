@@ -29,21 +29,26 @@ main() {
     fi
 
     auto_log "check appids=${appids[*]} root=$AUTO_ROOT"
-    local summary updates currents skips ok fail fids
-    summary=$(sw_sync_updates "$AUTO_ROOT" anonymous "${appids[@]}") || {
+    local output first rest updates currents skips ok fail fids ok_labels fail_labels msg
+    output=$(sw_sync_updates "$AUTO_ROOT" anonymous "${appids[@]}") || {
         auto_log "check skipped (all SKIP or no candidates)"
         return 0
     }
-    read -r updates currents skips ok fail fids <<<"$summary"
+    first=$(head -n 1 <<<"$output")
+    rest=$(tail -n +2 <<<"$output")
+    read -r updates currents skips ok fail fids <<<"$first"
     auto_log "result updates=$updates current=$currents skipped=$skips"
     if ((updates == 0)); then
         return 0
     fi
-    auto_log "done ok=$ok fail=$fail fids=$fids"
+    ok_labels=$(sw_label_list OK <<<"$rest")
+    fail_labels=$(sw_label_list FAIL <<<"$rest")
+    msg=$(sw_result_msg "$ok" "$ok_labels" "$fail" "$fail_labels")
+    auto_log "done $msg"
     if ((fail == 0)); then
-        system-notify normal "Steam Workshop" "Auto update done"$'\n'"$ok updated"
+        system-notify normal "Steam Workshop" "Auto update done"$'\n'"$msg"
     else
-        system-notify critical "Steam Workshop" "Auto update done"$'\n'"$ok updated, $fail failed: $fids"
+        system-notify critical "Steam Workshop" "Auto update done"$'\n'"$msg"
     fi
 }
 

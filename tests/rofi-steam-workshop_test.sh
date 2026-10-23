@@ -108,6 +108,7 @@ wait
 check "update: 逐条下载且 appname 正确派生" 'grep -q "DL:431960|111|testuser|WallpaperEngine" "$TEST_DIR/dl.log" && grep -q "DL:431960|666|testuser|431960" "$TEST_DIR/dl.log"'
 check "update: 成功后删源目录" '[[ ! -e $TEST_DIR/uproot/WallpaperEngine_431960/111 && ! -e $TEST_DIR/uproot/steamapps/workshop/content/431960/666 ]]'
 check "update: 汇总成功通知" 'grep -q "2 updated" "$NOTIFY_LOG"'
+check "update: 成功通知带 id+名称" 'grep -q "WallpaperEngine_431960/111" "$NOTIFY_LOG" && grep -q "431960/666" "$NOTIFY_LOG"'
 check "update: 开跑有 Updating 反馈" 'grep -q "Updating 2 item(s)" "$NOTIFY_LOG"'
 
 mkdir -p "$TEST_DIR/uproot2/A_1/111" "$TEST_DIR/uproot2/A_1/222"
@@ -121,7 +122,8 @@ handle_update
 wait
 unset SW_DOWNLOAD_FAIL_ID
 check "update: scope 透传给检查" 'grep -q "CHECK:$TEST_DIR/uproot2|A_1" "$TEST_DIR/check.log"'
-check "update: 失败汇总含 id 且成功源已删" 'grep -q "1 updated, 1 failed: 222" "$NOTIFY_LOG" && [[ ! -e $TEST_DIR/uproot2/A_1/111 && -e $TEST_DIR/uproot2/A_1/222 ]]'
+check "update: 失败汇总含标签且成功源已删" 'grep -q "1 updated: A_1/111, 1 failed: A_1/222" "$NOTIFY_LOG" && [[ ! -e $TEST_DIR/uproot2/A_1/111 && -e $TEST_DIR/uproot2/A_1/222 ]]'
+check "update: 失败通知带 id+名称" 'grep -q "A_1/111" "$NOTIFY_LOG" && grep -q "A_1/222" "$NOTIFY_LOG"'
 
 reset_marks
 MODULE_SUB_RET="All Apps"

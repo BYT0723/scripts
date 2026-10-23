@@ -313,7 +313,9 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `sw_check_updates()` | steam-workshop.sh `handle_update` / auto (scope 为空=全部, 完整目录名精确匹配, 纯数字/app 后缀解析为 appid 后同 app 的 flat+deep 一并纳入; 枚举 flat 新/老式 + legacy 深, 非数字叶跳过;逐条 `sw_api_time` 比 `mtime`, 输出 `UPDATE\|…/CURRENT\|…/SKIP\|…` 排序行; 无候选或根非法返回 1) |
 | `_sw_dir_appid()` | sw_check_updates (目录名 → appid 唯一来源: 纯数字直接用, 取 `_<digits>` 后缀, 否则空) |
 | `sw_run_updates()` | sw_sync_updates (stdin UPDATE 行逐条 `sw_download`+删源, stdout `ok fail[ fids...]`, 只回显不 notify) |
-| `sw_sync_updates()` | steam-workshop.sh `handle_update` 后台子 shell / auto (公共编排: `root [user] [scope...]` 逐 scope 检查合并 → 计数 UPDATE/CURRENT/SKIP → UPDATE 行喂 `sw_run_updates`; stdout `updates currents skips ok fail[ fids...]`, 无候选返回 1, 只回显不 notify) |
+| `sw_sync_updates()` | steam-workshop.sh `handle_update` 后台子 shell / auto (公共编排: `root [user] [scope...]` 逐 scope 检查合并 → 计数 UPDATE/CURRENT/SKIP → UPDATE 行喂 `sw_run_updates`; stdout 首行 `updates currents skips ok fail[ fids...]` + 明细 `OK\|itemid\|label`/`FAIL\|itemid\|label` (label=`父目录名/itemid` 纯本地推导, 如 `WallpaperEngine_431960/111`), 无候选返回 1, 只回显不 notify) |
+| `sw_label_list()` | `handle_update` 后台子 shell / auto (`[OK\|FAIL]` + stdin 明细行 → `label[, …]` 最多列 10, 余 `(+N more)`; 只回显) |
+| `sw_result_msg()` | `handle_update` 后台子 shell / auto (`ok ok_labels fail fail_labels` → `N updated[: …][, M failed[: …]]` 汇总文案; 只回显) |
 
 ### rofi/scripts/yt-dlp-wrapper.sh
 

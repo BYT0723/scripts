@@ -121,28 +121,33 @@ handle_update() {
     user=$(_pick_user) || return
     system-notify low "Steam Workshop" "Checking for updates"$'\n'"$sel"
     (
-        local summary updates currents skips ok fail fids
+        local output first rest updates currents skips ok fail fids ok_labels fail_labels msg
         if [[ -z "$scope" ]]; then
-            summary=$(sw_sync_updates "$root" "$user") || {
+            output=$(sw_sync_updates "$root" "$user") || {
                 system-notify normal "Steam Workshop" "No downloads yet"$'\n'"$root"
                 return
             }
         else
-            summary=$(sw_sync_updates "$root" "$user" "$scope") || {
+            output=$(sw_sync_updates "$root" "$user" "$scope") || {
                 system-notify normal "Steam Workshop" "No downloads yet"$'\n'"$scope"
                 return
             }
         fi
-        read -r updates currents skips ok fail fids <<<"$summary"
+        first=$(head -n 1 <<<"$output")
+        rest=$(tail -n +2 <<<"$output")
+        read -r updates currents skips ok fail fids <<<"$first"
         if [[ "$updates" -eq 0 ]]; then
             system-notify normal "Steam Workshop" "All up to date${skips:+ ($skips skipped)}"
             return
         fi
         system-notify low "Steam Workshop" "Updating $updates item(s)..."
+        ok_labels=$(sw_label_list OK <<<"$rest")
+        fail_labels=$(sw_label_list FAIL <<<"$rest")
+        msg=$(sw_result_msg "$ok" "$ok_labels" "$fail" "$fail_labels")
         if [[ "$fail" -eq 0 ]]; then
-            system-notify normal "Steam Workshop" "Update done"$'\n'"$ok updated"
+            system-notify normal "Steam Workshop" "Update done"$'\n'"$msg"
         else
-            system-notify critical "Steam Workshop" "Update done"$'\n'"$ok updated, $fail failed: $fids"
+            system-notify critical "Steam Workshop" "Update done"$'\n'"$msg"
         fi
     ) &
 }

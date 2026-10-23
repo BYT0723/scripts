@@ -77,6 +77,7 @@ export STEAMCMD_MODE=success API_DYNAMIC=1 UPDATED_IDS="111 444" DELETED_IDS=""
 run_auto
 check "auto: 有更新则下载 (匿名, 仅 431960)" 'grep -q "+workshop_download_item 431960 111" "$TEST_DIR/steamcmd.args" && grep -q "+login anonymous" "$TEST_DIR/steamcmd.args" && ! grep -q "workshop_download_item 431960 444" "$TEST_DIR/steamcmd.args"'
 check "auto: 汇总通知" 'grep -q "Auto update done" "$TEST_DIR/notify.log" && grep -q "1 updated" "$TEST_DIR/notify.log"'
+check "auto: 通知带 id+名称" 'grep -q "WallpaperEngine_431960/111" "$TEST_DIR/notify.log"'
 check "auto: 日志记录检查与结果" 'grep -q "appids=431960" "$TEST_DIR/auto.log" && grep -q "updates=1" "$TEST_DIR/auto.log"'
 unset API_DYNAMIC UPDATED_IDS DELETED_IDS
 
