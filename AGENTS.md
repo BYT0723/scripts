@@ -45,7 +45,7 @@ tools/steam-workshop-auto.sh ◄──autostart.sh 后台直起──► sw_sync
 rofi/scripts/yt-dlp-wrapper.sh ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh, tools/yt-dlp.sh
 
 rofi/scripts/quicklinks-mode.sh──sources──► utils/form.sh, utils/notify.sh, utils/url.sh, utils/string.sh, rofi/scripts/lib-module.sh (module_confirm); ──挂载于── rofi/launchers/type-3/launcher.sh (combi 模式 quicklinks modi)
-rofi/scripts/steam-workshop.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh, tools/steam-workshop.sh; ──calls──► steamcmd (+login <user> +workshop_download_item, 后台子 shell + system-notify)
+rofi/scripts/steam-workshop.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh, tools/steam-workshop.sh; ──calls──► steamcmd (+login anonymous 优先, 认证失败才 +login <user> 重试, +workshop_download_item, 后台子 shell + system-notify)
 rofi/scripts/module.sh      ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/wallpaper.sh   ──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh, utils/notify.sh, tools/wallpaper-lib.sh, tools/wallpaper-render.sh
 rofi/scripts/notification.sh──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh
@@ -308,7 +308,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `sw_item_info()`      | steam-workshop.sh `_go` (一次抓页返回 `appid\|app名\|资源名`; 页面无 appid → WebAPI 兜底 → 都失败才手输) |
 | `sw_list_users()`   | steam-workshop.sh `_pick_user` (解析 loginusers.vdf `AccountName\|PersonaName`, Timestamp 倒序; 0→anonymous, 1→直用, N→rofi 选) |
 | `sw_safe_app()`     | sw_download (app 名去空格/非法字符作扁平首层应用部分, `.`/`..`/空回退 appid, 仍非法回退 `unknown`) |
-| `sw_download()`     | steam-workshop.sh `_download` / `handle_update` 循环 (隔离根 `STEAMCMD_INSTALL_DIR`(兼容 `STEAM_WORKSHOP_DIR`, 缺省 `~/Downloads/steam-workshop`) 经 `+force_install_dir` 写入, 自动 `mkdir -p`; 成功后 `mv` 深路径到扁平 `<隔离根>/<safe>_<appid>/<itemid>`(无 app 名时首层即 appid) 并返回扁平路径, `mv` 后逐层回收深路径空架子到隔离根为止(保留 `.acf` 清单); 非数字 appid/itemid 直接 rc=1; 2=认证失败提示终端登录, 1=其他失败) |
+| `_sw_attempt()`     | sw_download (单次 steamcmd 跑完即分类: stdout 原始落盘路径, rc 0/2/1; 扁平搬迁由 sw_download 在成功那次统一做; 复用 rc=2 正则) |
+| `sw_download()`     | steam-workshop.sh `_download` / `handle_update` 循环 (隔离根 `STEAMCMD_INSTALL_DIR`(兼容 `STEAM_WORKSHOP_DIR`, 缺省 `~/Downloads/steam-workshop`) 经 `+force_install_dir` 写入, 自动 `mkdir -p`; **anonymous 永远先试** (公开条目零登录、不顶 GUI), user 非 anonymous 且首次认证失败时经 `_sw_attempt` 第二次 `+login <user>` 重试, 非认证失败不重试 (只打最终失败的 log); 成功后 `mv` 深路径到扁平 `<隔离根>/<safe>_<appid>/<itemid>`(无 app 名时首层即 appid) 并返回扁平路径, `mv` 后逐层回收深路径空架子到隔离根为止(保留 `.acf` 清单); 非数字 appid/itemid 直接 rc=1 (不调 steamcmd); 2=认证失败提示终端登录, 1=其他失败) |
 | `sw_api_time()`     | sw_check_updates (单条 GetPublishedFileDetails 取 `appid\|time_updated`, 需 jq) |
 | `sw_check_updates()` | steam-workshop.sh `handle_update` / auto (scope 为空=全部, 完整目录名精确匹配, 纯数字/app 后缀解析为 appid 后同 app 的 flat+deep 一并纳入; 枚举 flat 新/老式 + legacy 深, 非数字叶跳过;逐条 `sw_api_time` 比 `mtime`, 输出 `UPDATE\|…/CURRENT\|…/SKIP\|…` 排序行; 无候选或根非法返回 1) |
 | `_sw_dir_appid()` | sw_check_updates (目录名 → appid 唯一来源: 纯数字直接用, 取 `_<digits>` 后缀, 否则空) |
@@ -334,11 +335,11 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 
 | 函数                 | 调用者                                              |
 | -------------------- | --------------------------------------------------- |
-| `_pick_user()`       | steam-workshop.sh `_go` (0 用户→anonymous, 1→直用, N→`module_sub_rofi` 选 `acc — pers`, ESC 返回 1) |
+| `_pick_user()`       | steam-workshop.sh `_go` 手动 AppID 分支 (0 用户→anonymous, 1→直用, N→`module_sub_rofi` 选 `acc — pers`, ESC 返回 1; 公开条目与 `handle_update` 不再调用) |
 | `_download()`        | steam-workshop.sh `_go` (后台下载 + notify: 标题 `资源名 — App名`, appname 透传 sw_download 作扁平应用部分; 0→Done+`Open folder` action (notify-send -A, 点击 `xdg-open` 落盘路径), 2→critical 终端登录指令, 其他→critical rc) |
-| `_go()`              | steam-workshop.sh handle_download (parse→info→user→download 全链) |
+| `_go()`              | steam-workshop.sh handle_download (parse→info→user→download 全链; 公开条目 `user=anonymous` 跳过 `_pick_user`, 手动 AppID 分支仍选用户) |
 | `handle_download()`  | steam-workshop.sh (剪贴板合法直下, 否则 `module_input` 预填剪贴板供输入, 空输入返回) |
-| `handle_update()`    | steam-workshop.sh (scope 子菜单 All/各 app → `_pick_user` 一次 → Checking 通知 → 后台子 shell 内 `sw_sync_updates`(无候选提示 No downloads yet → 0 条提示 up-to-date → 有更新直接 Updating 通知再跑下载, 无 `module_confirm`), 成功且路径变化删源, 汇总成功/失败 id) |
+| `handle_update()`    | steam-workshop.sh (scope 子菜单 All/各 app → 固定 `user=anonymous` (sw_download 内部已 anonymous-first, gated 条目失败进 FAIL 名单) → Checking 通知 → 后台子 shell 内 `sw_sync_updates`(无候选提示 No downloads yet → 0 条提示 up-to-date → 有更新直接 Updating 通知再跑下载, 无 `module_confirm`), 成功且路径变化删源, 汇总成功/失败 id) |
 | `handle_open()`      | steam-workshop.sh (建隔离根(失败 critical)后 `xdg-open`) |
 
 ### rofi/scripts/wallpaper.sh
