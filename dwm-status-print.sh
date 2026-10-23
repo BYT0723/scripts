@@ -250,9 +250,15 @@ print_speed() {
     # interface_name / interface_type / interface_ipv4 / ifrxspeed / iftxspeed
     read iface iftype ipv4 rx tx <"$network_traffic_path"
 
+    local tx_fg="$white" rx_fg="$white"
+    ((tx >= 2097152)) && tx_fg="$yellow" # 2MiB/s 上行
+    ((rx >= 5242880)) && rx_fg="$yellow" # 5MiB/s 下行
+
+    printf "^c$tx_fg^"
     ((tx > 0)) && printf "${icons[traffic_tx]} " || printf "  "
     human_speed $tx
     [ -f "$HOME/.local/state/dwm/status/net-traffic-collapse" ] && printf "$STACKED_SPLIT" || printf " "
+    printf "^c$rx_fg^"
     ((rx > 0)) && printf "${icons[traffic_rx]} " || printf "  "
     human_speed $rx
 }
