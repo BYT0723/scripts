@@ -76,6 +76,7 @@ _go() {
     }
     if info=$(sw_item_info "$url"); then
         IFS='|' read -r appid appname title <<<"$info"
+        user="anonymous"
     else
         mesg="Could not detect AppID for item $itemid, enter manually"
         if sw_page_gated "$(sw_fetch_page "$url")"; then
@@ -85,11 +86,11 @@ _go() {
         [[ -z "$appid" ]] && return
         appname=""
         title=""
+        user=$(_pick_user) || return
     fi
     label="${title:-item $itemid}"
     [[ ${#label} -gt 65 ]] && label="${label:0:62}..."
     [[ -n "$appname" ]] && label="$label — $appname"
-    user=$(_pick_user) || return
     _download "$appid" "$itemid" "$user" "$label" "$appname"
 }
 
@@ -106,7 +107,7 @@ handle_download() {
 
 handle_update() {
     local root="${STEAMCMD_INSTALL_DIR:-$HOME/Downloads/steam-workshop}"
-    local sel scope="" user
+    local sel scope="" user="anonymous"
     if [[ ! -d "$root/steamapps/workshop/content" ]] \
         && ! find "$root" -mindepth 1 -maxdepth 1 -type d ! -name 'steamapps' -print -quit 2>/dev/null | grep -q .; then
         system-notify normal "Steam Workshop" "No downloads yet"$'\n'"$root"
@@ -118,7 +119,6 @@ handle_update() {
     } | module_sub_rofi "Steam Workshop" "Select scope to update")
     [[ -z "$sel" ]] && return
     [[ "$sel" != "All Apps" ]] && scope="$sel"
-    user=$(_pick_user) || return
     system-notify low "Steam Workshop" "Checking for updates"$'\n'"$sel"
     (
         local output first rest updates currents skips ok fail fids ok_labels fail_labels msg
