@@ -25,6 +25,12 @@ cat >"$FAKE_BIN/steamcmd" <<'EOF'
 echo "$*" >>"${STEAMCMD_ARGS_LOG:-/dev/null}"
 case "${STEAMCMD_MODE:-success}" in
 success) mkdir -p "$STEAMCMD_OUTDIR/3810650535"; echo "Success. Downloaded item 3810650535 to \"$STEAMCMD_OUTDIR/3810650535\" (100 bytes)" ;;
+auth-once) # 首次认证失败、之后成功 (anonymous-first fallback 用; 调用计数经文件跨进程)
+    if [[ -f "${STEAMCMD_FIRST_DONE:-/dev/null}" ]]; then
+        mkdir -p "$STEAMCMD_OUTDIR/3810650535"; echo "Success. Downloaded item 3810650535 to \"$STEAMCMD_OUTDIR/3810650535\" (100 bytes)"
+    else
+        : >"$STEAMCMD_FIRST_DONE"; echo "ERROR! Download item 3810650535 failed (Access Denied)."; echo "ERROR: Invalid Password"
+    fi ;;
 auth) echo "ERROR! Download item 3810650535 failed (Access Denied)."; echo "ERROR: Invalid Password" ;;
 error) echo "ERROR! Download item 3810650535 failed (Connection Timeout)." ;;
 esac
@@ -232,6 +238,33 @@ export STEAMCMD_MODE=auth
 assert_cond "download: auth failure rc=2" 'sw_download 431960 3810650535 someuser >/dev/null 2>&1; [[ $? -eq 2 ]]'
 export STEAMCMD_MODE=error
 assert_cond "download: other failure rc=1" 'sw_download 431960 3810650535 anonymous >/dev/null 2>&1; [[ $? -eq 1 ]]'
+# ---- download: anonymous-first fallback ----
+export STEAMCMD_MODE=success
+export STEAMCMD_OUTDIR="$TEST_DIR/real"
+rm -f "$STEAMCMD_ARGS_LOG"
+_out=$(sw_download 431960 3810650535 someuser "Wallpaper Engine"); _rc=$?
+assert_cond "download: authed user succeeds rc=0" '[[ $_rc -eq 0 ]]'
+assert_cond "download: public item builds no real session" '! grep -Fq "+login someuser" "$STEAMCMD_ARGS_LOG"'
+assert_cond "download: first attempt is anonymous" 'grep -Fq "+login anonymous" "$STEAMCMD_ARGS_LOG"'
+assert_cond "download: single steamcmd call when anonymous works" '[[ $(grep -c . "$STEAMCMD_ARGS_LOG" 2>/dev/null || echo 0) -eq 1 ]]'
+export STEAMCMD_FIRST_DONE="$TEST_DIR/first.done"
+rm -f "$STEAMCMD_FIRST_DONE"
+export STEAMCMD_MODE=auth-once
+rm -f "$STEAMCMD_ARGS_LOG"
+_out=$(sw_download 431960 3810650535 someuser "Wallpaper Engine"); _rc=$?
+assert_cond "download: fallback retry succeeds rc=0" '[[ $_rc -eq 0 ]]'
+assert_cond "download: retry uses real login" 'grep -Fq "+login someuser" "$STEAMCMD_ARGS_LOG"'
+assert_cond "download: two steamcmd calls on fallback" '[[ $(grep -c . "$STEAMCMD_ARGS_LOG" 2>/dev/null || echo 0) -eq 2 ]]'
+assert_cond "download: fallback lands flat" '[[ $_out == "$STEAMCMD_INSTALL_DIR/WallpaperEngine_431960/3810650535" ]]'
+export STEAMCMD_MODE=auth
+rm -f "$STEAMCMD_ARGS_LOG"
+sw_download 431960 3810650535 anonymous >/dev/null 2>&1; _rc=$?
+assert_cond "download: anonymous auth failure has none to retry" '[[ $_rc -eq 2 && $(grep -c . "$STEAMCMD_ARGS_LOG" 2>/dev/null || echo 0) -eq 1 ]]'
+export STEAMCMD_MODE=error
+rm -f "$STEAMCMD_ARGS_LOG"
+sw_download 431960 3810650535 someuser >/dev/null 2>&1; _rc=$?
+assert_cond "download: non-auth failure triggers no retry" '[[ $_rc -eq 1 && $(grep -c . "$STEAMCMD_ARGS_LOG" 2>/dev/null || echo 0) -eq 1 ]]'
+export STEAMCMD_MODE=success
 # compat + precedence + default
 export STEAMCMD_MODE=success
 rm -f "$STEAMCMD_ARGS_LOG"
