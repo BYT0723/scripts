@@ -12,20 +12,18 @@ icons["sing-box"]=""
 icons["volume"]=""
 icons["volume_off"]=""
 icons["volume_mute"]=""
-icons["traffic_rx"]=""
-icons["traffic_tx"]=""
+icons["traffic_rx"]=""
+icons["traffic_tx"]=""
 icons["screencast"]=""
 
 print_date() {
-    # timeIcons=('' '' '' '' '' '' '' '' '' '' '' '')
-    # local hour=$(date '+%l')
+    timeIcons=('' '' '' '' '' '' '' '' '' '' '' '')
+    local hour=$(date '+%l')
+
     if [ -f "$HOME/.local/state/dwm/status/date-collapse" ]; then
-        date '+%R'
-        # date '+'${timeIcons[$((hour % 12))]}' %R'
+        printf "%s^s^%s" "$(date '+%m/%d (%a)')" " ${timeIcons[$((hour % 12))]} $(date '+%R')"
     else
-        date '+%m/%d(%a) %R'
-        # date '+ %m/%d(%a) '${timeIcons[$((hour % 12))]}' %R'
-        # date '+ %Y-%m-%d(%a) '${timeIcons[$((hour % 12))]}' %R'
+        printf "%s %s" "$(date '+%m/%d(%a)')" "${timeIcons[$((hour % 12))]} $(date '+%R')"
     fi
 }
 
@@ -251,20 +249,11 @@ print_speed() {
     # interface_name / interface_type / interface_ipv4 / ifrxspeed / iftxspeed
     read iface iftype ipv4 rx tx <"$network_traffic_path"
 
-    if [ -f "$HOME/.local/state/dwm/status/net-traffic-collapse" ]; then
-        [[ "$iftype" == "wireless" ]] && printf " " || printf " "
-        # printf "[$ipv4]"
-        printf " "
-        ((rx > 0)) && printf "${icons[traffic_rx]}" || printf " "
-        printf " "
-        ((tx > 0)) && printf "${icons[traffic_tx]}" || printf " "
-    else
-        ((rx > 0)) && printf "${icons[traffic_rx]} " || printf "  "
-        human_speed $rx
-        printf " "
-        ((tx > 0)) && printf "${icons[traffic_tx]} " || printf "  "
-        human_speed $tx
-    fi
+    ((tx > 0)) && printf "${icons[traffic_tx]} " || printf "  "
+    human_speed $tx
+    [ -f "$HOME/.local/state/dwm/status/net-traffic-collapse" ] && printf "^s^" || printf " "
+    ((rx > 0)) && printf "${icons[traffic_rx]} " || printf "  "
+    human_speed $rx
 }
 
 print_mail() {
