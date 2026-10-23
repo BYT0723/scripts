@@ -139,8 +139,9 @@ declare -A actions=(
     [$ST_DISK,$left]='notify-send -c status -h string:x-dunst-stack-tag:diskInformation "💾 Storage" "$(LANG=en_US.UTF-8 df -h -x tmpfs -x devtmpfs)"'
     [$ST_CPU,$left]='D="$HOME/.local/state/dwm/status"; [[ -f "$D/cpu-collapse" ]] && rm -f "$D/cpu-collapse" || { mkdir -p "$D" && touch "$D/cpu-collapse"; }'
     [$ST_CPU,$right]=_cpu_monitor
-    [$ST_WEATHER,$left]='W="$HOME/.local/state/dwm/cache"; notify-send -c status -i weather -h string:x-dunst-stack-tag:weatherForecast "Weather Forecast" "当前天气:$(cat "$W/weather")\n\n$(cat "$W/weather-forecast")"'
+    [$ST_WEATHER,$left]='D="$HOME/.local/state/dwm/status"; [[ -f "$D/weather-collapse" ]] && rm -f "$D/weather-collapse" || { mkdir -p "$D" && touch "$D/weather-collapse"; }'
     [$ST_WEATHER,$middle]='xdg-open https://wttr.in/?T'
+    [$ST_WEATHER,$right]='W="$HOME/.local/state/dwm/cache"; notify-send -c status -i weather -h string:x-dunst-stack-tag:weatherForecast "Weather Forecast" "当前天气:$(tr "\t" " " < "$W/weather")\n\n$(cat "$W/weather-forecast")"'
     [$ST_MPD,$left]='"$ROFI_SCRIPT_DIR/mpd.sh"'
     [$ST_MPD,$middle]='mpd --kill'
     [$ST_MPD,$scroll_up]='_mpd_volume up'

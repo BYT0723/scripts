@@ -65,11 +65,6 @@ mpd_status_path="$cache_dir/mpd-status"
 
 mail_account_config=$HOME/.config/dwm/mail.json
 
-# MPD
-mpd_single_pane=0
-
-# Datetime
-
 source "$(dirname "${BASH_SOURCE[0]}")/dwm-status-print.sh"
 update_cpu_daemon() {
     local interval=${1:-2}

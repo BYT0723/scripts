@@ -205,21 +205,15 @@ print_cpu() {
     print_temperature
 }
 
-max_len_output() {
-    local input=$1
-    local len=${2:-16}
-    [ ${#input} -le $len ] && printf "%s" "$input" || printf "%s..." "${input:0:len-3}"
-}
-
 print_weather() {
-    local emoji label temp top
+    local emoji label temp
     IFS=$'\t' read -r emoji label temp <"$weather_path"
     [ -n "$emoji" ] || return
-    if [ -n "$temp" ]; then
-        top=$(max_len_output "$emoji $label" 10)
-        printf "%s ^s^%s" "$top" "$(max_len_output "$temp" 10)"
+
+    if [ -f "$HOME/.local/state/dwm/status/weather-collapse" ]; then
+        printf "%s^s^%s" "$emoji $label" " $temp"
     else
-        max_len_output "$emoji" # 无 tab = 旧单行缓存，原样显示
+        printf "%s %s" "$emoji $label" " $temp"
     fi
 }
 
@@ -234,11 +228,7 @@ print_mpd() {
     # mpd play status
     [[ $state == "playing" ]] && fg="$blue"
 
-    if [ $mpd_single_pane -gt 0 ]; then
-        max_len_output "${icons[mpd]} $songname"
-    else
-        printf "^c$fg^${icons[mpd]}"
-    fi
+    printf "^c$fg^${icons[mpd]}"
 }
 
 human_speed() {

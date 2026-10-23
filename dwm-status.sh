@@ -39,7 +39,6 @@ panes() {
     local mpd_str=$(print_mpd)
 
     [ -n "$weather_str" ] && panes+="$(new_pane $black "${ST_WEATHER_BYTE}^c$blue^$weather_str")"
-    [ $mpd_single_pane -gt 0 ] && [ -n "$mpd_str" ] && panes+="$(new_pane $black "${ST_MPD_BYTE}$mpd_str")"
 
     # net traffic monitor pane
     panes+="$(new_pane $black "${ST_NET_BYTE}^c$white^$(print_speed)")"
@@ -51,10 +50,7 @@ panes() {
         panes+="$(new_pane $black "${ST_RSS_BYTE}$rss_str" "${ST_MAIL_BYTE}$mail_str" "${ST_NOTIFY_BYTE}$notification_str")"
     fi
 
-    # one icon tools pane
-    [ "$mpd_single_pane" -eq 0 ] && mpd_part="${ST_MPD_BYTE}$mpd_str"
-
-    panes+="$(new_pane $black "${ST_SCREENCAST_BYTE}$(print_screencast)" "${ST_SINGBOX_BYTE}$(print_singbox)" "$mpd_part" "${ST_VOLUME_BYTE}$(print_volume)" "${ST_BATTERY_BYTE}$(print_battery)")"
+    panes+="$(new_pane $black "${ST_SCREENCAST_BYTE}$(print_screencast)" "${ST_SINGBOX_BYTE}$(print_singbox)" "${ST_MPD_BYTE}$mpd_str" "${ST_VOLUME_BYTE}$(print_volume)" "${ST_BATTERY_BYTE}$(print_battery)")"
     # datetime pane
     panes+="$(new_pane $black "${ST_DATE_BYTE}^c$cyan^$(print_date)")"
 
