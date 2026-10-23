@@ -17,6 +17,7 @@ SCRCPY_FLAGS=" \
 --video-bit-rate=8M \
 --max-size=1600 \
 --max-fps=60 \
+--audio-buffer=200 \
 --keyboard=uhid \
 --turn-screen-off \
 --power-off-on-close \
