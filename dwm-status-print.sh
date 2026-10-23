@@ -212,8 +212,15 @@ max_len_output() {
 }
 
 print_weather() {
-    read -r weather <"$weather_path"
-    [ -n "$weather" ] && max_len_output "$weather"
+    local emoji label temp top
+    IFS=$'\t' read -r emoji label temp <"$weather_path"
+    [ -n "$emoji" ] || return
+    if [ -n "$temp" ]; then
+        top=$(max_len_output "$emoji $label" 10)
+        printf "%s ^s^%s" "$top" "$(max_len_output "$temp" 10)"
+    else
+        max_len_output "$emoji" # 无 tab = 旧单行缓存，原样显示
+    fi
 }
 
 # Music Player Daemon

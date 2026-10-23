@@ -218,7 +218,7 @@ ipinfo-openMeteo() {
             .current_weather.weathercode as $code |
             .current_weather.temperature as $temp |
             .current_weather_units.temperature as $unit |
-            "\($code | wmo_emoji) \($temp)\($unit) (\($code | wmo_label))"
+            "\($code | wmo_emoji)\t\($code | wmo_label)\t\($temp)\($unit)"
         '
 }
 
