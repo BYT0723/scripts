@@ -62,15 +62,20 @@ keyboard_setting() {
 check_autorandr_xsetup() {
     local lock=/tmp/dwm-autostart-xsetup-autorandr-checked
     local xsetup=/usr/share/sddm/scripts/Xsetup
+    local bin=/usr/local/bin/autorandr-sddm
+    local action
 
     [ -f "$lock" ] && return 0
-    trap 'rm -f "$lock"' EXIT
+    : >"$lock"
 
-    grep -qF "autorandr --change" "$xsetup" 2>/dev/null && return
+    command -v autorandr >/dev/null || return 0
+    if [ ! -f "$bin" ]; then
+        pkexec /bin/sh -c "printf '%s\n' '#!/bin/sh' 'HOME=$HOME XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config} autorandr --change' >>\"$bin\" && chmod +x \"$bin\""
+    fi
 
-    xsetup=/usr/share/sddm/scripts/Xsetup
-    action=$(notify-send -u critical -A 'edit,编辑文件' "SDDM Xsetup" "请在 $xsetup 中添加：autorandr --change")
-    [[ -n "$action" ]] && pkexec "/bin/sh" "-c" "echo \"autorandr --change\" >>$xsetup"
+    grep -qF "$bin" "$xsetup" 2>/dev/null && return 0
+    action=$(notify-send -u critical -A 'edit,编辑文件' "SDDM Xsetup" "点击去配置SDDM显示器")
+    [ -n "$action" ] && pkexec /bin/sh -c "echo \"$bin\" >>\"$xsetup\""
 }
 
 keyboard_setting
