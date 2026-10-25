@@ -55,7 +55,7 @@ rofi/scripts/screencast.sh  ──sources──► rofi/scripts/lib-module.sh, r
 rofi/scripts/media-scraping.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/mpd.sh         ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh; ──requires─► MPD `readpicture` 协议 (nc / bash /dev/tcp, 环境变量 MPD_HOST/MPD_PORT 默认 localhost:6600); 封面缓存 `~/.cache/dwm/mpd-cover/mpd-cover-<uri-hash>.jpg` (按歌曲 uri cksum 绑定, 命中复用)
 rofi/scripts/sing-box.sh    ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh
-rofi/scripts/scrcpy.sh    ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
+rofi/scripts/scrcpy.sh    ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh
 rofi/scripts/theme.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, tools/theme.sh
 
 # 死代码 (未被任何脚本 source)
@@ -74,7 +74,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 ### utils/notify.sh → system-notify()
 
 被以下脚本调用:
-`brightness.sh` `calendar.sh` `keyboard.sh` `lock.sh` `volume.sh` `dwm-status-tools.sh` `dwm-statuscmd.sh` `sing-box.sh` `wallpaper.sh` `tools/theme.sh` `yt-dlp-wrapper.sh`
+`brightness.sh` `calendar.sh` `keyboard.sh` `lock.sh` `volume.sh` `dwm-status-tools.sh` `dwm-statuscmd.sh` `sing-box.sh` `wallpaper.sh` `tools/theme.sh` `yt-dlp-wrapper.sh` `scrcpy.sh` (tool-notify)
 
 ### utils/monitor.sh
 
@@ -215,8 +215,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `module_parse()`      | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, theme.sh, yt-dlp-wrapper.sh, wallpaper.sh, scrcpy.sh, mpd.sh (读取注册表)                                                                                                                                                                          |
 | `module_loop()`       | module.sh, sddm.sh, screenshot.sh, media-scraping.sh, screencast.sh, scrcpy.sh, wallpaper.sh (while 循环持续调用, ESC 退出), theme.sh, yt-dlp-wrapper.sh (主循环, 唯一入口) |
-| `module_sub_rofi()`   | module.sh (handle_network, handle_bluetooth, handle_audio_output 的子菜单), sddm.sh (handle_set_theme, handle_set_config 的子菜单), scrcpy.sh (handle_select_device 的子菜单), wallpaper.sh (monitor_selection / handle_group 的子菜单), sing-box.sh (主菜单), yt-dlp-wrapper.sh (格式/清晰度子菜单) |
-| `module_input()`      | yt-dlp-wrapper.sh (URL 输入框), wallpaper.sh (handle_group 组名输入)                                                                                                                                                                                                                                 |
+| `module_sub_rofi()`   | module.sh (handle_network, handle_bluetooth, handle_audio_output 的子菜单), sddm.sh (handle_set_theme, handle_set_config 的子菜单), scrcpy.sh (handle_lan_scan 的子菜单), wallpaper.sh (monitor_selection / handle_group 的子菜单), sing-box.sh (主菜单), yt-dlp-wrapper.sh (格式/清晰度子菜单) |
+| `module_input()`      | yt-dlp-wrapper.sh (URL 输入框), wallpaper.sh (handle_group 组名输入), scrcpy.sh (handle_wireless_connect/pair 地址+码输入, handle_lan_scan 配对码输入经 _pair_with_addr)                                                                                                                                                                 |
 | `module_multi_rofi()` | wallpaper.sh (handle_group 组成员多选)                                                                                                                                                                                                                                                               |
 | `module_confirm()`   | quicklinks-mode.sh (_delete_link Alt+2 删除确认) |
 
@@ -239,6 +239,20 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 > 不能用 `imagebox`: 它不是真实 widget (rofi 静默当 `box`), `height` 属性被忽略 (box_get_desired_height 只累计 children),
 > 无法保证 1:1。cache 按歌曲 uri cksum 命名放 `~/.cache/dwm/mpd-cover/`, 命中复用不重复拉取。
 > 校验: 主流程 cache 命中判断 `_cover_valid` (不存在/空/损坏均视为 miss) → `rm -f` + 同步拉取 (`fetch_cover` 已优化 ~50ms, 原 `( ... & disown )` 后台异步已移除); 拉取失败回退 `rofi/images/flowers-2.png` 默认图 (透明背景 Nerd Font flowers 图标)。fetch_cover 失败同样删除输出, 不留空文件。
+
+### rofi/scripts/scrcpy.sh (顶层包 main() + `SCRCPY_NO_DISPATCH=1` 测试缝, 抄 dwm-windowhook.sh 先例)
+
+| 函数 | 调用者 |
+| ---- | ------ |
+| `_mdns_scan()` | handle_lan_scan (局域网 mDNS 发现, 输出 `name\|type\|addr`; `mdns check` 失败返回 1) |
+| `_short_serial()` | _get_devices / handle_lan_scan (显示用短 id: 去 `adb-` 前缀和 `._adb-tls-connect._tcp` 后缀) |
+| `_filter_dup_devices()` | main() (`_get_devices` 后过滤: 同一手机的手动 `ip:port` + 自动 `name._tcp` 两个 entry 按 `ro.serialno` 分组, 只留手动连的行; 拿不到序列号的不合并) |
+| `_device_friendly_name()` | _get_devices (无线设备行), _connect_addr (成功通知) (`settings get global device_name` → `getprop ro.product.model` 回退, `timeout 3` 防挂, 拿不到返回空; 脚本内所有 adb 调用一律 `</dev/null`——adb 会偷读 `while read` 的 stdin 吞掉后面的行) |
+| `_connect_addr()` | handle_lan_scan (connect 分支), handle_wireless_connect (`adb connect` + 通知 + `_connect`) |
+| `_pair_with_addr()` | handle_lan_scan (pairing 分支, 跳过地址输入直问码), handle_wireless_pair (手动地址分支) (pair 成功后按同 IP 的 connect 广播直连 / 配对期间新出现的无线设备直起 (恰好一个才用) / 已在列表的同名设备直起 / 都没有才回退手动输入) |
+| `handle_lan_scan()` | scrcpy.sh (`lan-scan` 注册表行 → 二级子菜单裸 `addr` (只列 pairing 广播, connect 对未配对设备鉴权必失败) → 配对码 → 同 IP 直连/已连直起/回退手动) |
+| `main()` | 主流程 (顶层, `SCRCPY_NO_DISPATCH=1` 时跳过以便测试 source; `while` 循环持续交互, `_connect` 成功置 `_quit` 退出, ESC 退出) / tests/scrcpy-lan-scan_test.sh |
+| `_build_menu()` | main() 每轮调用 (组菜单 + 派发 handler, 状态实时重建) |
 
 ### theme.sh (tools/)
 
