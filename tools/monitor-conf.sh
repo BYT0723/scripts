@@ -12,9 +12,9 @@ SINGLE_MONITOR_MAP["HDMI-1"]="--primary --mode 2560x1440 --rate 144.00 --rotate 
 # monitor map
 declare -A MONITOR_MAP
 
-MONITOR_MAP["eDP-1"]="--primary --mode 1920x1200 --rate 120.00 --rotate normal --scale 1.2x1.2"
-MONITOR_MAP["DP-1"]="--mode 2560x1440 --rate 144.00 --rotate normal --left-of eDP-1"
-MONITOR_MAP["HDMI-1"]="--mode 1920x1080 --rate 144.00 --rotate left --left-of DP-1"
+MONITOR_MAP["eDP-1"]="--primary --mode 1920x1200 --pos 3640x480 --rate 120.00 --rotate normal --scale 1.2x1.2"
+MONITOR_MAP["DP-1"]="--mode 2560x1440 --pos 1080x480 --rate 120.00 --rotate normal"
+MONITOR_MAP["HDMI-1"]="--mode 1920x1080 --pos 0x0 --rate 120.00 --rotate left "
 
 current=$(xrandr | grep " connected " | wc -l)
 
