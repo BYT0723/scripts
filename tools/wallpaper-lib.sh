@@ -72,7 +72,9 @@ config["fps"]=0
 _WALLPAPER_KEYBINDS="${WALLPAPER_KEYBINDS:-$HOME/.config/dwm/wallpaper.keys}"
 
 # 构造并执行 xwallpaper set 命令。
-# 用法: xw_set <type> <rect> <target> <filepath> [<rotate>] [<confname>]
+# 用法: xw_set <type> <rect|-m> <target> <filepath> [<rotate>] [<confname>]
+# rect 传 "-m" 时按输出名设置 (monitor 原生跟踪, 布局变化由 daemon 跟随);
+# 否则按 -g 几何 + --name 设置 (Screen 全屏 / group 并集只能用 -g)。
 # type ∈ image|video|page (page 映射为 xwallpaper 的 web 后端)
 # target 为 xwallpaper 窗口名 (monitor 名 / grp_<组名> / Screen);
 # confname 为 video-render 配置键 (monitor 名 / 组名 / Screen), 默认同 target。
@@ -87,7 +89,12 @@ xw_set() {
     local backend="$type"
     [ "$backend" = "page" ] && backend="web"
 
-    local args=(set "--$backend" -g "$rect" --name "$target")
+    local args
+    if [ "$rect" = "-m" ]; then
+        args=(set "--$backend" -m "$target")
+    else
+        args=(set "--$backend" -g "$rect" --name "$target")
+    fi
     # video / web / scene 都受音量/静音与 keybinds 控制 (image 无 control 不加)
     if [ "$type" = "video" ] || [ "$type" = "page" ] || [ "$type" = "scene" ]; then
         local volume fps

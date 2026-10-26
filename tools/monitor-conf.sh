@@ -12,9 +12,9 @@ SINGLE_MONITOR_MAP["HDMI-1"]="--primary --mode 2560x1440 --rate 144.00 --rotate 
 # monitor map
 declare -A MONITOR_MAP
 
-MONITOR_MAP["eDP-1"]="--primary --mode 1920x1200 --pos 3640x480 --rate 120.00 --rotate normal --scale 1.2x1.2"
-MONITOR_MAP["DP-1"]="--mode 2560x1440 --pos 1080x480 --rate 120.00 --rotate normal"
-MONITOR_MAP["HDMI-1"]="--mode 1920x1080 --pos 0x0 --rate 120.00 --rotate left "
+MONITOR_MAP["eDP-1"]="--primary --mode 1920x1200 --pos 3640x0 --rate 120.00 --rotate normal --scale 1.2x1.2"
+MONITOR_MAP["DP-1"]="--mode 2560x1440 --pos 1080x0 --rate 120.00 --rotate normal"
+MONITOR_MAP["HDMI-1"]="--mode 1920x1080 --pos 0x0 --rate 120.00 --rotate left"
 
 current=$(xrandr | grep " connected " | wc -l)
 
@@ -27,9 +27,10 @@ fi
 cmd=(xrandr)
 
 while read -r monitor; do
+    [[ "$monitor" == "eDP-1" ]] && continue
     cmd+=(--output "$monitor")
 
-    if ((SINGLE_MONITOR_ENABLE > 0)) && [[ -n $SINGLE_MONITOR_NAME ]] && [[ "$name" != "$SINGLE_MONITOR_NAME" ]]; then
+    if ((SINGLE_MONITOR_ENABLE > 0)) && [[ -n $SINGLE_MONITOR_NAME ]] && [[ "$monitor" != "$SINGLE_MONITOR_NAME" ]]; then
         cmd+=(--off)
     else
         cmd+=(${MONITOR_MAP[$monitor]})

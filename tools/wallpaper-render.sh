@@ -23,22 +23,19 @@ set_wallpaper_to_monitor() {
 
     [ -z "$monitor_index" ] && return
 
-    read monitor_index width height x y < <(get_monitor_info_by_index "$monitor_index")
     local mon_name
     mon_name=$(xrandr --listactivemonitors 2>/dev/null | awk -v i="$monitor_index" 'NR>1 && $1+0==i {print $NF; exit}')
+    [ -z "$mon_name" ] && return
 
     # 若该 monitor 属于某组, 清组窗口 (组与成员互斥); mon_name 自身靠同名 set reload
-    if [ -n "$mon_name" ]; then
-        local grp
-        grp=$(group_for_monitor "$mon_name" all)
-        if [ -n "$grp" ]; then
-            xw_clear "grp_${grp// /_}"
-        fi
-    fi
+    local grp
+    grp=$(group_for_monitor "$mon_name" all)
+    [ -n "$grp" ] && xw_clear "grp_${grp// /_}"
 
     xw_clear_screen_and_restore
 
-    xw_apply "$(detect_file_type "$filepath")" "${width}x${height}+${x}+${y}" \
+    # 单 monitor 用 -m 按输出名设置, daemon 在布局变化时原生跟随新几何
+    xw_apply "$(detect_file_type "$filepath")" -m \
         "$mon_name" "$filepath" || return
 }
 

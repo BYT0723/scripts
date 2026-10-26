@@ -49,6 +49,7 @@ case "$*" in
   *set*)
     for a in "$@"; do
       [ "$prev" = "--name" ] && name="$a"
+      [ "$prev" = "-m" ] && name="$a"
       prev="$a"
     done
     [ -z "$name" ] && exit 0
@@ -129,6 +130,16 @@ assert_has() { # haystack needle msg
         FAIL=1
     fi
 }
+assert_lacks() { # haystack needle msg (needle 不应出现)
+    if [[ "$1" != *"$2"* ]]; then
+        echo "ok: $3"
+    else
+        echo "FAIL: $3"
+        echo "  haystack: $(printf '%q' "$1")"
+        echo "  unwanted: $(printf '%q' "$2")"
+        FAIL=1
+    fi
+}
 state_has() { # name msg  -- 断言 state 目录存在该窗口
     if [ -f "$XW_MOCK_STATE/$1.win" ]; then
         echo "ok: $2"
@@ -162,7 +173,8 @@ reset_log
 # ---- Task 1: 图片壁纸到 monitor ----
 echo "== image to monitor =="
 set_wallpaper_to_monitor 0 "$TEST_DIR/img.png"
-assert_has "$(last_call)" 'set --image -g 1920x1080+0+0 --name eDP' "image monitor rect+name"
+assert_has "$(last_call)" 'set --image -m eDP' "image monitor -m name"
+assert_lacks "$(last_call)" '-g' "monitor 未传 -g"
 state_has "eDP" "image latest state written by xwallpaper"
 
 # ---- Task 2: 视频壁纸到 monitor (rotate + keybinds + fps + volume) ----
@@ -174,17 +186,12 @@ cat >"$HOME/.config/dwm/wallpaper.json" <<'EOF'
 EOF
 WALLPAPER_ROTATION=90 set_wallpaper_to_monitor 0 "$TEST_DIR/clip.mp4"
 assert_has "$(last_call)" '--video' "video type"
-if [[ "$(last_call)" == *"--mute"* ]]; then
-    echo "FAIL: volume>0 不应传 --mute"
-    FAIL=1
-else
-    echo "ok: volume>0 未传 --mute"
-fi
+assert_lacks "$(last_call)" '--mute' "volume>0 未传 --mute"
 assert_has "$(last_call)" '--volume 30' "volume passed from monitor video-render.volume"
 assert_has "$(last_call)" '--rotate 90' "rotate passed"
 assert_has "$(last_call)" '--fps 30' "fps from monitor video-render.fps"
 assert_has "$(last_call)" '--keybinds' "keybinds flag present"
-assert_has "$(last_call)" '--name eDP' "video monitor name"
+assert_has "$(last_call)" '-m eDP' "video monitor -m name"
 assert_has "$(cat "$XW_MOCK_STATE/eDP.win" 2>/dev/null)" "video" "video state type"
 assert_has "$(cat "$XW_MOCK_STATE/eDP.win" 2>/dev/null)" "90" "video state rotation"
 
@@ -198,24 +205,9 @@ WALLPAPER_ROTATION= set_wallpaper_to_monitor 0 "$TEST_DIR/clip.mp4"
 local_call="$(last_call)"
 assert_has "$local_call" '--video' "video still works"
 assert_has "$local_call" '--mute' "video muted when volume:0"
-if [[ "$local_call" == *"--volume"* ]]; then
-    echo "FAIL: volume:0 不应传 --volume"
-    FAIL=1
-else
-    echo "ok: volume:0 未传 --volume"
-fi
-if [[ "$local_call" == *"--fps"* ]]; then
-    echo "FAIL: 未配置 fps 时不应传 --fps"
-    FAIL=1
-else
-    echo "ok: 未配置 fps 未传 --fps"
-fi
-if [[ "$local_call" == *"--rotate"* ]]; then
-    echo "FAIL: 空 rotate 不应传 --rotate"
-    FAIL=1
-else
-    echo "ok: 空 rotate 未传 --rotate"
-fi
+assert_lacks "$local_call" '--volume' "volume:0 未传 --volume"
+assert_lacks "$local_call" '--fps' "未配置 fps 未传 --fps"
+assert_lacks "$local_call" '--rotate' "空 rotate 未传 --rotate"
 
 echo "== video default (no video-render) muted =="
 reset_log
@@ -226,12 +218,7 @@ EOF
 WALLPAPER_ROTATION= set_wallpaper_to_monitor 0 "$TEST_DIR/clip.mp4"
 local_call="$(last_call)"
 assert_has "$local_call" '--mute' "default muted when video-render absent"
-if [[ "$local_call" == *"--volume"* ]]; then
-    echo "FAIL: 无 video-render 时不应传 --volume"
-    FAIL=1
-else
-    echo "ok: 无 video-render 未传 --volume"
-fi
+assert_lacks "$local_call" '--volume' "无 video-render 未传 --volume"
 
 echo "== video falls back to config[] defaults when video-render absent =="
 reset_log
@@ -243,12 +230,7 @@ config["fps"]=0
 local_call="$(last_call)"
 assert_has "$local_call" '--volume 40' "config[volume] fallback used"
 assert_has "$local_call" '--fps 24' "config[fps] fallback used"
-if [[ "$local_call" == *"--mute"* ]]; then
-    echo "FAIL: config[volume]>0 时不应传 --mute"
-    FAIL=1
-else
-    echo "ok: config[volume]>0 未传 --mute"
-fi
+assert_lacks "$local_call" '--mute' "config[volume]>0 未传 --mute"
 
 # ---- Task 4: Screen 全屏 ----
 echo "== image to screen =="
@@ -263,7 +245,7 @@ echo "== page to monitor =="
 reset_log
 set_wallpaper_to_monitor 0 "$TEST_DIR/page.html"
 assert_has "$(last_call)" '--web' "page type -> --web"
-assert_has "$(last_call)" '--name eDP' "page monitor name"
+assert_has "$(last_call)" '-m eDP' "page monitor -m name"
 
 # ---- Task 6: group (config 键 = 组名, 窗口名 = grp_<组名>) ----
 echo "== video to group with per-group video-render =="
