@@ -20,7 +20,6 @@
 #   sw_list_users                → stdout "AccountName|PersonaName" 行 (按 Timestamp 倒序)
 #   sw_safe_app <appname> <appid>  → stdout 扁平首层目录名 (应用名去空格/非法字符, 为空回退 appid)
 #   sw_download <appid> <itemid> [user] [appname] → stdout 扁平落盘路径 <隔离根>/<应用>/<itemid>; rc=0 成功, 2=需终端登录, 1=其他失败
-#     anonymous 永远先试 (公开条目零登录); user 非 anonymous 且首次认证失败时 +login <user> 重试一次; 非认证失败不重试
 #     隔离根经 +force_install_dir 写入 (见 STEAMCMD_INSTALL_DIR)，缺省 ~/Downloads/steam-workshop (自动 mkdir -p)
 
 STEAM_LOGINUSERS="${STEAM_LOGINUSERS:-$HOME/.local/share/Steam/config/loginusers.vdf}"
@@ -326,45 +325,21 @@ sw_safe_app() { # appname appid → 扁平首层目录名
     printf '%s' "$app"
 }
 
-_sw_attempt() { # appid itemid install_dir logfile login... → stdout 原始落盘路径; rc 0/2/1
-    # 单次 steamcmd 跑完即分类, 不做扁平搬迁 (由 sw_download 在成功的那次统一做)。
-    # 注意: 赋值与取值分开写, `local x=$(cmd)` 会吞掉 $?
-    local appid="$1" itemid="$2" dir="$3" log="$4"
-    shift 4
-    local rc path
-    steamcmd +force_install_dir "$dir" "$@" +workshop_download_item "$appid" "$itemid" +quit >"$log" 2>&1
-    rc=$?
-    path=$(grep -o 'Success\. Downloaded item [0-9]* to "[^"]*"' "$log" | head -1 | sed 's/.* to "//; s/"$//')
-    if [[ $rc -eq 0 && -n "$path" && -e "$path" ]]; then
-        echo "$path"
-        return 0
-    fi
-    if grep -qiE 'invalid password|steam guard|not logged on|access denied|no subscription|logon failure|rate limit' "$log"; then
-        return 2
-    fi
-    return 1
-}
-
 sw_download() {
     local appid="$1" itemid="$2" user="${3:-anonymous}" appname="${4:-}"
     [[ "$appid" =~ ^[0-9]+$ && "$itemid" =~ ^[0-9]+$ ]] || return 1
+    local -a login_arg=(+login anonymous)
+    [[ "$user" != "anonymous" ]] && login_arg=(+login "$user")
 
     local install_dir="${STEAMCMD_INSTALL_DIR:-${STEAM_WORKSHOP_DIR:-$HOME/Downloads/steam-workshop}}"
     mkdir -p "$install_dir" 2>/dev/null || return 1
 
-    # anonymous 永远先试: 公开条目零登录、零会话, 不顶 GUI; 实名只在认证失败时重试一次。
-    local tmpd log1 log2
-    tmpd=$(mktemp -d) || return 1
-    log1="$tmpd/attempt1.log"
-    log2="$tmpd/attempt2.log"
-    local path="" rc=1 failed_log="$log1"
-    path=$(_sw_attempt "$appid" "$itemid" "$install_dir" "$log1" +login anonymous)
+    local log rc=0 path=""
+    log=$(mktemp)
+    steamcmd +force_install_dir "$install_dir" "${login_arg[@]}" +workshop_download_item "$appid" "$itemid" +quit >"$log" 2>&1
     rc=$?
-    if [[ $rc -ne 0 && "$user" != "anonymous" && $rc -eq 2 ]]; then
-        path=$(_sw_attempt "$appid" "$itemid" "$install_dir" "$log2" +login "$user")
-        rc=$?
-        failed_log="$log2"
-    fi
+
+    path=$(grep -o 'Success\. Downloaded item [0-9]* to "[^"]*"' "$log" | head -1 | sed 's/.* to "//; s/"$//')
     if [[ $rc -eq 0 && -n "$path" && -e "$path" ]]; then
         local safe flat_leaf flat_parent flat_dir deep
         deep="$path"
@@ -374,7 +349,7 @@ sw_download() {
         flat_parent="$install_dir/$flat_leaf"
         flat_dir="$flat_parent/$itemid"
         if [[ "$path" != "$flat_dir" ]]; then
-            mkdir -p "$flat_parent" 2>/dev/null || { cat "$failed_log" >&2; rm -rf "$tmpd"; return 1; }
+            mkdir -p "$flat_parent" 2>/dev/null || { cat "$log" >&2; rm -f "$log"; return 1; }
             rm -rf "$flat_dir" 2>/dev/null
             if mv "$path" "$flat_dir" 2>/dev/null; then
                 path="$flat_dir"
@@ -395,10 +370,13 @@ sw_download() {
         # (appid 已在函数入口校验为纯数字, 路径钉死在隔离根内)
         rm -f "$install_dir/steamapps/workshop/appworkshop_${appid}.acf" 2>/dev/null
         echo "$path"
+    elif grep -qiE 'invalid password|steam guard|not logged on|access denied|no subscription|logon failure|rate limit' "$log"; then
+        rc=2
     else
-        cat "$failed_log" >&2
+        rc=1
     fi
-    rm -rf "$tmpd"
+    [[ $rc -ne 0 ]] && cat "$log" >&2
+    rm -f "$log"
     return $rc
 }
 
