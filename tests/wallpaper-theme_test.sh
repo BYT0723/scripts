@@ -55,7 +55,7 @@ case "$*" in
     ;;
 *set*)
     name=""; prev=""
-    for a in "$@"; do [ "$prev" = "--name" ] && name="$a"; prev="$a"; done
+    for a in "$@"; do { [ "$prev" = "--name" ] || [ "$prev" = "-m" ]; } && name="$a"; prev="$a"; done
     path="${@: -1}"
     printf 'image\t%s\t0\n' "$path" >"$DIR/${name// /_}.win"
     ;;
