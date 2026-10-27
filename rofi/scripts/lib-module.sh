@@ -15,7 +15,14 @@ ENTRY_NAME_WIDTH="${ITEM_SPACE_WIDTH:-38}"
 ENTRY_STATE_WIDTH=$((40 - ENTRY_NAME_WIDTH))
 
 _module_menu_build() {
-    local layout=$(grep 'USE_ICON' ${MODULE_THEME} | cut -d'=' -f2)
+    # 新鲜度: 每构建重采进程快照 (同构建内复用, toggle 后重建正确);
+    # 布局嗅探按主题缓存 (同主题多次构建省一次 grep+cut fork)。
+    _ICON_PS=""
+    if [[ "${_module_layout_theme:-}" != "${MODULE_THEME}" ]]; then
+        _module_layout=$(grep 'USE_ICON' ${MODULE_THEME} | cut -d'=' -f2)
+        _module_layout_theme="${MODULE_THEME}"
+    fi
+    local layout="$_module_layout"
     declare -ga MAIN_OPTS=()
     declare -ga OPT_KEYS=()
 

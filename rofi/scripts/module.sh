@@ -31,7 +31,7 @@ conky|󰏘|Conky|toggle
 network|󰈀|Network|active:NetworkManager
 bluetooth|󰂯|Bluetooth|active-svc
 audio-output|󰓃|Audio Output|
-notification||Notification|cmd:$ROFI_DIR/scripts/notification.sh unread
+notification||Notification|cmd:dunstctl count history
 calendar-lunar||Lunar Calendar|
 calendar||Calendar|
 media-scraping|󰎁|Media Scraping|
