@@ -211,9 +211,9 @@ print_weather() {
     [ -n "$emoji" ] || return
 
     if [ -f "$HOME/.local/state/dwm/status/weather-collapse" ]; then
-        printf "%s^s^%s" "$emoji $label" " $temp"
+        printf "%s^s^%s" "$emoji $label" "$temp"
     else
-        printf "%s %s" "$emoji $label" " $temp"
+        printf "%s %s" "$emoji $label" "$temp"
     fi
 }
 

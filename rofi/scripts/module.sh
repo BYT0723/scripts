@@ -44,7 +44,7 @@ xcolor|󰌁|Color Picker|
 yt-dlp-wrapper|󰎆|YT-DLP Wrapper (downloader)|
 steam-workshop|󰉋|Steam Workshop|
 touchpad||Touch Pad|toggle-raw:$WORK_DIR/tools/touchpad.sh status
-screencast|󰑊|Screencast|
+screencast|󰑊|Screencast (Recorder)|
 MODULES
 
 # ====== Handlers ======
