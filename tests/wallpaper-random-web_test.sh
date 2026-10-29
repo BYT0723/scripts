@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # wallpaper web 随机源回归测试:
-#   1. web 抽中 index.html 的上层目录（非 index.html 本身）
+#   1. web 抽中含 project.json (type=web) 的目录（含 file=wallpaper.html 反例）
 #   2. 排除当前后不重复
-#   3. 空池（无 index.html）报错非零
+#   3. 空池（无 project.json）报错非零
 #   4. dark 未配 web_dark → fallback base
 # 运行: bash tests/wallpaper-random-web_test.sh
 
@@ -43,10 +43,15 @@ chmod +x "$BIN"/*
 export PATH="$BIN:$PATH"
 
 # ---- web 壁纸池 fixture ----
-mkdir -p "$TEST_DIR/web/a" "$TEST_DIR/web/b" "$TEST_DIR/web/empty" "$TEST_DIR/web/dark"
+mkdir -p "$TEST_DIR/web/a" "$TEST_DIR/web/b" "$TEST_DIR/web/empty" "$TEST_DIR/web/dark" "$TEST_DIR/web/custom"
 echo "<html></html>" >"$TEST_DIR/web/a/index.html"
 echo "<html></html>" >"$TEST_DIR/web/b/index.html"
 echo "<html></html>" >"$TEST_DIR/web/dark/index.html"
+echo "<html></html>" >"$TEST_DIR/web/custom/wallpaper.html"
+printf '{"title":"a","preview":"preview.jpg","file":"index.html","type":"web"}' >"$TEST_DIR/web/a/project.json"
+printf '{"title":"b","preview":"preview.jpg","file":"index.html","type":"web"}' >"$TEST_DIR/web/b/project.json"
+printf '{"title":"d","preview":"preview.jpg","file":"index.html","type":"web"}' >"$TEST_DIR/web/dark/project.json"
+printf '{"title":"c","preview":"preview.jpg","file":"wallpaper.html","type":"web"}' >"$TEST_DIR/web/custom/project.json"
 echo "not a wallpaper" >"$TEST_DIR/web/empty/x.txt"
 
 write_conf() { printf '%s\n' "$1" >"$HOME/.config/dwm/wallpaper.json"; }
@@ -78,18 +83,18 @@ check() { # desc, cond
     if eval "$2"; then echo "PASS: $1"; else echo "FAIL: $1"; fail=1; fi
 }
 
-# ---- 1. 抽中 index.html 的上层目录 ----
+# ---- 1. 抽中含 project.json (type=web) 的目录 ----
 echo "light" >"$HOME/.local/state/dwm/current-theme"
 ok=1
 for _ in $(seq 1 20); do
     f=$(random_wallpaper eDP)
     case "$f" in
-    "$TEST_DIR/web/a" | "$TEST_DIR/web/b" | "$TEST_DIR/web/dark") ;;
+    "$TEST_DIR/web/a" | "$TEST_DIR/web/b" | "$TEST_DIR/web/dark" | "$TEST_DIR/web/custom") ;;
     *) ok=0; break ;;
     esac
-    [ -f "$f/index.html" ] || { ok=0; break; }
+    project_entry "$f" web >/dev/null 2>&1 || { ok=0; break; }
 done
-check "web 20 次抽取全为含 index.html 的目录" "[ $ok -eq 1 ]"
+check "web 20 次抽取全为合法 web 目录（含 wallpaper.html 反例）" "[ $ok -eq 1 ]"
 
 # ---- 2. 排除当前 ----
 printf 'web\t%s\t0\n' "$TEST_DIR/web/a" >"$XW_MOCK_STATE/eDP.win"
@@ -115,7 +120,7 @@ write_conf "{
   \"groups\": {}
 }"
 random_wallpaper eDP >/dev/null 2>&1
-check "空池（无 index.html）返回非零" "[ $? -ne 0 ]"
+check "空池（无 project.json）返回非零" "[ $? -ne 0 ]"
 
 # ---- 4. dark fallback base ----
 base_conf

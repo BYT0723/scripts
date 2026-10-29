@@ -163,7 +163,8 @@ random_web_path_dark||Web Path (Dark)|
 MODULES
 handle_next() { ("$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" next &) }
 # yazi 选目录 (web/scene): 起始于主题目录, 文件输入归一到上层,
-# 校验 marker (web 要 index.html, scene 要 scene.pkg|json) 后直接应用。
+# 经 project_entry 校验入口 (web 认 project.json:file，回退 index.html;
+# scene 互认 scene.pkg|json) 后直接应用。
 # 成功 (已应用) 返回 0, 取消/非法返回 1 (调用方继续循环重显)。
 # Usage: select_yazi_directory <config-base> (kind 按 base 名推导: *scene* 即 scene)
 select_yazi_directory() {
@@ -178,29 +179,27 @@ select_yazi_directory() {
     [ -n "$picked" ] || return 1
     [ -e "$picked" ] || return 1
     [ -f "$picked" ] && picked=$(dirname "$picked")
-    if [ "$kind" = "web" ]; then
-        [ -f "$picked/index.html" ] || {
-            system-notify critical "Wallpaper" "Not a web wallpaper (missing index.html)"$'\n'"$picked"
-            return 1
-        }
-    else
-        { [ -f "$picked/scene.pkg" ] || [ -f "$picked/scene.json" ]; } || {
+    if ! project_entry "$picked" "$kind" >/dev/null 2>&1; then
+        if [ "$kind" = "web" ]; then
+            system-notify critical "Wallpaper" "Not a web wallpaper (missing entry from project.json)"$'\n'"$picked"
+        else
             system-notify critical "Wallpaper" "Not a scene wallpaper (missing scene.pkg/json)"$'\n'"$picked"
-            return 1
-        }
+        fi
+        return 1
     fi
     "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" file "$picked"
 }
 # web/scene 用 rofi 图文选择器 (标题+预览缩略图): yazi 顶层只见数字 id,
-# 名字在 project.json:title 里, 预览在 preview 字段/preview.* 里。image/video 保留 yazi 大图预览。
+# 名字在 project.json:title 里, 预览经 project_preview (preview 字段优先，回退
+# preview.*)。池为含 project.json 且 type 匹配的目录 (find_project_dirs)。image/video 保留 yazi 大图预览。
 # 末条为 yazi 目录入口 (map 值为 __YAZI__), 同 image/video 选择逻辑按目录挑选。
-# Usage: select_marker_wallpaper <label> <config-base> <find-regex>
+# Usage: select_marker_wallpaper <label> <config-base> <type: web|scene>
 select_marker_wallpaper() {
-    local label="$1" base="$2" pattern="$3"
+    local label="$1" base="$2" wtype="$3"
     local dir depth files
     dir=$(get_theme_dir "$MONITOR" "$base")
     depth=$(getConfig random_depth)
-    if ! files=$(find_wallpapers "$dir" "$depth" "$pattern"); then
+    if ! files=$(find_project_dirs "$dir" "$depth" "$wtype"); then
         return 1
     fi
 
@@ -210,34 +209,21 @@ select_marker_wallpaper() {
     menu_nul=$(mktemp)
     trap 'rm -f "$menu" "$map" "$menu_nul"' RETURN
 
-    local d f id title preview icon meta p
+    local d id title icon
     local -A seen=()
-    while IFS= read -r f; do
-        [ -z "$f" ] && continue
-        d=$(dirname "$f")
-        # scene 一个目录可能同时命中 scene.pkg 与 scene.json: 去重到目录, 保证
-        # menu 与 map 行号一一对应
+    while IFS= read -r d; do
+        [ -z "$d" ] && continue
+        # 去重到目录, 保证 menu 与 map 行号一一对应
         [ -n "${seen[$d]}" ] && continue
         seen[$d]=1
         id=$(basename "$d")
         title="$id"
-        preview=""
         if [ -f "$d/project.json" ]; then
-            meta=$(jq -r '[.title // empty, .preview // empty] | @tsv' "$d/project.json" 2>/dev/null)
-            IFS=$'\t' read -r title preview <<<"$meta"
+            title=$(jq -r '.title // empty' "$d/project.json" 2>/dev/null)
             [ -z "$title" ] && title="$id"
         fi
         title=$(printf '%s' "$title" | tr '\t\n\r' '   ')
-        icon=""
-        [ -n "$preview" ] && [ -f "$d/$preview" ] && icon="$d/$preview"
-        if [ -z "$icon" ]; then
-            for p in preview.gif preview.png preview.jpg preview.jpeg preview.webp; do
-                if [ -s "$d/$p" ]; then
-                    icon="$d/$p"
-                    break
-                fi
-            done
-        fi
+        icon=$(project_preview "$d" 2>/dev/null) || icon=""
         # NUL 字节 bash 变量装不下: 行尾先写 \001 占位, 喂 rofi 前统一 tr 成 NUL (同 windows-selector)
         printf '%s (%s)\001icon\x1f%s\x1f\n' "$title" "$id" "$icon" >>"$menu"
         printf '%s\n' "$d" >>"$map"
@@ -309,8 +295,8 @@ select_marker_wallpaper() {
 }
 handle_select() {
     case "$(getConfig -m "$MONITOR" random_type)" in
-    web) select_marker_wallpaper "Web" random_web_dir '.*/index\.html' ;;
-    scene) select_marker_wallpaper "Scene" random_scene_dir '.*/scene\.(pkg|json)' ;;
+    web) select_marker_wallpaper "Web" random_web_dir web ;;
+    scene) select_marker_wallpaper "Scene" random_scene_dir scene ;;
     *) "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" select ;;
     esac
 }

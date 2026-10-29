@@ -138,6 +138,9 @@ check "当前 d 记忆 c 时发 set 切到 c" "grep -q ' set ' \"$XW_MOCK_LOG\" 
 # ---- 7. web/scene 目录记忆: -f 恒假导致每次 random 并覆盖记忆 (DP-1 实测) ----
 mkdir -p "$TEST_DIR/dark/web1" "$TEST_DIR/dark/web2" "$TEST_DIR/pinned-web"
 touch "$TEST_DIR/dark/web1/index.html" "$TEST_DIR/dark/web2/index.html" "$TEST_DIR/pinned-web/index.html"
+printf '{"title":"w1","file":"index.html","type":"web"}' >"$TEST_DIR/dark/web1/project.json"
+printf '{"title":"w2","file":"index.html","type":"web"}' >"$TEST_DIR/dark/web2/project.json"
+printf '{"title":"pinned","file":"index.html","type":"web"}' >"$TEST_DIR/pinned-web/project.json"
 printf '{\n  "monitors": {\n    "eDP": {\n      "random": 1,\n      "random_type": "web",\n      "random_web_dir": "%s",\n      "random_depth": 3,\n      "duration": 30\n    }\n  },\n  "groups": {}\n}\n' \
     "$TEST_DIR/dark" >"$HOME/.config/dwm/wallpaper.json"
 save_last_wallpaper "eDP" "dark" "$TEST_DIR/pinned-web"
@@ -148,9 +151,11 @@ theme_wallpaper dark
 check "web 目录记忆被恢复 (非 random)" "grep -q \"$TEST_DIR/pinned-web\" \"$XW_MOCK_STATE/eDP.win\""
 check "web 目录记忆未被 random 覆盖" "[ \"\$(get_last_wallpaper eDP dark)\" = \"$TEST_DIR/pinned-web\" ]"
 
-# ---- 8. scene 目录记忆同理 (scene.pkg 标记目录) ----
+# ---- 8. scene 目录记忆同理 (project.json type=scene + scene.pkg 入口) ----
 mkdir -p "$TEST_DIR/dark/scene1" "$TEST_DIR/pinned-scene"
 touch "$TEST_DIR/dark/scene1/scene.pkg" "$TEST_DIR/pinned-scene/scene.pkg"
+printf '{"title":"s1","file":"scene.pkg","type":"scene"}' >"$TEST_DIR/dark/scene1/project.json"
+printf '{"title":"ps","file":"scene.pkg","type":"scene"}' >"$TEST_DIR/pinned-scene/project.json"
 printf '{\n  "monitors": {\n    "eDP": {\n      "random": 1,\n      "random_type": "scene",\n      "random_scene_dir": "%s",\n      "random_depth": 3,\n      "duration": 30\n    }\n  },\n  "groups": {}\n}\n' \
     "$TEST_DIR/dark" >"$HOME/.config/dwm/wallpaper.json"
 save_last_wallpaper "eDP" "dark" "$TEST_DIR/pinned-scene"

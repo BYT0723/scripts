@@ -328,6 +328,133 @@ detect_file_type() {
     esac
 }
 
+# ---- project.json 解析 (web/scene 唯一真实来源) ----
+# Wallpaper Engine 目录结构: project.json 含 title/preview/file/type 四字段。
+# file 不恒为 index.html (如 file=wallpaper.html)；scene 的 file 常为 scene.json
+# 但落盘只有 scene.pkg，两者互认。
+
+# project.json 的 type 小写输出 (web/scene/...)；无文件/损坏/缺字段返回 1。
+# Usage: project_type <dir>
+project_type() {
+    local dir="$1"
+    [ -n "$dir" ] || return 1
+    [ -f "$dir/project.json" ] || return 1
+    local t
+    t=$(jq -r '.type // empty' "$dir/project.json" 2>/dev/null) || return 1
+    [ -n "$t" ] || return 1
+    printf '%s\n' "$t" | tr '[:upper:]' '[:lower:]'
+}
+
+# 预览图绝对路径：preview 字段优先 (存在才用)，回退 preview.gif/png/jpg/jpeg/webp；
+# 都无返回 1 (调用方 icon 置空，不崩)。
+# Usage: project_preview <dir>
+project_preview() {
+    local dir="$1"
+    [ -n "$dir" ] || return 1
+    [ -d "$dir" ] || return 1
+    local p
+    if [ -f "$dir/project.json" ]; then
+        p=$(jq -r '.preview // empty' "$dir/project.json" 2>/dev/null)
+        if [ -n "$p" ] && [ -f "$dir/$p" ]; then
+            printf '%s\n' "$dir/$p"
+            return 0
+        fi
+    fi
+    local c
+    for c in preview.gif preview.png preview.jpg preview.jpeg preview.webp; do
+        if [ -s "$dir/$c" ]; then
+            printf '%s\n' "$dir/$c"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# 入口文件绝对路径：file 字段优先 (存在才用)；scene 下 scene.json/scene.pkg 互认；
+# web 回退 index.html；kind 缺省按 project.json:type 推导；非法返回 1。
+# Usage: project_entry <dir> [web|scene]
+project_entry() {
+    local dir="$1"
+    local kind="$2"
+    [ -n "$dir" ] || return 1
+    [ -d "$dir" ] || return 1
+    if [ -z "$kind" ]; then
+        kind=$(project_type "$dir" 2>/dev/null) || kind=""
+    else
+        kind=$(printf '%s' "$kind" | tr '[:upper:]' '[:lower:]')
+    fi
+    local f
+    if [ -f "$dir/project.json" ]; then
+        f=$(jq -r '.file // empty' "$dir/project.json" 2>/dev/null)
+        if [ -n "$f" ] && [ -f "$dir/$f" ]; then
+            printf '%s\n' "$dir/$f"
+            return 0
+        fi
+    fi
+    case "$kind" in
+    scene)
+        [ -f "$dir/scene.pkg" ] && {
+            printf '%s\n' "$dir/scene.pkg"
+            return 0
+        }
+        [ -f "$dir/scene.json" ] && {
+            printf '%s\n' "$dir/scene.json"
+            return 0
+        }
+        ;;
+    *)
+        [ -f "$dir/index.html" ] && {
+            printf '%s\n' "$dir/index.html"
+            return 0
+        }
+        ;;
+    esac
+    if [ -z "$kind" ]; then
+        [ -f "$dir/scene.pkg" ] && {
+            printf '%s\n' "$dir/scene.pkg"
+            return 0
+        }
+        [ -f "$dir/scene.json" ] && {
+            printf '%s\n' "$dir/scene.json"
+            return 0
+        }
+    fi
+    return 1
+}
+
+# 枚举含 project.json 且 type 匹配的目录 (一行一个)，type 大小写无关；
+# 无匹配/根非法返回 1 (同 find_wallpapers 契约，调用方 `if ! files=$(...)` 可用)。
+# Usage: find_project_dirs <root> <depth> <type>
+find_project_dirs() {
+    local root="$1"
+    local depth="$2"
+    local want="$3"
+    [ -n "$root" ] || return 1
+    [ -n "$want" ] || return 1
+    root=$(expand_path "$root")
+    [ -d "$root" ] || {
+        error "Directory does not exist: $root"
+        return 1
+    }
+    want=$(printf '%s' "$want" | tr '[:upper:]' '[:lower:]')
+    local found=()
+    local pj
+    while IFS= read -r pj; do
+        [ -n "$pj" ] || continue
+        local d
+        d=$(dirname "$pj")
+        local t
+        t=$(project_type "$d" 2>/dev/null) || continue
+        [ "$t" = "$want" ] || continue
+        found+=("$d")
+    done < <(find -L "$root" -maxdepth "$depth" \( -path '*/templates/*' -o -path '*/.git/*' \) -prune -o -type f -name project.json -print 2>/dev/null)
+    if [ ${#found[@]} -eq 0 ]; then
+        error "No matching wallpapers found in $root"
+        return 1
+    fi
+    printf '%s\n' "${found[@]}"
+}
+
 # 返回视频有效显示尺寸: 编码横屏但带 ±90 rotation 元数据的手机竖拍视频实际为竖屏,
 # 仅读 width,height 会误判方向。
 # 单次 ffprobe 同时取 dims + rotation (csv 输出第三列为 rotation), 比两次独立调用省一半耗时。

@@ -26,13 +26,19 @@ check() { # desc cond
 WEBPOOL="$TEST_DIR/webpool"
 mkdir -p "$WEBPOOL/111"
 echo "<html></html>" >"$WEBPOOL/111/index.html"
+printf '{"title":"w111","preview":"preview.jpg","file":"index.html","type":"web"}' >"$WEBPOOL/111/project.json"
+echo "fake" >"$WEBPOOL/111/preview.jpg"
 SCENEPOOL="$TEST_DIR/scenepool"
 mkdir -p "$SCENEPOOL/333"
 echo '{"title":"s"}' >"$SCENEPOOL/333/scene.json"
+printf '{"title":"s333","preview":"preview.gif","file":"scene.json","type":"scene"}' >"$SCENEPOOL/333/project.json"
+echo "fake" >"$SCENEPOOL/333/preview.gif"
 mkdir -p "$TEST_DIR/good-web"
 echo "<html></html>" >"$TEST_DIR/good-web/index.html"
+printf '{"title":"good","preview":"preview.jpg","file":"index.html","type":"web"}' >"$TEST_DIR/good-web/project.json"
 mkdir -p "$TEST_DIR/good-scene"
 echo '{"title":"s"}' >"$TEST_DIR/good-scene/scene.json"
+printf '{"title":"gs","preview":"preview.gif","file":"scene.json","type":"scene"}' >"$TEST_DIR/good-scene/project.json"
 mkdir -p "$TEST_DIR/baddir"
 echo "nothing" >"$TEST_DIR/baddir/note.txt"
 printf '{"monitors":{"TESTMON":{"random_web_dir":"%s","random_scene_dir":"%s"}}}' "$WEBPOOL" "$SCENEPOOL" >"$HOME/.config/dwm/wallpaper.json"
@@ -119,7 +125,7 @@ trap cleanup EXIT
 reset_case
 printf '%s\n' "$TEST_DIR/good-web" >"$YAZI_CHOSEN"
 set_seq "1" "0"
-select_marker_wallpaper "Web" random_web_dir '.*/index\.html'
+select_marker_wallpaper "Web" random_web_dir web
 check "A: yazi 合法目录触发 file 应用" 'grep -q "file $TEST_DIR/good-web" "$TEST_DIR/wallpaper.calls"'
 check "A: 只弹一次选择器" '[ "$(rofi_calls)" = 1 ]'
 
@@ -129,7 +135,7 @@ reset_case
 set_seq "1
 " "0
 1"
-select_marker_wallpaper "Web" random_web_dir '.*/index\.html'
+select_marker_wallpaper "Web" random_web_dir web
 check "B: 取消不应用壁纸" '[[ ! -f $TEST_DIR/wallpaper.calls ]]'
 check "B: 重显后 ESC 退出 (共 2 次)" '[ "$(rofi_calls)" = 2 ]'
 
@@ -139,7 +145,7 @@ printf '%s\n' "$TEST_DIR/baddir" >"$YAZI_CHOSEN"
 set_seq "1
 " "0
 1"
-select_marker_wallpaper "Web" random_web_dir '.*/index\.html'
+select_marker_wallpaper "Web" random_web_dir web
 check "C: 非法目录不应用" '[[ ! -f $TEST_DIR/wallpaper.calls ]]'
 check "C: 有非法反馈 notify" 'grep -qi "index.html\|not a\|invalid" "$TEST_DIR/notify.log"'
 check "C: 重显后 ESC 退出" '[ "$(rofi_calls)" = 2 ]'
@@ -150,7 +156,7 @@ printf '%s\n' "$TEST_DIR/good-web" >"$YAZI_CHOSEN"
 set_seq "1
 " "10
 1"
-select_marker_wallpaper "Web" random_web_dir '.*/index\.html'
+select_marker_wallpaper "Web" random_web_dir web
 check "D: Alt+1 不打开外部程序" '[[ ! -f $TEST_DIR/xdg.log ]]'
 check "D: Alt+1 不应用壁纸" '[[ ! -f $TEST_DIR/wallpaper.calls ]]'
 check "D: 重显后 ESC 退出" '[ "$(rofi_calls)" = 2 ]'
@@ -159,20 +165,20 @@ check "D: 重显后 ESC 退出" '[ "$(rofi_calls)" = 2 ]'
 reset_case
 printf '%s\n' "$TEST_DIR/good-scene" >"$YAZI_CHOSEN"
 set_seq "1" "0"
-select_marker_wallpaper "Scene" random_scene_dir '.*/scene\.(pkg|json)'
+select_marker_wallpaper "Scene" random_scene_dir scene
 check "E: scene 合法目录触发 file 应用" 'grep -q "file $TEST_DIR/good-scene" "$TEST_DIR/wallpaper.calls"'
 
 # ---- F: scene 选文件取上层 (yazi 返回文件) ----
 reset_case
 printf '%s\n' "$TEST_DIR/good-scene/scene.json" >"$YAZI_CHOSEN"
 set_seq "1" "0"
-select_marker_wallpaper "Scene" random_scene_dir '.*/scene\.(pkg|json)'
+select_marker_wallpaper "Scene" random_scene_dir scene
 check "F: 文件输入归一到目录后应用" 'grep -q "file $TEST_DIR/good-scene" "$TEST_DIR/wallpaper.calls"'
 
 # ---- G: 旧行为不变: 首条 Enter 直接应用, 不调 yazi ----
 reset_case
 set_seq "0" "0"
-select_marker_wallpaper "Web" random_web_dir '.*/index\.html'
+select_marker_wallpaper "Web" random_web_dir web
 check "G: 首条 Enter 仍直接应用" 'grep -q "file $WEBPOOL/111" "$TEST_DIR/wallpaper.calls"'
 check "G: 未调 yazi" '[[ ! -s $TEST_DIR/yazi-start.log ]]'
 

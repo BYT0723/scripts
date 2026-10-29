@@ -33,11 +33,9 @@ random_wallpaper() {
         ;;
     "web")
         dir=$(get_theme_dir "$monitor" random_web_dir "$theme")
-        pattern=".*/index\.html"
         ;;
     "scene")
         dir=$(get_theme_dir "$monitor" random_scene_dir "$theme")
-        pattern=".*/scene\.(pkg|json)"
         ;;
     *)
         error "Unknown random type: $random_type"
@@ -45,29 +43,26 @@ random_wallpaper() {
         ;;
     esac
 
-    # Use find_wallpapers to get all matching files
+    # web/scene 池为含 project.json 且 type 匹配的目录 (find_project_dirs)；
+    # image/video 为文件池 (find_wallpapers + pattern)。
     local files
-    if ! files=$(find_wallpapers "$dir" "$depth" "$pattern"); then
-        # Error already printed by find_wallpapers (bare return would
-        # yield 0: entering the branch means the negated test is true)
-        return 1
+    if [ "$random_type" = "web" ] || [ "$random_type" = "scene" ]; then
+        if ! files=$(find_project_dirs "$dir" "$depth" "$random_type"); then
+            # Error already printed by find_project_dirs (bare return would
+            # yield 0: entering the branch means the negated test is true)
+            return 1
+        fi
+    else
+        if ! files=$(find_wallpapers "$dir" "$depth" "$pattern"); then
+            # Error already printed by find_wallpapers (bare return would
+            # yield 0: entering the branch means the negated test is true)
+            return 1
+        fi
     fi
 
     # Convert newline-separated list to array
     local file_array=()
     mapfile -t file_array <<<"$files"
-
-    # web 池是 index.html 的上层目录, scene 池是 scene.pkg/scene.json 的上层
-    # 目录 (xwallpaper --web/--scene 都要目录): 去重到目录
-    if [ "$random_type" = "web" ] || [ "$random_type" = "scene" ]; then
-        local -A seen=()
-        local uniq=() f d
-        for f in "${file_array[@]}"; do
-            d=$(dirname "$f")
-            [ -n "${seen[$d]}" ] || { seen[$d]=1; uniq+=("$d"); }
-        done
-        file_array=("${uniq[@]}")
-    fi
 
     # Exclude current wallpaper to avoid showing the same one again
     # 当前壁纸状态由 xwallpaper 持久化, 经 `state` (name\ttype\tpath\trot) 查询
@@ -116,14 +111,12 @@ select_wallpaper() {
     local picked
     picked=$(cat "$tmp")
     rm -f "$tmp"
-    # web 要的是含 index.html 的目录, scene 要含 scene.pkg/scene.json:
-    # 选中文件取其上层, 缺标记则拒绝
-    if [ "$random_type" = "web" ]; then
+    # web/scene 要的是含 project.json 且 type 匹配的目录 (入口经 project_entry
+    # 判定：web 认 file 字段回退 index.html，scene 互认 scene.pkg|json)：
+    # 选中文件取其上层, 无合法入口则拒绝
+    if [ "$random_type" = "web" ] || [ "$random_type" = "scene" ]; then
         [ -f "$picked" ] && picked=$(dirname "$picked")
-        [ -f "$picked/index.html" ] || return 1
-    elif [ "$random_type" = "scene" ]; then
-        [ -f "$picked" ] && picked=$(dirname "$picked")
-        { [ -f "$picked/scene.pkg" ] || [ -f "$picked/scene.json" ]; } || return 1
+        project_entry "$picked" "$random_type" >/dev/null 2>&1 || return 1
     fi
 
     echo "$picked"

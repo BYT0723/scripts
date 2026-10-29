@@ -24,6 +24,8 @@ check() { # desc cond
 FIX="$TEST_DIR/pool"
 mkdir -p "$FIX/111"
 echo "<html></html>" >"$FIX/111/index.html"
+printf '{"title":"t111","preview":"preview.jpg","file":"index.html","type":"web"}' >"$FIX/111/project.json"
+echo "fake" >"$FIX/111/preview.jpg"
 printf '{"monitors":{"TESTMON":{"random_web_dir":"%s"}}}' "$FIX" >"$HOME/.config/dwm/wallpaper.json"
 MONITOR="TESTMON"
 WORK_DIR="$TEST_DIR/fakeroot"
@@ -84,7 +86,7 @@ trap cleanup EXIT
 # ---- A: Enter 选中应用 (回归现行为) ----
 reset_case
 set_seq "0" "0"
-select_marker_wallpaper "Web" random_web_dir '.*/index\.html'
+select_marker_wallpaper "Web" random_web_dir web
 check "Enter: 调 tools/wallpaper.sh file 选中目录" 'grep -q "file $FIX/111" "$TEST_DIR/wallpaper.calls"'
 check "Enter: 只弹一次选择器" '[ "$(rofi_calls)" = 1 ]'
 
@@ -93,7 +95,7 @@ reset_case
 set_seq "0
 " "10
 1"
-select_marker_wallpaper "Web" random_web_dir '.*/index\.html'
+select_marker_wallpaper "Web" random_web_dir web
 check "Alt+1: xdg-open 参数为条目目录" 'grep -qx "$FIX/111" "$TEST_DIR/xdg.log"'
 check "Alt+1: 不触发应用壁纸" '[[ ! -f $TEST_DIR/wallpaper.calls ]]'
 check "Alt+1: 重显后 ESC 退出 (共 2 次)" '[ "$(rofi_calls)" = 2 ]'
@@ -103,7 +105,7 @@ reset_case
 set_seq "0
 " "11
 1"
-select_marker_wallpaper "Web" random_web_dir '.*/index\.html'
+select_marker_wallpaper "Web" random_web_dir web
 check "Alt+2: 剪贴板恰为绝对路径无换行" 'cmp -s <(printf "%s" "$FIX/111") "$TEST_DIR/clip"'
 check "Alt+2: 有 notify 反馈" 'grep -q "Copied" "$TEST_DIR/notify.log"'
 check "Alt+2: 重显后 ESC 退出" '[ "$(rofi_calls)" = 2 ]'
@@ -112,11 +114,13 @@ check "Alt+2: 重显后 ESC 退出" '[ "$(rofi_calls)" = 2 ]'
 reset_case
 mkdir -p "$FIX/222"
 echo "<html></html>" >"$FIX/222/index.html"
+printf '{"title":"t222","preview":"preview.jpg","file":"index.html","type":"web"}' >"$FIX/222/project.json"
+echo "fake" >"$FIX/222/preview.jpg"
 MODULE_CONFIRM_RET="Yes"
 set_seq "1
 " "12
 1"
-select_marker_wallpaper "Web" random_web_dir '.*/index\.html'
+select_marker_wallpaper "Web" random_web_dir web
 # 序号 1 对应第二行: 断言 111/222 恰删其一且总数减一
 left=$(find "$FIX" -mindepth 1 -maxdepth 1 -type d | wc -l)
 check "Alt+3 Yes: 删掉恰好一个目录" '[ "$left" = 1 ]'
@@ -128,11 +132,15 @@ reset_case
 mkdir -p "$FIX/111" "$FIX/222"
 echo "<html></html>" >"$FIX/111/index.html"
 echo "<html></html>" >"$FIX/222/index.html"
+printf '{"title":"t111","preview":"preview.jpg","file":"index.html","type":"web"}' >"$FIX/111/project.json"
+printf '{"title":"t222","preview":"preview.jpg","file":"index.html","type":"web"}' >"$FIX/222/project.json"
+echo "fake" >"$FIX/111/preview.jpg"
+echo "fake" >"$FIX/222/preview.jpg"
 MODULE_CONFIRM_RET="No"
 set_seq "0
 " "12
 1"
-select_marker_wallpaper "Web" random_web_dir '.*/index\.html'
+select_marker_wallpaper "Web" random_web_dir web
 check "Alt+3 No: 目录保留" '[[ -d "$FIX/111" && -d "$FIX/222" ]]'
 check "Alt+3 No: 无删除 notify" '! grep -q "Deleted" "$TEST_DIR/notify.log"'
 MODULE_CONFIRM_RET="Yes"
@@ -142,13 +150,13 @@ reset_case
 set_seq "
 " "10
 1"
-select_marker_wallpaper "Web" random_web_dir '.*/index\.html'
+select_marker_wallpaper "Web" random_web_dir web
 check "空输出: 无动作但重显" '[[ ! -f $TEST_DIR/xdg.log ]] && [ "$(rofi_calls)" = 2 ]'
 
 # ---- G: ESC 直接返回 ----
 reset_case
 set_seq "" "1"
-select_marker_wallpaper "Web" random_web_dir '.*/index\.html'
+select_marker_wallpaper "Web" random_web_dir web
 check "ESC: 无动作单次返回" '[[ ! -f $TEST_DIR/xdg.log && ! -f $TEST_DIR/wallpaper.calls ]] && [ "$(rofi_calls)" = 1 ]'
 
 exit $FAIL

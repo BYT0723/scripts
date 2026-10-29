@@ -362,8 +362,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `monitor_selection()`         | wallpaper.sh (主入口: 选择 monitor/组)       |
 | `handle_next()`               | wallpaper.sh (模块主菜单: 下一张; `( tools/wallpaper.sh -m ... next & )` 后台执行, rofi 立即重开) |
 | `handle_select()`             | wallpaper.sh (模块主菜单: 选择文件; `random_type=web/scene` 时走 `select_marker_wallpaper` rofi 图文选择, 否则 yazi) |
-| `select_marker_wallpaper()`   | handle_select (web/scene 分支: marker 去重到目录 → `project.json:title/preview` 解析标题+缩略图 → `rofi -dmenu -format i -show-icons` 按索引回映射目录; 末条为 yazi 目录入口 (map 值 `__YAZI__`, Enter 经 `select_yazi_directory` 选目录, Alt+1/2/3 落其上忽略重显); Alt+1 xdg-open / Alt+2 复制绝对路径(无换行) / Alt+3 `module_confirm` 后 `rm -rf`, 动作后循环重显(删除后回模块菜单), Enter 应用, ESC 返回) |
-| `select_yazi_directory()`   | select_marker_wallpaper (末条 yazi 入口: 起始于主题目录 (`get_theme_dir`+`expand_path`, 缺失回退 `$HOME`), 文件输入归一到上层, web 验 `index.html` / scene 验 `scene.pkg|json`, 非法 critical 通知, 成功经 `tools/wallpaper.sh -m file` 应用; 成功返回 0, 取消/非法返回 1 由调用方继续循环) |
+| `select_marker_wallpaper()`   | handle_select (web/scene 分支: `find_project_dirs` 按 type 枚举目录 → `project.json:title` 标题 + `project_preview` 缩略图 → `rofi -dmenu -format i -show-icons` 按索引回映射目录; 末条为 yazi 目录入口 (map 值 `__YAZI__`, Enter 经 `select_yazi_directory` 选目录, Alt+1/2/3 落其上忽略重显); Alt+1 xdg-open / Alt+2 复制绝对路径(无换行) / Alt+3 `module_confirm` 后 `rm -rf`, 动作后循环重显(删除后回模块菜单), Enter 应用, ESC 返回) |
+| `select_yazi_directory()`   | select_marker_wallpaper (末条 yazi 入口: 起始于主题目录 (`get_theme_dir`+`expand_path`, 缺失回退 `$HOME`), 文件输入归一到上层, 经 `project_entry` 验入口 (web 认 `file` 字段回退 `index.html` / scene 互认 `scene.pkg|json`), 非法 critical 通知, 成功经 `tools/wallpaper.sh -m file` 应用; 成功返回 0, 取消/非法返回 1 由调用方继续循环) |
 | `handle_random_switch()`      | wallpaper.sh (模块主菜单: 随机开关 toggle)              |
 | `handle_random_type()`        | wallpaper.sh (模块主菜单: 类型三选一 selector image/video/web，状态行显示当前类型图标) |
 | `handle_random_duration()`    | wallpaper.sh (模块主菜单: 设置轮换间隔)                 |
@@ -393,8 +393,12 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `orientation_mismatch()`     | wallpaper.sh (get_wallpaper_rotation)                                                                                                                                                                        |
 | `get_monitor_dim()`          | wallpaper.sh (get_wallpaper_rotation)                                                                                                                                                                        |
 | `preview_rotation()`         | wallpaper.sh (get_wallpaper_rotation)                                                                                                                                                                        |
-| `find_wallpapers()`          | wallpaper.sh (random_wallpaper) — 入口经 `expand_path` 展开 `~`/`$VAR`, `~` 写法直接可用 |
-| `expand_path()`              | wallpaper-lib.sh (find_wallpapers, pick_config_dir 读侧), wallpaper.sh (select_wallpaper 起始目录) — `envsubst` ($HOME/任意$VAR) + 仅行首 `~`/`~/...` (`~other` 按字面保留); 默认值已用 `~` 写法 |
+| `find_wallpapers()`          | wallpaper.sh (random_wallpaper image/video 池) — 入口经 `expand_path` 展开 `~`/`$VAR`, `~` 写法直接可用 |
+| `project_type()`             | wallpaper-lib.sh (project_entry kind 推导、find_project_dirs 过滤内部) — `project.json:type` 小写输出，无文件/损坏/缺字段返回 1 |
+| `project_preview()`          | rofi/scripts/wallpaper.sh (select_marker_wallpaper 图标) — `preview` 字段优先 (存在才用)，回退 `preview.gif/png/jpg/jpeg/webp`，都无返回 1 (icon 置空不崩) |
+| `project_entry()`            | rofi/scripts/wallpaper.sh (select_yazi_directory 校验), wallpaper.sh (select_wallpaper web/scene 校验) — `file` 字段优先 (存在才用，含 `wallpaper.html` 反例)；scene 互认 `scene.json`/`scene.pkg` (file=scene.json 但落盘只有 scene.pkg 是常态)；web 回退 `index.html`；kind 缺省按 `project_type` 推导；非法返回 1 |
+| `find_project_dirs()`        | wallpaper.sh (random_wallpaper web/scene 池), rofi/scripts/wallpaper.sh (select_marker_wallpaper) — 枚举含 `project.json` 且 `type` 匹配 (大小写无关) 的目录，无匹配/根非法返回 1 (同 find_wallpapers 契约)；裸 `index.html` (无 project.json) 视为非法 |
+| `expand_path()`              | wallpaper-lib.sh (find_wallpapers, find_project_dirs, pick_config_dir 读侧), wallpaper.sh (select_wallpaper 起始目录) — `envsubst` ($HOME/任意$VAR) + 仅行首 `~`/`~/...` (`~other` 按字面保留); 默认值已用 `~` 写法 |
 | `shrink_path()`              | wallpaper-lib.sh (pick_config_dir 存盘前) — `expand_path` 的逆操作, `$HOME` 前缀压缩为 `~` (HOME 外原样, `$HOME-other` 前缀陷阱不压缩, 空串非 0) |
 | `handle_error()` / `error()` | wallpaper-lib.sh 内部, rofi/scripts/wallpaper.sh (handle_group)                                                                                                                                              |
 | `xw_clear_group_members()`   | wallpaper-lib.sh (clean_group), wallpaper-render.sh (set_wallpaper_to_group) — 清 group 所有成员 monitor 独立窗口 (组与成员互斥); 以 `xwallpaper --list` active name 为准, 仅清实际存在的成员独立窗口 (已并入组、无独立窗口的成员自动跳过)                                                                                 |
@@ -427,9 +431,9 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 
 | 函数 | 调用者 |
 | ---- | ------ |
-| `random_wallpaper()` | wallpaper.sh (`-m next`, launch_wallpaper daemon, theme_wallpaper) — 经 `get_theme_dir` 按当前主题选目录 (第二参可显式传 light/dark); 按 `random_type` image/video/web 选池：web 池为目录下所有 `index.html` 的上层目录（`find_wallpapers` + `dirname` 去重，`xwallpaper --web` 要目录）; `random_depth` 为全局值 (读顶层/`.defaults`, 缺省 3); 排除当前壁纸后随机抽取 |
+| `random_wallpaper()` | wallpaper.sh (`-m next`, launch_wallpaper daemon, theme_wallpaper) — 经 `get_theme_dir` 按当前主题选目录 (第二参可显式传 light/dark); 按 `random_type` image/video/web/scene 选池：image/video 为文件池 (`find_wallpapers` + pattern)，web/scene 为含 `project.json` 且 `type` 匹配的目录池 (`find_project_dirs`，`file=wallpaper.html` 与 `scene.json/pkg` 互认皆可入池）; `random_depth` 为全局值 (读顶层/`.defaults`, 缺省 3); 排除当前壁纸后随机抽取 |
 | `ensure_xwallpaperd()` | wallpaper.sh (launch_wallpaper 经此拉起) — daemon 存活直接复用, 仅死亡/缺失才 pkill 清理 + 拉起 (热重启重跑 autostart 不杀 daemon, 窗口不销毁重建) |
-| `select_wallpaper()` | wallpaper.sh (`-m select`) — 经 `get_theme_dir` 按当前主题定 yazi 起始目录 (入口 `expand_path` 展开, `~` 写法可用) |
+| `select_wallpaper()` | wallpaper.sh (`-m select`) — 经 `get_theme_dir` 按当前主题定 yazi 起始目录 (入口 `expand_path` 展开, `~` 写法可用); web/scene 选中目录经 `project_entry` 验入口后应用 |
 | `theme_wallpaper()` | wallpaper.sh (`--theme [light\|dark\|auto]` CLI) / tools/theme.sh `_do_theme_change` (前台同步 hook, SIGHUP 前落盘) — 枚举 active monitors + enabled groups (skip 组员, 坏组跳过), Screen 激活时只切 Screen, 单 target 失败跳过整体恒返回 0; 先读 `wallpaper-last.json` 恢复该主题上次壁纸 (文件仍存在才用), 无记忆/文件已删才 random 并回写记忆; 当前已是目标时跳过 set (同名 set 即 reload, 白闪一次) |
 
 ### tools/wallpaper-render.sh
