@@ -30,6 +30,14 @@ error) echo "ERROR! Download item 3810650535 failed (Connection Timeout)." ;;
 esac
 EOF
 chmod +x "$FAKE_BIN/steamcmd"
+# 默认失败的 fake aurelia: 早段测试强制走 steamcmd 老路 (屏蔽宿主真实 aurelia);
+# 后段 aurelia 专用 fake (AUR_BIN, PATH 更靠前) 会 shadow 它
+cat >"$FAKE_BIN/aurelia" <<'EOF'
+#!/usr/bin/env bash
+echo "aurelia not available in this test segment" >&2
+exit 1
+EOF
+chmod +x "$FAKE_BIN/aurelia"
 cat >"$FAKE_BIN/curl" <<'EOF'
 #!/usr/bin/env bash
 : >>"$CURL_CALLED"
@@ -278,5 +286,73 @@ assert_cond "run: failure counted with id" '[[ "$_got" == "0 1 3810650535" ]]'
 export STEAMCMD_MODE=success
 _got=$(sw_run_updates anonymous </dev/null)
 assert_cond "run: empty stdin" '[[ "$_got" == "0 0" ]]'
+
+# ---- aurelia driver (prefer aurelia, fallback steamcmd) ----
+AUR_BIN="$TEST_DIR/aurbin"
+mkdir -p "$AUR_BIN"
+cat >"$AUR_BIN/aurelia" <<'EOF'
+#!/usr/bin/env bash
+echo "$*" >>"${AURELIA_ARGS_LOG:-/dev/null}"
+if [[ "$1" == "libraries" ]]; then
+    printf '{"libraries":[{"path":"%s"}]}' "${AURELIA_LIB:-/nonexistent}"
+    exit 0
+fi
+case "${AURELIA_MODE:-success}" in
+success)
+    id=""
+    for a in "$@"; do [[ "$a" =~ ^[0-9]+$ ]] && id="$a"; done
+    d="${AURELIA_LIB:-/nonexistent}/steamapps/workshop/content/${AURELIA_APPID:-431960}/$id"
+    mkdir -p "$d"; echo "fake-content" >"$d/file.bin"
+    echo "Downloaded Workshop item $id" ;;
+empty) echo "Downloaded Workshop item (empty)" ;;
+*) echo "Error: no installable Workshop items resolved" >&2; exit 1 ;;
+esac
+EOF
+chmod +x "$AUR_BIN/aurelia"
+ORIG_PATH="$PATH"
+export PATH="$AUR_BIN:$PATH"
+export AURELIA_LIB="$TEST_DIR/aurlib" AURELIA_APPID=431960
+export AURELIA_ARGS_LOG="$TEST_DIR/aurelia.args" AURELIA_MODE=success
+export STEAMCMD_ARGS_LOG="$TEST_DIR/steamcmd-aur.args"
+export STEAMCMD_INSTALL_DIR="$TEST_DIR/aur-root" STEAMCMD_OUTDIR="$TEST_DIR/dl-out" STEAMCMD_MODE=success
+rm -f "$AURELIA_ARGS_LOG" "$STEAMCMD_ARGS_LOG"
+_out=$(sw_download 431960 3810650535 anonymous "Wallpaper Engine")
+assert_cond "aurelia: success rc=0" '[[ $? -eq 0 ]]'
+assert_cond "aurelia: stdout is flat path" '[[ $_out == "$STEAMCMD_INSTALL_DIR/WallpaperEngine_431960/3810650535" ]]'
+assert_cond "aurelia: called with install --no-recurse" 'grep -Fq "workshop install --no-recurse 3810650535" "$AURELIA_ARGS_LOG"'
+assert_cond "aurelia: steamcmd not called" '[[ ! -f $STEAMCMD_ARGS_LOG ]]'
+assert_cond "aurelia: lib deep moved away" '[[ ! -e "$AURELIA_LIB/steamapps/workshop/content/431960/3810650535" ]]'
+assert_cond "aurelia: flat file landed" '[[ -f "$STEAMCMD_INSTALL_DIR/WallpaperEngine_431960/3810650535/file.bin" ]]'
+# ---- aurelia failure → fallback steamcmd ----
+export AURELIA_MODE=fail
+rm -f "$AURELIA_ARGS_LOG" "$STEAMCMD_ARGS_LOG"
+_out=$(sw_download 431960 3810650535 anonymous "Wallpaper Engine")
+assert_cond "aurelia-fallback: success rc=0" '[[ $? -eq 0 ]]'
+assert_cond "aurelia-fallback: steamcmd called" 'grep -Fq "+workshop_download_item 431960 3810650535" "$STEAMCMD_ARGS_LOG"'
+assert_cond "aurelia-fallback: flat path" '[[ $_out == "$STEAMCMD_INSTALL_DIR/WallpaperEngine_431960/3810650535" ]]'
+# ---- aurelia empty result → fallback steamcmd ----
+export AURELIA_MODE=empty
+rm -f "$AURELIA_ARGS_LOG" "$STEAMCMD_ARGS_LOG"
+sw_download 431960 3810650535 anonymous >/dev/null
+assert_cond "aurelia-empty: fallback steamcmd" 'grep -Fq "+workshop_download_item 431960 3810650535" "$STEAMCMD_ARGS_LOG"'
+# ---- DRIVER=steamcmd forces legacy path ----
+export AURELIA_MODE=success STEAM_WORKSHOP_DRIVER=steamcmd
+rm -f "$AURELIA_ARGS_LOG" "$STEAMCMD_ARGS_LOG"
+sw_download 431960 3810650535 anonymous >/dev/null
+assert_cond "driver: steamcmd forced, aurelia untouched" '[[ ! -f $AURELIA_ARGS_LOG ]] && grep -Fq "+workshop_download_item 431960 3810650535" "$STEAMCMD_ARGS_LOG"'
+unset STEAM_WORKSHOP_DRIVER
+# ---- non-numeric ids call neither driver ----
+rm -f "$AURELIA_ARGS_LOG" "$STEAMCMD_ARGS_LOG"
+sw_download 431960 notanid anonymous >/dev/null 2>&1
+assert_cond "aurelia: non-numeric itemid calls neither" '[[ $? -eq 1 && ! -f $AURELIA_ARGS_LOG && ! -f $STEAMCMD_ARGS_LOG ]]'
+rm -f "$AURELIA_ARGS_LOG" "$STEAMCMD_ARGS_LOG"
+sw_download notaid 3810650535 anonymous >/dev/null 2>&1
+assert_cond "aurelia: non-numeric appid calls neither" '[[ $? -eq 1 && ! -f $AURELIA_ARGS_LOG && ! -f $STEAMCMD_ARGS_LOG ]]'
+# ---- no aurelia binary → legacy path ----
+export PATH="$FAKE_BIN:/usr/bin:/bin"
+rm -f "$STEAMCMD_ARGS_LOG"
+_out=$(sw_download 431960 3810650535 anonymous "Wallpaper Engine")
+assert_cond "aurelia-absent: legacy steamcmd path" '[[ $? -eq 0 && $_out == "$STEAMCMD_INSTALL_DIR/WallpaperEngine_431960/3810650535" ]] && grep -Fq "+workshop_download_item 431960 3810650535" "$STEAMCMD_ARGS_LOG"'
+export PATH="$ORIG_PATH"
 
 exit $FAIL

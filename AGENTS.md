@@ -45,7 +45,7 @@ tools/steam-workshop-auto.sh ◄──autostart.sh 后台直起──► sw_sync
 rofi/scripts/yt-dlp-wrapper.sh ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh, tools/yt-dlp.sh
 
 rofi/scripts/quicklinks-mode.sh──sources──► utils/form.sh, utils/notify.sh, utils/url.sh, utils/string.sh, rofi/scripts/lib-module.sh (module_confirm); ──挂载于── rofi/launchers/type-3/launcher.sh (combi 模式 quicklinks modi)
-rofi/scripts/steam-workshop.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh, tools/steam-workshop.sh; ──calls──► steamcmd (+login <user>, +workshop_download_item, 后台子 shell + system-notify)
+rofi/scripts/steam-workshop.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh, tools/steam-workshop.sh; ──calls──► sw_download (STEAM_WORKSHOP_DRIVER=auto 时有 aurelia 优先 `aurelia workshop install --no-recurse`, 失败 fallback steamcmd +login <user>/+workshop_download_item, 后台子 shell + system-notify)
 rofi/scripts/module.sh      ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/wallpaper.sh   ──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh, utils/notify.sh, tools/wallpaper-lib.sh, tools/wallpaper-render.sh
 rofi/scripts/notification.sh──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh
@@ -322,7 +322,11 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `sw_item_info()`      | steam-workshop.sh `_go` (一次抓页返回 `appid\|app名\|资源名`; 页面无 appid → WebAPI 兜底 → 都失败才手输) |
 | `sw_list_users()`   | steam-workshop.sh `_pick_user` (解析 loginusers.vdf `AccountName\|PersonaName`, Timestamp 倒序; 0→anonymous, 1→直用, N→rofi 选) |
 | `sw_safe_app()`     | sw_download (app 名去空格/非法字符作扁平首层应用部分, `.`/`..`/空回退 appid, 仍非法回退 `unknown`) |
-| `sw_download()`     | steam-workshop.sh `_download` / `handle_update` 循环 (隔离根 `STEAMCMD_INSTALL_DIR`(兼容 `STEAM_WORKSHOP_DIR`, 缺省 `~/Downloads/steam-workshop`) 经 `+force_install_dir` 写入, 自动 `mkdir -p`; 按传入 user 一次 `+login <user>` (缺省 anonymous); 成功后 `mv` 深路径到扁平 `<隔离根>/<safe>_<appid>/<itemid>`(无 app 名时首层即 appid) 并返回扁平路径, `mv` 后逐层回收深路径空架子到隔离根为止(保留 `.acf` 清单); 非数字 appid/itemid 直接 rc=1 (不调 steamcmd); 2=认证失败提示终端登录, 1=其他失败) |
+| `sw_aurelia_roots()` | sw_aurelia_find (Steam 库根列表: `aurelia libraries -j` → `config show -j` 的 steam_library_path → 默认 `~/.local/share/Steam`/`~/.steam/steam`; 无 aurelia/jq 返回 1) |
+| `sw_aurelia_find()` | sw_aurelia_download (按 `<appid>/<itemid>` 在库根下定位首个有内容的落盘目录) |
+| `sw_flatten_download()` | sw_download / sw_aurelia_download (深路径→扁平共用: `mv` 到 `<隔离根>/<safe>_<appid>/<itemid>` + `rmdir` 回收到 stopdir 为止 + 删 acf (仅 stopdir==隔离根的 steamcmd 路径); mv/mkdir 失败返回 1) |
+| `sw_aurelia_download()` | sw_download (aurelia 路径: `workshop install --no-recurse <itemid>` → `sw_aurelia_find` 定位 → `sw_flatten_download` (stopdir=`content/<appid>`, 库内不 prune); user 忽略, 走 aurelia 自身会话; 任何失败返回 1 由调用方 fallback, 无 jq 亦视为失败) |
+| `sw_download()`     | steam-workshop.sh `_download` / `handle_update` 循环 (driver: `STEAM_WORKSHOP_DRIVER=auto`(默认) 且有 aurelia 时优先 aurelia, 失败落回 steamcmd; `=steamcmd` 强制老路; 签名/stdout/rc 语义不变, 调用方零改动; steamcmd 分支: 隔离根 `STEAMCMD_INSTALL_DIR`(兼容 `STEAM_WORKSHOP_DIR`, 缺省 `~/Downloads/steam-workshop`) 经 `+force_install_dir` 写入, 自动 `mkdir -p`; 按传入 user 一次 `+login <user>` (缺省 anonymous); 成功后经 `sw_flatten_download` 搬扁平并返回扁平路径; 非数字 appid/itemid 直接 rc=1 (两个 driver 都不调); 2=认证失败提示终端登录, 1=其他失败; aurelia 失败输出暂存仅 steamcmd 也失败时打出, 成功路径 stderr 保持干净 — 见已知问题 `sw_run_updates 2>&1`) |
 | `sw_api_time()`     | sw_check_updates (单条 GetPublishedFileDetails 取 `appid\|time_updated`, 需 jq) |
 | `sw_check_updates()` | steam-workshop.sh `handle_update` / auto (scope 为空=全部, 完整目录名精确匹配, 纯数字/app 后缀解析为 appid 后同 app 的 flat+deep 一并纳入; 枚举 flat 新/老式 + legacy 深, 非数字叶跳过;逐条 `sw_api_time` 比 `mtime`, 输出 `UPDATE\|…/CURRENT\|…/SKIP\|…` 排序行; 无候选或根非法返回 1) |
 | `_sw_dir_appid()` | sw_check_updates (目录名 → appid 唯一来源: 纯数字直接用, 取 `_<digits>` 后缀, 否则空) |
@@ -668,6 +672,7 @@ calendar-lunar|󰃚|Lunar Calendar|
 - **主题切换壁纸闪两次已修复 (两处)**: ① `theme_wallpaper` 无幂等 — 当前已是目标仍同名 set (xwallpaper 同名即 reload) 白闪一次, 现以 `--state` path 比对, 相等跳过 (random 分支本就排除当前, 主要命中记忆恢复路径)。② `_do_theme_change` 壁纸 job 后台 `&` + 固定 `sleep 0.3` 后 SIGHUP, set (find+ffprobe+set 约 0.4-1s) 落在 dwm 重启之后成第二次闪烁, 现改前台同步 SIGHUP 前落盘 (恒返回 0, 失败不影响切换; 与端点亮度同步化同类修复)。回归测试 `tests/wallpaper-last_test.sh` 场景 6 (旧代码 FAIL) + `tests/wallpaper-theme_test.sh` hook 前台断言 (`&)` 静态守卫)
 - **`sw_fetch_page` 同行 `local` 赋值恒空已修复**: `local in="$1" url="$in"` 中 bash 同行多赋值不按序可见, `url` 恒为空 → `curl ''` 恒返回空, 页面 AppID 解析全灭 (全靠 `sw_api_info` 兜底才没全崩; mock curl 忽略参数故单测从未抓住)。现改单行 `local url="$1"`; mock 记 curl 参数 + 断言 URL 透传/纯数字拼 URL (旧代码 FAIL)。另注意成熟内容条目 (如 3649839464) 匿名页面是内容门 (无 `data-appid`, 亦非登录门), 页面链天然失败, 走 API 兜底
 - **同 appid 反复 `failed (Failure)` 真因是 acf 幽灵记录 (与账号无关)**: `sw_download` 把 content 搬到扁平目录后 `appworkshop_<appid>.acf` 残留 Installed/manifest 记录, 下次同 appid 下载 steamcmd 按 acf 校验已不存在的 content 文件 (content_log 实证 `CFileReader ... errno: 2 ... Missing game files` → 整单 Failure)。证据: 中毒根下 0723wang/anonymous 同错、干净根 3 次成功、同盘新根成功 (排除文件系统)。修复: 成功搬离后删该 acf (下次全量重下; 失败保留以便续传; `sw_check_updates` 不读 acf 无影响; appid 入口已校验纯数字+路径钉死隔离根)。回归: 预置 stale acf → 成功后消失/失败保留 (旧代码 FAIL)
+- **aurelia fallback 噪声曾误删刚下载的扁平目录**: `sw_run_updates` 用 `out=$(sw_download ... 2>&1)` 合并 stderr 再与源路径比对 (`[[ $out != $path ]] && rm -rf`), aurelia 失败打到 stderr 的日志会污染 `out` 使比对恒不等 → 删掉刚落盘的扁平目录。修复: `sw_download` 内 aurelia 失败输出暂存 `aur_err`, 仅 steamcmd 也失败时才一并打出, 成功路径 stderr 保持干净。**不变量**: `sw_download` 成功时 stdout 必须恰为扁平路径、stderr 必须为空。回归测试 `tests/steam-workshop_test.sh` "run: deep source pruned after move" (旧代码 FAIL)
 
 ---
 

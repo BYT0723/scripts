@@ -48,6 +48,12 @@ cat >"$FAKE_BIN/notify-send" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$NOTIFY_LOG"
 EOF
+# 屏蔽宿主真实 aurelia: 保持本测试走 steamcmd 老路 (aurelia 行为由 steam-workshop_test.sh 覆盖)
+cat >"$FAKE_BIN/aurelia" <<'EOF'
+#!/usr/bin/env bash
+echo "aurelia not available in this test segment" >&2
+exit 1
+EOF
 chmod +x "$FAKE_BIN"/*
 export PATH="$FAKE_BIN:$PATH"
 

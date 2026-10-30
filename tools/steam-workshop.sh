@@ -19,7 +19,12 @@
 #   sw_item_info <url-or-id>     → stdout "appid|app名|资源名" (页面 → WebAPI → 失败)
 #   sw_list_users                → stdout "AccountName|PersonaName" 行 (按 Timestamp 倒序)
 #   sw_safe_app <appname> <appid>  → stdout 扁平首层目录名 (应用名去空格/非法字符, 为空回退 appid)
+#   sw_aurelia_roots                       → stdout Steam 库根列表 (libraries -j → config → 默认)
+#   sw_aurelia_find <appid> <itemid>       → stdout 库内落盘深路径 (首个有内容的)
+#   sw_flatten_download <deep> <appid> <itemid> [appname] [stopdir] → stdout 扁平路径
+#   sw_aurelia_download <appid> <itemid> [appname] → stdout 扁平路径; 失败返回 1 (fallback 用)
 #   sw_download <appid> <itemid> [user] [appname] → stdout 扁平落盘路径 <隔离根>/<应用>/<itemid>; rc=0 成功, 2=需终端登录, 1=其他失败
+#     driver: STEAM_WORKSHOP_DRIVER=auto (默认) 时有 aurelia 优先 aurelia (忽略 user), 失败 fallback steamcmd; =steamcmd 强制老路
 #     隔离根经 +force_install_dir 写入 (见 STEAMCMD_INSTALL_DIR)，缺省 ~/Downloads/steam-workshop (自动 mkdir -p)
 
 STEAM_LOGINUSERS="${STEAM_LOGINUSERS:-$HOME/.local/share/Steam/config/loginusers.vdf}"
@@ -325,9 +330,110 @@ sw_safe_app() { # appname appid → 扁平首层目录名
     printf '%s' "$app"
 }
 
+sw_aurelia_roots() { # stdout Steam 库根列表 (aurelia libraries -j → config → 默认); 无 aurelia/jq 返回 1
+    command -v aurelia >/dev/null 2>&1 || return 1
+    command -v jq >/dev/null 2>&1 || return 1
+    local libs=""
+    libs=$(aurelia libraries -j 2>/dev/null | jq -r '.libraries[]?.path // empty' 2>/dev/null)
+    if [[ -z "$libs" ]]; then
+        libs=$(aurelia config show -j 2>/dev/null | jq -r '.steam_library_path // empty' 2>/dev/null)
+    fi
+    if [[ -z "$libs" ]]; then
+        libs="$HOME/.local/share/Steam"$'\n'"$HOME/.steam/steam"
+    fi
+    printf '%s\n' "$libs"
+}
+
+sw_aurelia_find() { # appid itemid → stdout 库内落盘深路径 (首个有内容的); 找不到返回 1
+    local appid="$1" itemid="$2" r d
+    while IFS= read -r r; do
+        [[ -n "$r" ]] || continue
+        d="$r/steamapps/workshop/content/$appid/$itemid"
+        if [[ -d "$d" && -n "$(ls -A "$d" 2>/dev/null)" ]]; then
+            echo "$d"
+            return 0
+        fi
+    done < <(sw_aurelia_roots)
+    return 1
+}
+
+sw_flatten_download() { # deep appid itemid [appname] [stopdir] → stdout 扁平路径; mv+prune+acf(仅隔离根)
+    local deep="$1" appid="$2" itemid="$3" appname="${4:-}" stopdir="${5:-}"
+    [[ -n "$deep" && -e "$deep" ]] || return 1
+    local install_dir="${STEAMCMD_INSTALL_DIR:-${STEAM_WORKSHOP_DIR:-$HOME/Downloads/steam-workshop}}"
+    [[ -z "$stopdir" ]] && stopdir="$install_dir"
+    mkdir -p "$install_dir" 2>/dev/null || return 1
+    local safe flat_leaf flat_parent flat_dir path prune
+    path="$deep"
+    safe=$(sw_safe_app "$appname" "$appid")
+    flat_leaf="$safe"
+    [[ "$safe" != "$appid" ]] && flat_leaf="${safe}_${appid}"
+    flat_parent="$install_dir/$flat_leaf"
+    flat_dir="$flat_parent/$itemid"
+    if [[ "$path" != "$flat_dir" ]]; then
+        mkdir -p "$flat_parent" 2>/dev/null || return 1
+        rm -rf "$flat_dir" 2>/dev/null
+        mv "$path" "$flat_dir" 2>/dev/null || return 1
+        path="$flat_dir"
+    fi
+    # mv 后深路径只剩空架子: 逐层 rmdir 回收到 stopdir 为止
+    # (单 rmdir 不带 -p, 循环条件钉死在 stopdir 内, 不会删到外面;
+    #  aurelia 路径 stopdir 取 content/<appid>, 即库内不 prune, 只搬走)
+    prune=$(dirname "$deep")
+    while [[ "$prune" != "$stopdir" && "$prune" == "$stopdir"/* ]]; do
+        rmdir "$prune" 2>/dev/null || break
+        prune=$(dirname "$prune")
+    done
+    # 落盘已搬离深路径, acf 里该 appid 的 Installed/manifest 记录即成幽灵:
+    # 下次同 appid 下载时 steamcmd 会按 acf 校验 content/ 下已不存在的文件
+    # (content_log: CFileReader errno 2 → Missing game files → 整单 Failure)。
+    # 成功即删 (下次全量重下, 反正 content 已搬空); 失败保留以便续传。
+    # (appid 已在函数入口校验为纯数字, 路径钉死在隔离根内;
+    #  aurelia 落盘不在隔离根, 不碰 acf)
+    if [[ "$stopdir" == "$install_dir" ]]; then
+        rm -f "$install_dir/steamapps/workshop/appworkshop_${appid}.acf" 2>/dev/null
+    fi
+    echo "$path"
+}
+
+sw_aurelia_download() { # appid itemid [appname] → stdout 扁平路径; 任何失败返回 1 (调用方 fallback steamcmd)
+    local appid="$1" itemid="$2" appname="${3:-}"
+    [[ "$appid" =~ ^[0-9]+$ && "$itemid" =~ ^[0-9]+$ ]] || return 1
+    command -v aurelia >/dev/null 2>&1 || return 1
+    command -v jq >/dev/null 2>&1 || return 1
+    local log deep stopdir
+    log=$(mktemp)
+    # </dev/null: 禁止读调用方 stdin (sw_run_updates 正用 stdin 喂 UPDATE 行);
+    # 无会话需交互时直接失败走 fallback, 不挂起
+    if ! aurelia workshop install --no-recurse "$itemid" </dev/null >"$log" 2>&1; then
+        cat "$log" >&2
+        rm -f "$log"
+        return 1
+    fi
+    rm -f "$log"
+    deep=$(sw_aurelia_find "$appid" "$itemid") || return 1
+    # 库内不 prune: stopdir 钉在 content/<appid> (== dirname(deep)), prune 循环零次执行
+    stopdir=$(dirname "$deep")
+    sw_flatten_download "$deep" "$appid" "$itemid" "$appname" "$stopdir"
+}
+
 sw_download() {
     local appid="$1" itemid="$2" user="${3:-anonymous}" appname="${4:-}"
     [[ "$appid" =~ ^[0-9]+$ && "$itemid" =~ ^[0-9]+$ ]] || return 1
+    # driver: STEAM_WORKSHOP_DRIVER=auto (默认) 且有 aurelia 时优先 aurelia
+    # (忽略 user, 走 aurelia 自身登录会话); 失败则落回 steamcmd。
+    # STEAM_WORKSHOP_DRIVER=steamcmd 强制老路。
+    # 注意: 调用方 (sw_run_updates) 会把 stderr 并入 stdout 比对路径,
+    # 故 aurelia 失败输出必须暂存、仅 steamcmd 也失败时才打出, 否则污染路径比对致误删。
+    local aur_err=""
+    if [[ "${STEAM_WORKSHOP_DRIVER:-auto}" == "auto" ]]; then
+        local aur_out
+        if aur_out=$(sw_aurelia_download "$appid" "$itemid" "$appname" 2>&1); then
+            echo "$aur_out"
+            return 0
+        fi
+        aur_err="$aur_out"
+    fi
     local -a login_arg=(+login anonymous)
     [[ "$user" != "anonymous" ]] && login_arg=(+login "$user")
 
@@ -340,42 +446,15 @@ sw_download() {
     rc=$?
 
     path=$(grep -o 'Success\. Downloaded item [0-9]* to "[^"]*"' "$log" | head -1 | sed 's/.* to "//; s/"$//')
-    if [[ $rc -eq 0 && -n "$path" && -e "$path" ]]; then
-        local safe flat_leaf flat_parent flat_dir deep
-        deep="$path"
-        safe=$(sw_safe_app "$appname" "$appid")
-        flat_leaf="$safe"
-        [[ "$safe" != "$appid" ]] && flat_leaf="${safe}_${appid}"
-        flat_parent="$install_dir/$flat_leaf"
-        flat_dir="$flat_parent/$itemid"
-        if [[ "$path" != "$flat_dir" ]]; then
-            mkdir -p "$flat_parent" 2>/dev/null || { cat "$log" >&2; rm -f "$log"; return 1; }
-            rm -rf "$flat_dir" 2>/dev/null
-            if mv "$path" "$flat_dir" 2>/dev/null; then
-                path="$flat_dir"
-            fi
-        fi
-        # steamcmd 深路径架子是写死的, mv 后只剩空目录: 逐层 rmdir 回收到隔离根为止
-        # (单 rmdir 不带 -p, 循环条件钉死在隔离根内, 不会删到外面)
-        local prune
-        prune=$(dirname "$deep")
-        while [[ "$prune" != "$install_dir" && "$prune" == "$install_dir"/* ]]; do
-            rmdir "$prune" 2>/dev/null || break
-            prune=$(dirname "$prune")
-        done
-        # 落盘已搬离深路径, acf 里该 appid 的 Installed/manifest 记录即成幽灵:
-        # 下次同 appid 下载时 steamcmd 会按 acf 校验 content/ 下已不存在的文件
-        # (content_log: CFileReader errno 2 → Missing game files → 整单 Failure)。
-        # 成功即删 (下次全量重下, 反正 content 已搬空); 失败保留以便续传。
-        # (appid 已在函数入口校验为纯数字, 路径钉死在隔离根内)
-        rm -f "$install_dir/steamapps/workshop/appworkshop_${appid}.acf" 2>/dev/null
-        echo "$path"
+    if [[ $rc -eq 0 && -n "$path" && -e "$path" ]] \
+        && sw_flatten_download "$path" "$appid" "$itemid" "$appname"; then
+        rc=0
     elif grep -qiE 'invalid password|steam guard|not logged on|access denied|no subscription|logon failure|rate limit' "$log"; then
         rc=2
     else
         rc=1
     fi
-    [[ $rc -ne 0 ]] && cat "$log" >&2
+    [[ $rc -ne 0 ]] && { [[ -n "$aur_err" ]] && printf '%s\n' "$aur_err" >&2; cat "$log" >&2; }
     rm -f "$log"
     return $rc
 }
