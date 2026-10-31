@@ -15,6 +15,13 @@ get_theme_config() {
         '.[$mode] | getpath($key | split("."))? // empty' "$THEME_CONF"
 }
 
+# 光标按 mode 覆盖: .<mode>.cursor.<key> 优先, 缺失回退全局 .cursor.<key>
+get_cursor_config() {
+    local mode="$1" key="$2"
+    jq -r --arg mode "$mode" --arg key "$key" \
+        '.[$mode].cursor[$key] // .cursor[$key] // empty' "$THEME_CONF"
+}
+
 _ensure_config_line() {
     local file="$1" search="$2" replacement="$3"
     if grep -q "$search" "$file" 2>/dev/null; then
@@ -85,8 +92,8 @@ set_dwm_theme() {
     echo "$mode" >"$HOME/.local/state/dwm/current-theme"
 
     local cursor_theme cursor_size dpi
-    cursor_theme=$(jq -r '.cursor.theme // empty' "$THEME_CONF")
-    cursor_size=$(jq -r '.cursor.size // empty' "$THEME_CONF")
+    cursor_theme=$(get_cursor_config "$mode" "theme")
+    cursor_size=$(get_cursor_config "$mode" "size")
     dpi=$(jq -r '.dpi // empty' "$THEME_CONF")
     [ -n "$cursor_theme" ] && _ensure_config_line "$file" "^Xcursor.theme:.*" "Xcursor.theme: $cursor_theme"
     [ -n "$cursor_size" ] && _ensure_config_line "$file" "^Xcursor.size:.*" "Xcursor.size: $cursor_size"
@@ -246,8 +253,8 @@ set_gtk_theme() {
     theme=$(get_theme_config "$mode" "gtk") || return
     icon_theme=$(get_theme_config "$mode" "icon") || return
     [ -z "$theme" ] && return
-    cursor_theme=$(jq -r '.cursor.theme // empty' "$THEME_CONF")
-    cursor_size=$(jq -r '.cursor.size // empty' "$THEME_CONF")
+    cursor_theme=$(get_cursor_config "$mode" "theme")
+    cursor_size=$(get_cursor_config "$mode" "size")
 
     local gtk2_cfg="$HOME/.gtkrc-2.0"
     local gtk3_cfg="$HOME/.config/gtk-3.0/settings.ini"

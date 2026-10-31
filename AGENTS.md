@@ -273,10 +273,11 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `_should_apply_at()` | apply_transition_brightness (是否写亮度谓词：窗口内含终点，或 duration=0 侧的二值对齐；窗口外返回 1) |
 | `apply_transition_brightness()` | auto_daemon (只在过渡窗口内写各 monitor 插值亮度，窗口外不动——手动/OSD 调的不抢回；duration=0 的侧按二值对齐端点；与硬件值差<1 跳过，读不到直接写) |
 | `_auto_lock()`            | auto_daemon (flock 非阻塞单实例守卫，锁路径 `${THEME_LOCK:-/tmp/dwm-status/theme-auto.lock}`；autostart 直起的 daemon 无 pid 文件，重复 `auto on` 靠此不重入；flock 缺失时 fail-open) / `auto on` 的 flock 探针 (子 shell 内试拿即放，锁被占=已有实例→直接复用不 spawn，避免死 pid 覆盖 pid 文件) |
-| `set_gtk_theme()`         | tools/theme.sh (_do_theme_change: 写 gtk2/3/4 持久配置 (主题/icon/光标 theme+size, 源 `theme.json:cursor`) + 运行时双通道广播 — xsettingsd GTK 主题名 + `Gtk/CursorThemeName/Size` / gsettings color-scheme 同步 portal + `cursor-theme/size`) |
+| `set_gtk_theme()`         | tools/theme.sh (_do_theme_change: 写 gtk2/3/4 持久配置 (主题/icon/光标 theme+size, 源 `theme.json:cursor` + `.<mode>.cursor` 覆盖) + 运行时双通道广播 — xsettingsd GTK 主题名 + `Gtk/CursorThemeName/Size` / gsettings color-scheme 同步 portal + `cursor-theme/size`) |
 | `set_qt_theme()`          | tools/theme.sh (_do_theme_change: `QT_QPA_PLATFORMTHEME=qt6ct` 写 `~/.xprofile` (幂等替换 gtk3 残留) + qt6ct/qt5ct `style=kvantum` + icon 跟随 `theme.json:icon` + Kvantum 主题跟随 `theme.json:qt` (light `Orchis-solid` / dark `Orchis-solidDark`, 缺键直接返回不写) + `kvantummanager --set` 即时生效) |
 | `_ensure_ini_key()`       | set_qt_theme (ini 版 `_ensure_config_line`: 按 `[section]` 归属写键, 缺节补节; qt6ct/qt5ct `Appearance` + Kvantum `General` 三处复用) |
 | `get_auto_config()`       | tools/theme.sh (auto_daemon, auto on/off, apply)                                                                                                 |
+| `get_cursor_config()`     | set_dwm_theme, set_gtk_theme (光标 theme/size 按 mode 覆盖: `.<mode>.cursor.<key>` 优先, 缺失回退全局 `.cursor.<key>`; 回归 `tests/theme-cursor_test.sh`) |
 | `get_sun_times()`         | tools/theme.sh (auto_daemon), rofi/scripts/theme.sh (get_sun_message → MODULE_MESG 日出日落显示; 内置 `~/.local/state/dwm/cache/sun-times` 缓存) |
 | `auto_daemon()`           | tools/theme.sh (auto 守护进程循环)                                                                                                               |
 
