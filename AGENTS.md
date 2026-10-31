@@ -30,6 +30,7 @@ tools/calendar.sh ──sources──► utils/notify.sh
 tools/keyboard.sh ──sources──► utils/notify.sh
 tools/volume.sh ──sources──► utils/notify.sh
 tools/touchpad.sh ──sources──► 无外部脚本
+tools/avtool.sh ──sources──► 无外部脚本 (organize_av.sh + check_rescrape.sh 合并); ──requires─► curl, jq, rsync; organize 子命令查演员走 metatube 本地服务, check/identify 子命令走 Jellyfin API (识别逻辑:按文件名搜索并自动应用番号精确命中,check --fix 与 identify 共用 _identify_one)
 utils/form.sh ──sources──► 无外部脚本; ──requires─► jq, yad (优先) / zenity (fallback); 环境变量 FORM_BACKEND/FORM_CSS/FORM_WIDTH/FORM_FONT (yad 字体)/FORM_TITLE (对话框标题)
 utils/url.sh ──sources──► 无外部脚本
 utils/string.sh ──sources──► 无外部脚本
