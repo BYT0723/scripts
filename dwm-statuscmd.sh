@@ -118,6 +118,21 @@ _rss_launch() {
     system-notify normal "Tool Not Found" "please install newsboat"
 }
 
+_docker_list() {
+    local d="/tmp/dwm-status" out=""
+    [ -f "$d/docker-list" ] && out=$(awk -F'|' '{print $3" ("$2")"}' "$d/docker-list")
+    [ -f "$d/docker-disk" ] && out+=$'\n\n'"$(cat "$d/docker-disk")"
+    notify-send -c status -i docker -h string:x-dunst-stack-tag:dockerStatus "Docker" "${out:-no data (daemon down?)}"
+}
+
+_docker_monitor() {
+    command -v lazydocker >/dev/null 2>&1 && {
+        _topen lazydocker
+        return
+    }
+    system-notify normal "Tool Not Found" "please install lazydocker"
+}
+
 # --- Dispatch table ---
 # key = [cmdIndex,clickType]; cmdIndex is $ST_* from status-ids.def, the same
 # id dwm reports as $INDEX. Never hardcode the number here.
@@ -159,6 +174,8 @@ declare -A actions=(
     [$ST_NOTIFY,$right]='"$ROFI_SCRIPT_DIR/notification.sh"'
     [$ST_SCREENCAST,$left]='"$ROFI_SCRIPT_DIR/screencast.sh"'
     [$ST_SCREENCAST,$right]='"$TOOLS_DIR/screencast.sh" stop'
+    [$ST_DOCKER,$left]=_docker_list
+    [$ST_DOCKER,$right]=_docker_monitor
 )
 
 # --- Main dispatch ---

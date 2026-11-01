@@ -9,6 +9,7 @@ icons["mpd"]=""
 icons["notification"]=""
 icons["rss"]=""
 icons["sing-box"]=""
+icons["docker"]=""
 icons["volume"]=""
 icons["volume_off"]=""
 icons["volume_mute"]=""
@@ -276,6 +277,24 @@ print_rss() {
 
 print_singbox() {
     pgrep sing-box >/dev/null && printf "^c$white^${icons["sing-box"]}"
+}
+
+print_docker() {
+    [ -f "$docker_count_path" ] || return
+    local running total unhealthy restarting
+    read running total unhealthy restarting <"$docker_count_path"
+    [ -n "$running" ] || return
+
+    local fg="$white"
+    if ((unhealthy > 0)); then
+        fg="$red"
+    elif ((restarting > 0)); then
+        fg="$yellow"
+    elif ((running > 0)); then
+        fg="$blue"
+    fi
+    printf "^c$fg^${icons[docker]}  $running"
+    ((unhealthy > 0)) && printf " !%d" "$unhealthy"
 }
 
 print_notification() {

@@ -12,9 +12,19 @@
 ## style-11    style-12    style-13    style-14    style-15
 
 dir="$HOME/.dwm/rofi/launchers/type-2"
-theme='style-9'
+theme='style-1'
+quicklinks="$HOME/.dwm/rofi/scripts/quicklinks-mode.sh"
 
 ## Run
 rofi \
-  -show drun \
-  -theme ${dir}/${theme}.rasi
+    -modes "combi,quicklinks:${quicklinks}" \
+    -combi-modes "drun,run,ssh" \
+    -show-icons \
+    -display-combi " " \
+    -display-drun " " \
+    -display-run " " \
+    -display-ssh " " \
+    -theme-str 'configuration {display-quicklinks: "󰖟 ";}' \
+    -theme-str 'configuration {terminal: "'${TERMINAL:-kitty}'";}' \
+    -show combi \
+    -theme "${dir}/${theme}.rasi"

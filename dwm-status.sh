@@ -18,7 +18,7 @@ new_pane() {
     else
         ord=0
     fi
-    if [ "$ord" -ge 1 ] && [ "$ord" -le 16 ]; then
+    if [ "$ord" -ge 1 ] && [ "$ord" -le 31 ]; then
         first_status_code=${first:0:1}
         first_text=${first:1}
     else
@@ -50,7 +50,7 @@ panes() {
         panes+="$(new_pane $black "${ST_RSS_BYTE}$rss_str" "${ST_MAIL_BYTE}$mail_str" "${ST_NOTIFY_BYTE}$notification_str")"
     fi
 
-    panes+="$(new_pane $black "${ST_SCREENCAST_BYTE}$(print_screencast)" "${ST_SINGBOX_BYTE}$(print_singbox)" "${ST_MPD_BYTE}$mpd_str" "${ST_VOLUME_BYTE}$(print_volume)" "${ST_BATTERY_BYTE}$(print_battery)")"
+    panes+="$(new_pane $black "${ST_SCREENCAST_BYTE}$(print_screencast)" "${ST_DOCKER_BYTE}$(print_docker)" "${ST_SINGBOX_BYTE}$(print_singbox)" "${ST_MPD_BYTE}$mpd_str" "${ST_VOLUME_BYTE}$(print_volume)" "${ST_BATTERY_BYTE}$(print_battery)")"
     # datetime pane
     panes+="$(new_pane $black "${ST_DATE_BYTE}^c$cyan^$(print_date)")"
 
@@ -74,6 +74,8 @@ launch_daemon() {
     interval_update_daemon -i 300 update_rss &
     pids+=($!)
     update_mpd_daemon &
+    pids+=($!)
+    update_docker_daemon &
     pids+=($!)
 
     # 保存当前进程 PID

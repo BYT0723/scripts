@@ -62,6 +62,9 @@ network_traffic_path="$cache_dir/network-traffic-rx"
 mail_unread_path="$cache_dir/mail-unread"
 rss_unread_path="$cache_dir/rss-unread"
 mpd_status_path="$cache_dir/mpd-status"
+docker_count_path="$cache_dir/docker-count"
+docker_list_path="$cache_dir/docker-list"
+docker_disk_path="$cache_dir/docker-disk"
 
 mail_account_config=$HOME/.config/dwm/mail.json
 
@@ -248,4 +251,43 @@ update_rss() {
     [ -z "$(command -v newsboat)" ] && system-notify critical "Tool Not Found" "please install newsboat" && return
 
     newsboat -x print-unread 2>/dev/null | awk '{print $1}' >"$rss_unread_path"
+}
+
+# docker 容器状态：stdin 为 `docker ps -a --format '{{.State}}|{{.Status}}|{{.Names}}'`
+# 输出 "running total unhealthy restarting"（纯函数，便于单测）
+docker_summarize() {
+    awk -F'|' '
+        { total++ }
+        $1=="running" { running++ }
+        $2 ~ /\(unhealthy\)/ { unhealthy++ }
+        $1=="restarting" { restarting++ }
+        END { printf "%d %d %d %d", running+0, total+0, unhealthy+0, restarting+0 }
+    '
+}
+
+# 快轮询容器列表（默认 5s），慢轮询磁盘占用（默认 300s）
+# docker-count: "running total unhealthy restarting"
+# docker-list: "state|status|names" 明细，供点击查看
+# docker-disk: `docker system df` 明细，供点击查看
+update_docker_daemon() {
+    local interval=${1:-5} slow=${2:-300}
+    local slow_n=$((slow / interval))
+    ((slow_n < 1)) && slow_n=1
+    local n=0
+    while true; do
+        if command -v docker >/dev/null 2>&1 && pgrep docker >/dev/null 2>&1; then
+            if docker ps -a --format '{{.State}}|{{.Status}}|{{.Names}}' >"$docker_list_path.tmp" 2>/dev/null; then
+                mv -f "$docker_list_path.tmp" "$docker_list_path"
+                docker_summarize <"$docker_list_path" >"$docker_count_path"
+            fi
+            if ((n % slow_n == 0)); then
+                docker system df --format '{{.Type}} {{.TotalCount}} {{.Size}} {{.Reclaimable}}' >"$docker_disk_path.tmp" 2>/dev/null \
+                    && mv -f "$docker_disk_path.tmp" "$docker_disk_path"
+            fi
+        else
+            rm -f "$docker_count_path" "$docker_list_path" "$docker_disk_path"
+        fi
+        ((n++))
+        sleep "$interval"
+    done
 }
