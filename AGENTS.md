@@ -504,9 +504,11 @@ DWM 启动
 
 ```
 dwm-status.sh
-  → source dwm-status-tools.sh
+  → source dwm-status-tools.sh, status-ids.sh
     → source utils/weather.sh, utils/notify.sh
-  → new_pane("...", print_*)
+  → panes() 拼接 ${ST_*_BYTE} + print_* 输出
+    (顺序/分组/圆角归 dwm config.h 的 bar_left/bar_right; 空 block 只留
+     id 字节, 由 dwm 的 bar_blocks 丢弃)
   → launch_daemon(update_*_daemon)
   → xsetroot -name "$status"
 
@@ -638,6 +640,7 @@ calendar-lunar|󰃚|Lunar Calendar|
 
 ## 已知问题
 
+- **status writer 不再注入 pill 底色 (`^b`)**: `panes()` 原用 `new_pane()` 给每个 pane 组首 block 加 `^b$black^`, 理由是"让 pane 颜色跟随 xrdb 主题"。但 dwm 的 `SchemeStatus` bg = `col_black`, `loadxrdb()` 已用 `strncpy` **原地覆盖**为 xrdb 的 `dwm.col_black` (dwm.c), 且 SIGHUP restart 时 `autostart.sh` 会跑 `dwm-status.sh reboot` 让 writer 重读同一份 xrdb —— 两边同源同值, `^b` 纯属重复写入。现 `new_pane` 已删除, `panes()` 直接拼接 `${ST_*_BYTE}<text>`; 空 block 只留 id 字节, 由 dwm 的 `bar_blocks` 丢弃 (无可见文本)。分组/顺序/圆角由 dwm `config.h` 的 `bar_left/bar_right` 决定, writer 侧顺序仅为阅读。**注意** writer 侧若给空 block 加颜色码 (如 `^c...^`) 会使其"有可见文本"而不被丢弃, 故 `weather` 仍保留 `[ -n ]` 判断。回归测试 `tests/status-panes_test.sh`
 - `tools/calendar.sh:3` source 路径已修复为 `$(dirname "$0")/../utils/notify.sh`
 - **mpd.sh fetch_cover 慢已修复**: 根因不是 MPD 网络往返而是客户端每 chunk 固定开销。① `nc -q1` 在 stdin EOF 后须等 1s 才退出，而 MPD 收 `close` 不主动断连 → 每块白白等 1s，readpicture chunk 上限 8192B，N 块 ≈ N 秒（实测 30KB 封面 4 块整函数 4102ms，改 `-q0` 后 88ms；1MB 封面 128 块会到 ~128s）。② `dd bs=1 skip=...` 逐字节跳过+拷贝，块内 skip 从文件头重来，累计 O(n²) 字节级 syscall（1MB 封面 128 块 ~6700 万次单字节 read），改 `iflag=skip_bytes,count_bytes bs=4096`（精确 seek + 块拷贝）。**单连接方案评估后放弃**: bash 无法可靠"恰好读 N 字节且把后续保留在流中"（read 缓冲与 fd 不同步、dd over-read 会吞掉下一响应 header、binary 块无长度外分隔标记），需 python/复杂协议解析，与仓库纯 bash 风格冲突，且 fetch 为低频场景（cache 按 uri 命中后不再拉），`-q0`+iflag 已把 4.1s→48ms，额外收益不足以抵风险。回归测试 `tests/mpd-cover_test.sh`
 - `tools/screen.sh:16` LOCKER 路径已改为 `$(dirname "$0")/lock.sh lock`，不再依赖 `$TOOLS_DIR`

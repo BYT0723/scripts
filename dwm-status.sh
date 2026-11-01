@@ -3,33 +3,11 @@
 source "$(dirname "$0")/dwm-status-tools.sh"
 source "$(dirname "$0")/status-ids.sh" # ST_* block ids, derived from status-ids.def
 
-# $1: background color
-# ${@:2} blocks... each argument starts with its block id (${ST_*_BYTE} control byte).
-# Grouping and rounded caps live in dwm's config; the pane colour stays here
-# so it keeps following the xrdb theme, and dwm paints the cap with it.
-new_pane() {
-    bg=$1
-    shift
-
-    # the block id is one leading control byte (< 0x20); anything else is text
-    first=$1
-    if [ -n "$first" ]; then
-        ord=$(printf '%d' "'${first:0:1}")
-    else
-        ord=0
-    fi
-    if [ "$ord" -ge 1 ] && [ "$ord" -le 31 ]; then
-        first_status_code=${first:0:1}
-        first_text=${first:1}
-    else
-        first_status_code=""
-        first_text="$first"
-    fi
-    shift
-
-    printf "%s" "$first_status_code^b$bg^$first_text" "$@"
-}
-
+# Every block carries its status id (${ST_*_BYTE}); dwm's config owns the
+# draw order, pill grouping and rounded caps (bar_left/bar_right in its
+# config.h), so the order here is only for reading. The pane background is
+# NOT sent: dwm's SchemeStatus colours come from the same xrdb keys via
+# loadxrdb(), so a ^b here would just repeat them.
 panes() {
     local panes
     local weather_str=$(print_weather)
@@ -38,21 +16,21 @@ panes() {
     local notification_str=$(print_notification)
     local mpd_str=$(print_mpd)
 
-    [ -n "$weather_str" ] && panes+="$(new_pane $black "${ST_WEATHER_BYTE}^c$blue^$weather_str")"
+    [ -n "$weather_str" ] && panes+="${ST_WEATHER_BYTE}^c$blue^$weather_str"
 
     # net traffic monitor pane
-    panes+="$(new_pane $black "${ST_NET_BYTE}^c$white^$(print_speed)")"
+    panes+="${ST_NET_BYTE}^c$white^$(print_speed)"
     # system monitor pane
-    panes+="$(new_pane $black "${ST_CPU_BYTE}$(print_cpu)" "${ST_MEM_BYTE}$(print_mem)" "${ST_DISK_BYTE}$(print_disk /)")"
+    panes+="${ST_CPU_BYTE}$(print_cpu)${ST_MEM_BYTE}$(print_mem)${ST_DISK_BYTE}$(print_disk /)"
 
     # notification pane
     if [[ -n $rss_str || -n $mail_str || -n $notification_str ]]; then
-        panes+="$(new_pane $black "${ST_RSS_BYTE}$rss_str" "${ST_MAIL_BYTE}$mail_str" "${ST_NOTIFY_BYTE}$notification_str")"
+        panes+="${ST_RSS_BYTE}$rss_str${ST_MAIL_BYTE}$mail_str${ST_NOTIFY_BYTE}$notification_str"
     fi
 
-    panes+="$(new_pane $black "${ST_SCREENCAST_BYTE}$(print_screencast)" "${ST_DOCKER_BYTE}$(print_docker)" "${ST_SINGBOX_BYTE}$(print_singbox)" "${ST_MPD_BYTE}$mpd_str" "${ST_VOLUME_BYTE}$(print_volume)" "${ST_BATTERY_BYTE}$(print_battery)")"
+    panes+="${ST_SCREENCAST_BYTE}$(print_screencast)${ST_DOCKER_BYTE}$(print_docker)${ST_SINGBOX_BYTE}$(print_singbox)${ST_MPD_BYTE}$mpd_str${ST_VOLUME_BYTE}$(print_volume)${ST_BATTERY_BYTE}$(print_battery)"
     # datetime pane
-    panes+="$(new_pane $black "${ST_DATE_BYTE}^c$cyan^$(print_date)")"
+    panes+="${ST_DATE_BYTE}^c$cyan^$(print_date)"
 
     printf "%b\n" "$panes"
 }
