@@ -36,7 +36,7 @@
 | `bash tools/lock.sh {lock\|suspend}` | 锁屏（i3lock）/挂起；锁屏期间武装 DPMS（30s 灭屏）、暂停音乐、按 sink 静音全部输出、STOP `xwallpaperd` 防 DPMS 回弹 |
 | `source tools/monitor-brightness.sh`（`read_brightness`/`set_brightness`） | 单屏亮度：eDP 走 `brightnessctl`，外接屏走 `ddcutil setvcp 10`（DP aux 总线回退 + bus 文件缓存） |
 | `python3 tools/wallpaper-classify.py [--move] <dir>` | 壁纸 light/dark 初筛（B 规则暗像素占比；`--move` 按 verdict 搬进 `light/`/`dark/`） |
-| `bash tests/<name>_test.sh` | 回归测试（见 §测试，共 10 个，全部零外部显示依赖，mock xrandr/ddcutil） |
+| `bash tests/<name>_test.sh` | 回归测试（完整列表 `ls tests/*_test.sh`；全部零外部显示依赖，mock xrandr/ddcutil 等外部命令） |
 
 常用 rofi 入口（`rofi/scripts/` 均为 `module_loop` 注册表菜单，`key|icon|label|status` 四列，见 AGENTS.md §Rofi 模块注册表规范）：`module.sh`（系统总控）、`theme.sh`（主题/亮度/过渡锚点）、`wallpaper.sh`（壁纸/组/随机参数）、`quicklinks-mode.sh`（书签+`@引擎`搜索）、`mpd.sh`（音乐+封面）、`yt-dlp-wrapper.sh`（下载）、`screenshot.sh` / `screencast.sh` / `sing-box.sh` / `scrcpy.sh` / `sddm.sh` / `media-scraping.sh` / `notification.sh` / `emoji.sh`。
 
@@ -226,8 +226,10 @@ bash tests/wallpaper-theme_test.sh
 bash tests/lib-module_test.sh
 bash tests/autostart_test.sh
 bash tests/screen-lock_test.sh                  # 锁屏链路: 单一权威 / 抑制即 reset / DPMS 只在锁屏期
-bash tests/lock-mute_test.sh                    # 锁屏静音: 快照时机 / 全 sink 静音 / 只还原本次改过的
+bash tests/lock-mute_test.sh                    # 锁屏静音: 快照时机 / 全 sink 静音 / 只还原本次改过的（含 SIGTERM 兜底）
 ```
+
+上面是常用用例，完整列表 `ls tests/*_test.sh`。
 
 测试统一 mock `xrandr/brightnessctl/ddcutil/date/sleep/pgrep` 等外部命令（无显示环境下真 `xrandr` 可能枚举幽灵 monitor 导致 hang），`THEME_LOCK` 指向临时路径防与 live daemon 争 flock 锁。详见 AGENTS.md §已知问题。
 

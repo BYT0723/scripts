@@ -123,6 +123,24 @@ wait "$lpid"
 check "E4: 解锁后恢复静音" '[ "$(mute_of s_internal)" = no ]'
 unset I3LOCK_HOLD
 
+# ---- F. SIGTERM (loginctl unlock-session / 外部 kill) 也要还原 ----
+: >"$LOG"
+for s in s_internal s_fosi easyeffects_sink; do echo no >"$MUTE_DIR/$s"; done
+echo playing >"$MPD_FILE"
+export I3LOCK_HOLD=5
+( lock ) &
+lpid=$!
+sleep 1.5
+check "F1: 锁屏中已静音" '[ "$(mute_of s_internal)" = yes ]'
+kill -TERM "$lpid"
+sleep 1
+check "F2: SIGTERM 后恢复静音" '[ "$(mute_of s_internal)" = no ] && [ "$(mute_of s_fosi)" = no ]'
+check "F3: SIGTERM 后收回 DPMS" 'grep -qE "^xset dpms 0 0 0$" "$LOG"'
+check "F4: SIGTERM 后恢复 xwallpaperd 渲染" 'grep -qE "^pkill -CONT -x xwallpaperd$" "$LOG"'
+check "F5: mpd 只 toggle 两次 (还原幂等, 不重复暂停)" '[ "$(count "^mpc -q toggle$")" -eq 2 ]'
+wait "$lpid" 2>/dev/null
+unset I3LOCK_HOLD
+
 # ---- D. 静态守卫: 源码里不再用 amixer 静音 ----
 check "D1: lock.sh 不再 amixer set Master (忽略注释)" '! sed "s/#.*//" "$TOOLS_DIR/lock.sh" | grep -q "amixer set Master"'
 check "D2: 静音走 pactl set-sink-mute" 'grep -q "pactl set-sink-mute" "$TOOLS_DIR/lock.sh"'

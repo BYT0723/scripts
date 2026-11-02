@@ -89,7 +89,10 @@ _lock() {
     xset dpms force standby
 }
 
+lock_restored=1 # 未进入锁屏流程, _lock_after 无事可做
+
 _lock_before() {
+    lock_restored=0
     # 快照必须在这里取: powermenu 是先 source 本脚本、再等用户点菜单,
     # 顶层取值会拿到几分钟前的状态, 期间开始的播放就暂停/静音不了。
     mpd_status=$(mpc status | awk 'NR==2 {print $1}')
@@ -100,8 +103,8 @@ _lock_before() {
     # HDMI (卡 2) 或 easyeffects_sink (虚拟) → 打不中, 锁屏后照样出声。
     # 逐个 sink 静音, 只记录我们改过的, 解锁时原样还原。
     muted_sinks=()
-    local _idx sink _rest
-    while read -r _idx sink _rest; do
+    local _idx sink _
+    while read -r _idx sink _; do
         [ -n "$sink" ] || continue
         [ "$(pactl get-sink-mute "$sink" 2>/dev/null | awk '{print $2}')" = "no" ] || continue
         muted_sinks+=("$sink")
@@ -114,6 +117,9 @@ _lock_before() {
 }
 
 _lock_after() {
+    # 幂等: 正常解锁与信号 trap 都会调, 重复执行会把 mpd 再 toggle 一次
+    [ "$lock_restored" -eq 1 ] && return 0
+    lock_restored=1
     [ "$mpd_status" == "[playing]" ] && mpc -q toggle
     local sink
     for sink in "${muted_sinks[@]}"; do
@@ -128,17 +134,22 @@ _lock_after() {
 
 lock() {
     _lock_before
+    # loginctl unlock-session / 外部 SIGTERM 不会走 wait 之后的还原, 用 trap 兜底
+    trap '_lock_after' TERM INT HUP
     _lock
     wait
     _lock_after
+    trap - TERM INT HUP
 }
 
 suspend() {
     _lock_before
+    trap '_lock_after' TERM INT HUP
     _lock
     systemctl suspend
     wait
     _lock_after
+    trap - TERM INT HUP
 }
 
 case "$1" in

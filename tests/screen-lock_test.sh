@@ -114,6 +114,7 @@ reset_log
 sleep() { :; } # _lock 内的 sleep 1 不阻塞测试
 # shellcheck source=../tools/lock.sh
 source "$TOOLS_DIR/lock.sh"
+_lock_before # 与 lock() 的真实顺序一致 (_lock_after 依赖 _lock_before 复位幂等状态)
 _lock
 wait
 check "F1: 锁屏前武装 DPMS" 'grep -qE "^xset dpms 30 30 30$" "$LOG"'
