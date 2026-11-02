@@ -20,8 +20,9 @@ tools/theme.sh ──sources──► utils/notify.sh, utils/launch.sh, tools/mo
 tools/monitor-brightness.sh ──sources──► 无外部脚本; ──sourced by── tools/theme.sh
 utils/launch.sh ──sourced by── autostart.sh, tools/theme.sh; ──requires─► flock (/tmp/dwm-status/autostart-launch-<name>.{pid,lock})
 
-tools/lock.sh ──sources──► utils/notify.sh
+tools/lock.sh ──sources──► utils/notify.sh; ──requires──► i3lock, pactl (静音/还原全部 sink), mpc, xset
               ◄──sourced by── rofi/powermenu/type-{1..6}/powermenu.sh
+tools/screen.sh ──sources──► utils/notify.sh; ──requires─► xss-lock (extra); ──spawns──► xss-lock -- lock.sh lock (单一空闲权威); ──调用──► xset s <T> 0 + xset s noblank / xset s reset (音频抑制) / xset dpms 0 0 0
 tools/wallpaper.sh ──sources──► utils/notify.sh, tools/wallpaper-lib.sh, tools/wallpaper-render.sh
 tools/wallpaper-classify.py ──requires──► python3+PIL, ffmpeg/ffprobe (视频缩略图); 壁纸 light/dark 初筛 (B 规则暗像素占比), `--move` 按 verdict 搬进 light//dark/
 tools/screencast.sh ──sources──► utils/monitor.sh
@@ -172,12 +173,23 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 
 | 函数                  | 调用者                                                       |
 | --------------------- | ------------------------------------------------------------ |
-| `_lock_before()`      | lock() / suspend() → 所有 powermenu 脚本                     |
-| `_lock()`             | lock() / suspend() → 所有 powermenu 脚本 / screen.sh(LOCKER) |
-| `_lock_after()`       | lock() / suspend() → 所有 powermenu 脚本                     |
-| `_screen_lock_loop()` | lock() / suspend() → 所有 powermenu 脚本                     |
-| `lock()`              | screen.sh 的 LOCKER / `lock.sh lock` CLI                     |
+| `_lock_before()`      | lock() / suspend() → 所有 powermenu 脚本 — 现取 mpd 快照并暂停; 逐 sink `pactl set-sink-mute 1` (记录 `muted_sinks`, 跳过本已静音的); STOP mpv/xwallpaper。**不能用 amixer Master**: 它只作用于 ALSA 默认控制卡 (本机卡 3), 实际 sink 可能是 Fosi USB DAC (卡 1, 只有 PCM) / HDMI (卡 2) / `easyeffects_sink` → 锁屏后仍出声 |
+| `_lock()`             | lock() / suspend() → 所有 powermenu 脚本 / screen.sh(LOCKER) — 先武装 `xset dpms 30 30 30` 再起 `i3lock -n` (DPMS 只在锁屏期存在, 每次输入自动重置计时, 故唤醒后 30s 再灭; 无需轮询)。**`-n` 不可删**: i3lock 默认 fork, 父进程立刻退出会让 `lock()` 的 `wait` 立即返回 → `_lock_after` 在锁屏期间执行 (静音/DPMS 被立刻还原, 表现为锁屏后照样出声) |
+| `_lock_after()`       | lock() / suspend() → 所有 powermenu 脚本 — 只还原 `muted_sinks` 里本次静音的 sink (用户原本静音的不动), 恢复 mpd/xwallpaper, 末尾 `xset dpms 0 0 0` 收回 DPMS |
+| `lock()`              | screen.sh 的 LOCKER (经 xss-lock 调起, 阻塞到解锁) / `lock.sh lock` CLI |
 | `suspend()`           | `lock.sh suspend` CLI                                        |
+
+> `_screen_lock_loop()` 已删除: DPMS 超时在锁屏期自身会因输入重置计时, 轮询 + `xdotool key Escape` 强制 standby 是多余的 (也是"唤醒 30s 又灭"体感的来源)。`xprintidle`/`xdotool` 不再是 lock.sh 依赖。
+
+### tools/screen.sh
+
+| 函数 | 调用者 |
+| ---- | ------ |
+| `_screensaver_start()` | daemon (启动 + 每轮 xss-lock 存活检查) — 清理残留 `xautolock`, 幂等拉起 `xss-lock -- lock.sh lock`, `xset s 600 0` + `xset s noblank` (cycle=0 → 激活即锁, noblank → 不先黑屏), `xset dpms 0 0 0` (解锁态不灭屏); 武装后 `pgrep -x i3lock \|\| xset s reset` (空闲计数归零: 否则 xss-lock 在长空闲中重生会立刻锁屏; 锁屏中绝不能 reset, 那等于强制解除 → xss-lock 杀 locker) |
+| `_has_active_audio()` | _inhibit_poke — parec 采 sink.monitor 150ms → ffmpeg volumedetect, max_volume > -78 dB 视为有声 |
+| `_inhibit_poke()` | daemon 每 `duration`(20s) — 已锁屏则跳过; 有声时 `xset s reset` 把空闲计数压回 0 (抑制不拆计时器, 解除后从 0 重新计时), 状态翻转时按 `SCREEN_DEBUG_NOTIFY` 通知 |
+| `daemon()` | 主流程 (顶层, `SCREEN_NO_DAEMON=1` 时跳过以便测试 source) / tests/screen-lock_test.sh |
+
 
 ### rofi/scripts/util.sh
 
@@ -458,15 +470,17 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 ```
 rofi powermenu (用户点击)
   → type-*/powermenu.sh (source lock.sh)
-    → _lock_before()   # 暂停音乐、静音、暂停 mpv/xwallpaper 渲染
-    → _lock()          # 启动 i3lock, xset dpms force standby
+    → _lock_before()   # 现取 mpd 快照并暂停、按 sink 静音全部输出、暂停 mpv/xwallpaper 渲染
+    → _lock()          # 武装锁屏期 DPMS (xset dpms 30 30 30) + 启动 i3lock, force standby
     → systemctl suspend  (仅 suspend)
-    → _screen_lock_loop()  # 循环监控: 唤醒 → 空闲 → 重新 standby
-    → wait             # 等待 i3lock 退出
-    → _lock_after()    # 恢复音乐、音量、恢复 mpv/xwallpaper 渲染
+    → wait             # 等待 i3lock 退出 (唤醒后输入 → DPMS 计时重置 → 30s 再灭)
+    → _lock_after()    # 恢复音乐、只还原本次静音的 sink、恢复渲染; xset dpms 0 0 0 收回 DPMS
 
-screen.sh (DPMS 守护)
-  → LOCKER="lock.sh lock"  # 由 xautolock 在超时后调用
+screen.sh (空闲链路, xss-lock 为唯一权威)
+  → _screensaver_start()  # pkill 残留 xautolock; xset s 600 0; xset s noblank; xset dpms 0 0 0; xss-lock -- lock.sh lock
+  → 600s 无输入 → X 屏保激活 → xss-lock → LOCKER="lock.sh lock"
+  → logind lock-session / 挂起前 → xss-lock 同样调起 LOCKER (锁在睡眠之前)
+  → _inhibit_poke() (每 20s)  # 有声且未锁屏 → xset s reset (抑制=把空闲计数压回 0, 解除后重新计时)
 ```
 
 ### 窗口 hook 链路
@@ -485,7 +499,7 @@ DWM 启动
   → autostart.sh
     → picom &                          # launch(): 每 name 独立 flock 锁 (autostart-launch-<name>.lock) 保证
     → dunst &                          #   检查+启动原子, 重入时后者跳过; restart 轮询等旧进程退出 (≤2s)
-    → xautolock -locker "lock.sh lock" &    # 定时锁屏
+    → xss-lock -- "lock.sh lock" &          # 空闲锁屏权威 (screen.sh 内拉起)
     → fcitx5 &
     → xsettingsd &                          # XSETTINGS 广播 (theme.sh set_gtk_theme 依赖)
     → udiskie &
@@ -495,7 +509,7 @@ DWM 启动
     → bash wallpaper.sh &
     → bash steam-workshop-auto.sh 431960 &  # 工坊壁纸开机异步自动更新 (一次性, 只通知)
     → bash dwm-status.sh &                  # 状态栏
-    → bash screen.sh &                      # DPMS 守护 (parec 录默认输出判响度, 有声不熄屏)
+    → bash screen.sh &                      # 空闲锁屏链路 (xss-lock + 音频抑制, 有声不锁不灭)
     → bash brightness.sh &
     → bash tools/theme.sh auto &           # 自动主题切换 (auto=false 时立即退出)
 ```
@@ -645,7 +659,9 @@ calendar-lunar|󰃚|Lunar Calendar|
 - **mpd.sh fetch_cover 慢已修复**: 根因不是 MPD 网络往返而是客户端每 chunk 固定开销。① `nc -q1` 在 stdin EOF 后须等 1s 才退出，而 MPD 收 `close` 不主动断连 → 每块白白等 1s，readpicture chunk 上限 8192B，N 块 ≈ N 秒（实测 30KB 封面 4 块整函数 4102ms，改 `-q0` 后 88ms；1MB 封面 128 块会到 ~128s）。② `dd bs=1 skip=...` 逐字节跳过+拷贝，块内 skip 从文件头重来，累计 O(n²) 字节级 syscall（1MB 封面 128 块 ~6700 万次单字节 read），改 `iflag=skip_bytes,count_bytes bs=4096`（精确 seek + 块拷贝）。**单连接方案评估后放弃**: bash 无法可靠"恰好读 N 字节且把后续保留在流中"（read 缓冲与 fd 不同步、dd over-read 会吞掉下一响应 header、binary 块无长度外分隔标记），需 python/复杂协议解析，与仓库纯 bash 风格冲突，且 fetch 为低频场景（cache 按 uri 命中后不再拉），`-q0`+iflag 已把 4.1s→48ms，额外收益不足以抵风险。回归测试 `tests/mpd-cover_test.sh`
 - `tools/screen.sh:16` LOCKER 路径已改为 `$(dirname "$0")/lock.sh lock`，不再依赖 `$TOOLS_DIR`
 - `tools/screen.sh` 的 `_has_active_audio()` 现改为**录默认输出判响度**（原 pw-dump 按 media.role/tlength 过滤流的方案已丢弃，总会遗漏播放流致误锁屏；`EXCLUDE_APPS`/`SCREEN_AUDIO_MODE`/`_jq_exclude_apps()`/pw-dump 双后端均已删除）：`parec --device "$(pactl get-default-sink).monitor"` 定长采 150ms (head -c 截断触发 SIGPIPE) → ffmpeg volumedetect → max_volume 超阈值即认为有活动音频。注意 **raw `pw-record` 解析不到本机 `*.monitor` 节点会静默回落到默认麦克风（录到输入而非输出），必须用走 pulse 层的 `parec`**；且 sink monitor 采的是 sink 音量衰减后的信号（本机 Fosi 30% 音量衰减约 25dB+），阈值取 -78 dB（真静音底约 -91 dB，静音时返回 none）
-- `tools/lock.sh` 的 `_screen_lock_loop` 在 xprintidle 缺失时有 fallback (sleep 30s 代替空闲检测)
+- **锁屏后仍出声的第二个根因 (`wait` 被 i3lock fork 骗过)**: `lock()` 用 `_lock_before; _lock; wait; _lock_after` 表达"解锁后还原", 但 i3lock 默认 **fork** (父进程立即退出), 后台任务对应的进程瞬间结束 → `wait` 立即返回 → `_lock_after` 在**锁屏仍在进行时**就跑完: sink 静音被还原、DPMS 归零、mpd 恢复, 于是锁着屏照样出声。旧代码能工作纯粹是因为 `_screen_lock_loop` 轮询 `pgrep -x i3lock` 顺带把脚本拖到解锁; 该循环删除后回归暴露。修复: i3lock 加 `-n` (nofork), `wait` 才真正等到解锁 (副作用也符合 xss-lock "locker 不得 fork" 的要求)。实测: 锁屏 3s 后 4 个 sink 全 muted、DPMS 30/30/30、mpd paused; 解锁后恢复。回归测试 `tests/lock-mute_test.sh` 场景 E (模拟 i3lock fork, 旧代码 E1/E2/E3 FAIL)
+- **锁屏后仍有声音已修复 (静音打错声卡)**: `_lock_before` 原用 `amixer set Master off`, 而 `amixer` 只作用于 ALSA 默认控制卡 (本机卡 3 内屏); 实际出声的 sink 由 module.sh 切换, 可能是 Fosi USB DAC (卡 1, **只有 PCM 控制, 没有 Master**)、HDMI (卡 2) 或 `easyeffects_sink` (虚拟) → 静音命令打空, 锁屏后照常出声。现改为 pulse 层逐 sink 静音 (`pactl list short sinks` + `pactl set-sink-mute <sink> 1`), 覆盖虚拟 sink 与任意硬件 sink; 记录 `muted_sinks` 只还原本次改过的。同时把 `mpd_status`/`volume_status` 快照从**脚本加载时**挪进 `_lock_before` —— powermenu 是先 source 再等用户点菜单, 顶层取值会拿到几分钟前的状态 (期间开始的播放暂停/静音不了)。回归测试 `tests/lock-mute_test.sh`
+- **锁屏链路迁移到 xss-lock (单一空闲权威)**: 旧实现同时跑 3 个计时器 (X 屏保 `xset s 600 600`、X DPMS `900/1200/1800`、xautolock 自己的 10min 私有计数), 且**媒体抑制靠拆表** (`pkill xautolock` + `xset s off -dpms`, 恢复时重新 `xset s 600` + 重启 xautolock)。X 服务端的超时基于 `lastDeviceEventTime`, 重新武装时若已空闲超过超时就会**立即**激活 → 放视频/听歌一停就瞬间黑屏; 而 xautolock 重启后是全新 600s 计数, 于是黑屏但**未锁屏**长达 10 分钟 (安全漏洞)。现改为: `xset s 600 0` + `xset s noblank` + `xss-lock -- lock.sh lock` 作唯一权威 (顺带接管 logind `lock-session`/挂起前锁屏), 抑制改为周期性 `xset s reset` —— X 处理 `ScreenSaverReset` 时会把 `lastDeviceEventTime` 置为当前时间 (xorg `ProcForceScreenSaver`), 等价"抑制期间冻结、解除后从 0 重新计时", 与 GNOME mutter (idle inhibitor 视为 active) / KDE 2025 "inhibited/uninhibited 时重建 idle timeout" 的修复语义一致。灭屏与空闲解耦: 解锁态 `xset dpms 0 0 0`, 只由 `lock.sh _lock` 在锁屏时武装 `dpms 30 30 30` (i3lock(1) 推荐的 DPMS wrapper 形态), `_lock_after` 收回; `_screen_lock_loop`/`xprintidle`/`xdotool key Escape` 随之删除 (DPMS 自身会因输入重置计时)。音频轮询从 600s 降到 20s (旧值意味着视频开始后最多 10 分钟才抑制)。回归测试 `tests/screen-lock_test.sh`
 - `tools/theme.sh` 旧 Firefox 切换方案（`set_firefox_theme` + `_get_darkreader_shortcut`，xdotool 模拟 Dark Reader 快捷键）已删除：Dark Reader 的 `extension-settings.json` 快捷键实际为空串，jq 的 `//` 不兜底空串 → `xdotool key ""` 从未生效；且依赖 Firefox 窗口存在、/tmp 状态文件易漂移。现由 `set_gtk_theme()` 双通道替代
 - **Firefox content 亮暗由 portal 决定而非 GTK**：Firefox 的 `prefers-color-scheme` 走 `nsLookAndFeel::ComputeColorSchemeSetting()` → xdg-desktop-portal 的 `color-scheme`（gsettings `org.gnome.desktop.interface color-scheme`），且 Firefox 将 portal 返回的 `0 (default)` 硬映射为 light（nsLookAndFeel.cpp case 0）。因此 `set_gtk_theme()` 必须同时写 gsettings（prefer-dark/prefer-light），仅广播 GTK 主题名不足以切换 Firefox content scheme
 - `tools/theme.sh apply` 的退出码已修复：auto 关闭时末尾 `[ ... ]` 返回 1 导致 apply 成功但 exit 1，现显式 `exit 0`

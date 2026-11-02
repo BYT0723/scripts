@@ -149,7 +149,7 @@ Rofi scripts follow consistent structure:
 
 ## Common Dependencies
 
-**Core:** rofi, picom, dunst, xautolock, slock, fcitx5-im  
+**Core:** rofi, picom, dunst, xss-lock, slock, fcitx5-im  
 **Monitoring:** acpi, alsa-utils, light (or brightnessctl), networkmanager, mpc, mpd  
 **Utilities:** libnotify, setxkbmap, xset, xrandr, feh, maim, ffmpeg, xwinwrap  
 **Fonts:** ttf-jetbrains-mono-nerd, ttf-iosevka-nerd

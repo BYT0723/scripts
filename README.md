@@ -14,7 +14,7 @@
 3. 安装依赖（见下方 §依赖，至少先装 T2）：
    ```bash
    sudo pacman -S rofi kitty dunst libnotify jq acpi alsa-utils brightnessctl ddcutil \
-     xautolock picom xsettingsd xwallpaper flameshot xclip nsxiv xcolor \
+     xss-lock picom xsettingsd xwallpaper flameshot xclip nsxiv xcolor \
      ffmpeg slop mpv yad file xrandr autorandr wmctrl xdotool
    yay -S i3lock-color rofi-emoji   # AUR
    ```
@@ -33,7 +33,7 @@
 | `bash dwm-statuscmd.sh` | 状态栏点击事件分发（音量/亮度/日历/mpd/...） |
 | `bash tools/theme.sh {apply light\|dark \| auto [on\|off] \| check}` | 主题切换；`auto` 为日出日落 daemon（60s 轮询，挂起/锁屏安全） |
 | `bash tools/wallpaper.sh -m <monitor\|组> {next\|select}`；`-r`；`--theme <mode>` | 壁纸：下一张/选择；daemon 轮换；跟随主题色调切换 |
-| `bash tools/lock.sh {lock\|suspend}` | 锁屏（i3lock）/挂起；锁屏期间暂停音乐、静音、STOP `xwallpaperd` 防 DPMS 回弹 |
+| `bash tools/lock.sh {lock\|suspend}` | 锁屏（i3lock）/挂起；锁屏期间武装 DPMS（30s 灭屏）、暂停音乐、按 sink 静音全部输出、STOP `xwallpaperd` 防 DPMS 回弹 |
 | `source tools/monitor-brightness.sh`（`read_brightness`/`set_brightness`） | 单屏亮度：eDP 走 `brightnessctl`，外接屏走 `ddcutil setvcp 10`（DP aux 总线回退 + bus 文件缓存） |
 | `python3 tools/wallpaper-classify.py [--move] <dir>` | 壁纸 light/dark 初筛（B 规则暗像素占比；`--move` 按 verdict 搬进 `light/`/`dark/`） |
 | `bash tests/<name>_test.sh` | 回归测试（见 §测试，共 10 个，全部零外部显示依赖，mock xrandr/ddcutil） |
@@ -45,7 +45,7 @@
 ```
 DWM 启动 → autostart.sh ─┬─ picom / dunst / xsettingsd / snixembed / lxpolkit / batsignal
                          ├─ nm-applet / pasystray / fcitx5 / udiskie
-                         ├─ screen.sh (DPMS 守护, parec 录默认输出判响度, 有声不熄屏)
+                         ├─ screen.sh (xss-lock 空闲锁屏链路, parec 录默认输出判响度, 有声不锁不灭)
                          ├─ theme.sh auto (日出日落 daemon: 配色二值翻转 + 亮度渐变插值)
                          ├─ wallpaper.sh -r (xwallpaperd 常驻 + bash 随机轮换 daemon)
                          ├─ dwm-status.sh (daemon 采集 + refresh 经 xsetroot -name 推状态栏)
@@ -56,7 +56,7 @@ DWM 启动 → autostart.sh ─┬─ picom / dunst / xsettingsd / snixembed / l
 - **rofi**：`dwm-launcher.sh`（`is_portrait()` 选横/竖布局）→ `launchers/type-*` / `powermenu/type-*` / `module.sh` 子菜单；`quicklinks-mode.sh` 为 rofi script mode（`ROFI_RETV` 分派，favicon 后台分片并发缓存）。
 - **主题**：`tools/theme.sh auto` 60s 轮询（短睡而非一次睡到切换点，挂起唤醒 ≤60s 纠正；i3lock 期间阻塞）。翻转只切配色并后台 hook `wallpaper.sh --theme` 跟随换壁纸；亮度由每轮 `apply_transition_brightness()` 按 `dawn/dusk_minutes + transition_anchor(after/center/before)` 插值。`set_gtk_theme()` 走 GTK 主题名 + gsettings portal 双通道（Firefox 亮暗靠 portal，见 AGENTS.md 已知问题）。
 - **壁纸**：渲染层统一 `xwallpaper`（client+daemon IPC，`xwallpaperd` 常驻；图片/视频/网页 → `--image/--video/--web`，`-g --name` 窗口）。状态按 name 持久化（monitor 用 xrandr 名、组用 `grp_<组名>`、全屏用 `Screen`；`--state` 查询，`clear --keep + restore` 做互斥回退），脚本侧不再存 latest 文件。同名 set 即 reload，只清互斥窗口不清自身。
-- **锁屏/DPMS**：`lock.sh`（`_lock_before/_lock/_screen_lock_loop/_lock_after`）+ `screen.sh`（xautolock LOCKER）；视频壁纸持续 present 会触发 amdgpu 驱动 unblank，需 `STOP xwallpaperd` 双保险（X 层 `xset q` 标志 stale，不可信）。
+- **锁屏/DPMS**：单一空闲权威 = X 屏保计时（`xset s 600 0` + `xset s noblank`）+ `xss-lock`（顺带接管 logind `lock-session` 与挂起前锁屏）。`screen.sh` 有音频时周期性 `xset s reset` 抑制（不拆计时器，解除后从 0 重新计时）；`lock.sh` 只在锁屏期间武装 DPMS（`xset dpms 30 30 30`，解锁归零），灭屏与空闲计时不互相覆盖；静音走 pulse 层逐个 sink（`amixer Master` 只覆盖单张声卡，锁屏时实际 sink 可能是 Fosi USB DAC / HDMI / `easyeffects_sink`）。视频壁纸持续 present 会触发 amdgpu 驱动 unblank，需 `STOP xwallpaperd` 双保险（X 层 `xset q` 标志 stale，不可信）。
 
 ## 字体
 
@@ -79,13 +79,13 @@ DWM 启动 → autostart.sh ─┬─ picom / dunst / xsettingsd / snixembed / l
 | `dunst` `libnotify` | 通知守护进程 / 接口 | 全部脚本 (system-notify) |
 | `jq` | JSON 解析 | dwm-status-tools.sh / weather.sh / screencast.sh / theme.sh / wallpaper.sh / sing-box.sh / media-scraping.sh / notification.sh / quicklinks-mode.sh |
 | `acpi` | 电池状态 | dwm-status-tools.sh / dwm-statuscmd.sh |
-| `alsa-utils` | 音量控制 (amixer) | volume.sh / lock.sh / dwm-status-tools.sh |
+| `alsa-utils` | 音量控制 (amixer) | volume.sh / dwm-status-tools.sh |
 | `brightnessctl` | 笔记本内屏背光 (eDP) | brightness.sh / monitor-brightness.sh / theme.sh |
 | `ddcutil` | 外接显示器 DDC 亮度 (`setvcp 10`) | monitor-brightness.sh / theme.sh（过渡插值每轮调用） |
 | `setxkbmap` | 键盘布局 | keyboard.sh / autostart.sh |
-| `xdotool` | X11 自动化 | lock.sh / screenshot.sh / screencast.sh / utils/monitor.sh / dwm-launcher.sh |
+| `xdotool` | X11 自动化 | screenshot.sh / screencast.sh / utils/monitor.sh / dwm-launcher.sh |
 | `wmctrl` | 窗口计数 | rofi/scripts/windows-selector.sh |
-| `xautolock` | 定时锁屏守护 | screen.sh |
+| `xss-lock` | 空闲/挂起锁屏事件源 (MIT-SCREEN-SAVER + logind) | screen.sh |
 | `picom` | 窗口合成器 | autostart.sh |
 | `xsettingsd` | XSETTINGS 广播 (GTK 主题/字体) | autostart.sh / theme.sh (set_gtk_theme) |
 | `dconf` | gsettings (portal color-scheme) | theme.sh (Firefox content 亮暗跟随) |
@@ -111,7 +111,7 @@ DWM 启动 → autostart.sh ─┬─ picom / dunst / xsettingsd / snixembed / l
 
 ### T4 — 可选 (缺失时有条件跳过)
 
-`mpc`/`mpd` `networkmanager`/`nm-applet` `fcitx5-im` `lxsession`/`lxpolkit` `udiskie` `bluez`/`bluetoothctl` `newsboat` `yt-dlp` `yazi` `cal`/`ccal` `st` `easyeffects`(默认注释) `conky` `sing-box` `scrcpy`/`android-tools` `xprintidle`(lock.sh 有 fallback) `autorandr` `snixembed` `wireless-tools`(`iwgetid`, 状态栏 wifi 名称) `python3`+`PIL`(wallpaper-classify.py)
+`mpc`/`mpd` `networkmanager`/`nm-applet` `fcitx5-im` `lxsession`/`lxpolkit` `udiskie` `bluez`/`bluetoothctl` `newsboat` `yt-dlp` `yazi` `cal`/`ccal` `st` `easyeffects`(默认注释) `conky` `sing-box` `scrcpy`/`android-tools` `autorandr` `snixembed` `wireless-tools`(`iwgetid`, 状态栏 wifi 名称) `python3`+`PIL`(wallpaper-classify.py)
 
 ---
 
@@ -133,8 +133,8 @@ DWM 启动 → autostart.sh ─┬─ picom / dunst / xsettingsd / snixembed / l
 
 | 脚本 | 功能 | 依赖 |
 | ---- | ---- | ---- |
-| `lock.sh` | i3lock-color 锁屏 + suspend 分发 | i3lock-color / xset / xdotool / amixer / mpc / xprintidle(可选) |
-| `screen.sh` | DPMS 自动启停守护 (有音频自动亮屏) | xautolock / xset / parec / ffmpeg / pactl |
+| `lock.sh` | i3lock-color 锁屏 + suspend 分发 (锁屏期 DPMS + 全 sink 静音) | i3lock-color / xset / pactl / mpc |
+| `screen.sh` | 空闲锁屏/灭屏链路 (xss-lock, 有音频抑制) | xss-lock / xset / parec / ffmpeg / pactl |
 | `wallpaper.sh` | 壁纸引擎 (随机/选择/daemon/跟随主题) | xwallpaper / ffprobe / mpv(旋转预览) / yazi |
 | `wallpaper-lib.sh` | 壁纸配置/组管理/渲染接口 | xwallpaper / jq / ffprobe / envsubst |
 | `wallpaper-render.sh` | xwallpaper 渲染层 (screen/monitor/group) | xwallpaper |
@@ -225,6 +225,8 @@ bash tests/wallpaper-render_test.sh
 bash tests/wallpaper-theme_test.sh
 bash tests/lib-module_test.sh
 bash tests/autostart_test.sh
+bash tests/screen-lock_test.sh                  # 锁屏链路: 单一权威 / 抑制即 reset / DPMS 只在锁屏期
+bash tests/lock-mute_test.sh                    # 锁屏静音: 快照时机 / 全 sink 静音 / 只还原本次改过的
 ```
 
 测试统一 mock `xrandr/brightnessctl/ddcutil/date/sleep/pgrep` 等外部命令（无显示环境下真 `xrandr` 可能枚举幽灵 monitor 导致 hang），`THEME_LOCK` 指向临时路径防与 live daemon 争 flock 锁。详见 AGENTS.md §已知问题。
