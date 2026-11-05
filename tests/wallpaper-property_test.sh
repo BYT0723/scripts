@@ -4,7 +4,7 @@
 #   B. 单 slider + OK → 逐值实时 set, 保持最终值
 #   C. 单 slider + 取消 → 恢复原值
 #   D. 多属性 → 经 module_sub_rofi 选中后再调
-#   E. min/max 来自 project.json, 缺失时 fallback 0..100
+#   E. min/max/step 来自 project.json, 缺失时 fallback 0..100/1
 #   F. 单 color + OK → set 十六进制, 无恢复
 #   G. color + 取消 → 恢复原三元组
 #   H. 多属性中的 bool → 一键翻转, combo 不动
@@ -311,6 +311,21 @@ check "T3: 列表显示 text 全串" 'grep -Fq "角色缩放 / Role Scale" "$TES
 check "T3: 列表不显示英文 name" '! grep -q "roleScale" "$TEST_DIR/rofi_in.txt"'
 check "T3: set 仍用英文 name" 'grep -q "set-property roleScale=120" "$XW_MOCK_LOG"'
 check "T8: 不污染全局 MODULE_WIDTH" '[ "$MODULE_WIDTH" = 500 ]'
+
+# ---- T3b: 浮点 slider 使用 project.json 的 step ----
+reset_state
+printf 'audioIntensity\tslider\t1\n' >"$XW_MOCK_STATE/props"
+mkdir -p "$XW_MOCK_STATE/floatwall"
+cat >"$XW_MOCK_STATE/floatwall/project.json" <<'JSON'
+{"general":{"properties":{"audioIntensity":{"type":"slider","value":1,"min":0.3,"max":2.5,"step":0.1,"text":"音频响应强度 / Audio Intensity"}}}}
+JSON
+printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/floatwall" >"$XW_MOCK_STATE/state"
+export YAD_OUT='17
+'
+YAD_RC=0
+MONITOR="DP-1" handle_property
+check "T3b: 浮点 slider 缩放为整数范围" 'grep -q -- "--min-value=3" "$XW_MOCK_LOG" && grep -q -- "--max-value=25" "$XW_MOCK_LOG" && grep -q -- "--step=1" "$XW_MOCK_LOG"'
+check "T3b: 浮点 slider set 最终值" 'grep -q "set-property audioIntensity=1.7" "$XW_MOCK_LOG"'
 
 # ---- T4: combo 显示 label 全串 ----
 reset_state

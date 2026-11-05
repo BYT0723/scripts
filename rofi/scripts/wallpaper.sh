@@ -407,17 +407,31 @@ prop_hex_to_rgb() { # #rrggbb/#rgb → "r g b" (%.6f floats); 非法输入失败
     fi
     awk -v r="$r" -v g="$g" -v b="$b" 'BEGIN {printf "%.6f %.6f %.6f", r/255, g/255, b/255}'
 }
-prop_range() { # <dir> <name> → "min max" (project.json 缺失/非法时 fallback 0 100)
-    local dir="$1" name="$2" out min max
-    out=$(jq -r --arg n "$name" '.general.properties[$n] | "\(.min // 0) \(.max // 100)"' "$dir/project.json" 2>/dev/null)
-    read min max <<<"$out"
-    [[ "$min" =~ ^-?[0-9]+$ ]] || min=0
-    [[ "$max" =~ ^-?[0-9]+$ ]] || max=100
-    [ "$max" -gt "$min" ] 2>/dev/null || {
+prop_range() { # <dir> <name> → "min max step scale" (YAD scale 只接受整数, 用 scale 映射浮点范围)
+    local dir="$1" name="$2" out min max step
+    out=$(jq -r --arg n "$name" '.general.properties[$n] | "\(.min // 0) \(.max // 100) \(.step // 1)"' "$dir/project.json" 2>/dev/null)
+    read min max step <<<"$out"
+    [[ "$min" =~ ^-?[0-9]+([.][0-9]+)?$ ]] || min=0
+    [[ "$max" =~ ^-?[0-9]+([.][0-9]+)?$ ]] || max=100
+    [[ "$step" =~ ^[0-9]+([.][0-9]+)?$ ]] || step=1
+    awk -v min="$min" -v max="$max" 'BEGIN {exit !(max > min)}' || {
         min=0
         max=100
     }
-    printf '%s %s' "$min" "$max"
+    awk -v step="$step" 'BEGIN {exit !(step > 0)}' || step=1
+    awk -v min="$min" -v max="$max" -v step="$step" '
+        function decimals(v, s, n) {
+            s=v
+            sub(/^[^.]*/, "", s)
+            sub(/^\./, "", s)
+            n=length(s)
+            return n
+        }
+        BEGIN {
+            d=decimals(min); n=decimals(max); if (n>d) d=n
+            n=decimals(step); if (n>d) d=n
+            printf "%s %s %s %.0f", min, max, step, 10^d
+        }'
 }
 handle_property() {
     local tunables name
@@ -471,7 +485,7 @@ handle_property() {
     done
 }
 _apply_property() { # <name>: 按 type 调起对应编辑器 ($tunables 取自调用者, bash 动态作用域)
-    local name="$1" type cur dir label opts chosen new original init start min max value last v l yad_fd yad_pid tmpdir fifo status
+    local name="$1" type cur dir label opts chosen new original init start min max step scale yad_min yad_max yad_step yad_value value last v l yad_fd yad_pid tmpdir fifo status
     local -a _vals=() _menu=()
     type=$(printf '%s\n' "$tunables" | awk -F'\t' -v n="$name" '$1==n {print $2; exit}')
     cur=$(printf '%s\n' "$tunables" | awk -F'\t' -v n="$name" '$1==n {print $3; exit}')
@@ -547,33 +561,36 @@ _apply_property() { # <name>: 按 type 调起对应编辑器 ($tunables 取自�
         fi
         return
     fi
-    [[ "$cur" =~ ^-?[0-9]+$ ]] || cur=0
-    read min max <<<"$(prop_range "$dir" "$name")"
-    [ "$cur" -ge "$min" ] 2>/dev/null || cur="$min"
-    [ "$cur" -le "$max" ] 2>/dev/null || cur="$max"
+    [[ "$cur" =~ ^-?[0-9]+([.][0-9]+)?$ ]] || cur=0
+    read min max step scale <<<"$(prop_range "$dir" "$name")"
+    awk -v v="$cur" -v min="$min" 'BEGIN {exit !(v >= min)}' || cur="$min"
+    awk -v v="$cur" -v max="$max" 'BEGIN {exit !(v <= max)}' || cur="$max"
+    yad_min=$(awk -v v="$min" -v s="$scale" 'BEGIN {printf "%.0f", v*s}')
+    yad_max=$(awk -v v="$max" -v s="$scale" 'BEGIN {printf "%.0f", v*s}')
+    yad_step=$(awk -v v="$step" -v s="$scale" 'BEGIN {printf "%.0f", v*s}')
+    yad_value=$(awk -v v="$cur" -v s="$scale" 'BEGIN {printf "%.0f", v*s}')
 
-    # 复用 theme.sh handle_monitor_brightness 的 FIFO + 后台 pid 模式
-    # (set-property ~1ms, 无需 DDC 那套 drain, 逐值即时应用)
+    # YAD 的 scale 参数只接受整数；浮点属性用整数缩放，写回时还原。
     tmpdir=$(mktemp -d) || return
     fifo="$tmpdir/out"
     mkfifo "$fifo" || {
         rm -rf "$tmpdir"
         return
     }
-    yad \
-        --scale \
+    yad --scale \
         --title="Wallpaper Property" \
         --text="$MONITOR : $label" \
-        --min-value="$min" \
-        --max-value="$max" \
-        --value="$cur" \
-        --step=1 \
+        --min-value="$yad_min" \
+        --max-value="$yad_max" \
+        --value="$yad_value" \
+        --step="$yad_step" \
         --print-partial >"$fifo" 2>/dev/null &
     yad_pid=$!
     exec {yad_fd}<"$fifo"
 
     while IFS= read -r value <&"$yad_fd"; do
         last="$value"
+        value=$(awk -v v="$value" -v s="$scale" 'BEGIN {printf "%.15g", v/s}')
         xwallpaper --set-property "$name=$value" -m "$MONITOR" 2>/dev/null
     done
     exec {yad_fd}<&-
