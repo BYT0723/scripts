@@ -18,13 +18,15 @@ confPath["picom"]="$CONFIG_HOME/picom.conf"
 applicationCmd["picom"]="picom --config ${confPath["picom"]} -b"
 
 toggleApplication() {
-    if [[ -n $(pgrep $1) ]]; then
-        killall $1
+    if pgrep -q "$1"; then
+        killall "$1"
     else
         ${applicationCmd[$1]}
     fi
 }
 
+# 注意: heredoc 故意不加引号 — touchpad 行的 $WORK_DIR 需在 parse 时展开,
+# 因为 toggle-raw 经 icon() 直接执行 (不像 cmd: 那样 eval, 见 util.sh raw 分支)。
 module_parse <<MODULES
 picom|󰋩|Picom|toggle
 conky|󰏘|Conky|toggle
@@ -54,16 +56,17 @@ handle_conky() { /bin/bash $WORK_DIR/dwm-launcher.sh conky toggle; }
 handle_network() {
     local eth wifi mesg=""
     eth=$(nmcli -t -f DEVICE,TYPE,STATE dev status | awk -F: '$2=="ethernet" && $3=="connected" {print $1}')
-    wifi=$(nmcli -t -f IN-USE,SSID,SIGNAL dev wifi list | grep '^*' | awk -F : '{printf "%s(%s%%)", $2, $3}')
-    [ "$eth" != "" ] && mesg="  $eth"
-    [[ "$wifi" != "" ]] && { [ "$mesg" != "" ] && mesg="$mesg\n  $wifi" || mesg="  $wifi"; }
+    wifi=$(nmcli -t -f IN-USE,SSID,SIGNAL dev wifi list | awk -F: '/^\*/ {printf "%s(%s%%)", $2, $3}')
+    [[ -n "$eth" ]] && mesg="  $eth"
+    [[ -n "$wifi" ]] && mesg="${mesg:+$mesg\n}  $wifi"
     local opts=$(nmcli -t -f BARS,BAND,BSSID,SSID dev wifi list --rescan auto | awk -F: '{ ssid=$NF; if (ssid=="") { bssid=""; for (i=3;i<NF;i++) bssid=bssid (i>3?":":"") $i; ssid=bssid; gsub(/\\:/, ":", ssid) } printf "%4s [%7s] %s\n", $1, $2, ssid }' | awk '!a[$0]++')
     local chosen=$(echo "$opts" | module_sub_rofi "Network" "$mesg")
-    [[ "$chosen" == "" ]] && return
+    [[ -z "$chosen" ]] && return
     chosen="${chosen#*] }"
     [[ "$chosen" == "$(nmcli -t -f IN-USE,SSID dev wifi list | awk -F: '$1=="*"{print $2}')" ]] && return
     if [[ "$chosen" =~ ^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$ ]]; then
-        local ssid=$(module_input "Hidden Network" "Enter the SSID of the hidden network")
+        local ssid
+        ssid=$(module_input "Hidden Network" "Enter the SSID of the hidden network")
         [[ -z "$ssid" ]] && return
         nmcli device wifi connect "$ssid" hidden yes bssid "$chosen"
     else
@@ -72,13 +75,17 @@ handle_network() {
 }
 
 handle_bluetooth() {
-    local connected_device=$(bluetoothctl devices Connected | awk '{print substr($0,25)}')
-    local mesg="No device connected"
-    [ "$connected_device" != "" ] && mesg="Connected:$connected_device"
-    local opts=$(bluetoothctl devices | awk '{print substr($0,26)}')
-    local chosen=$(echo "$opts" | module_sub_rofi "Bluetooth" "$mesg")
-    [[ "$chosen" == "" ]] && return
-    bluetoothctl disconnect $(bluetoothctl devices Connected | grep "$chosen" | awk '{print $2}')
+    local devices connected connected_device mesg opts chosen mac
+    devices=$(bluetoothctl devices)
+    connected=$(bluetoothctl devices Connected)
+    connected_device=$(cut -d' ' -f3- <<<"$connected")
+    mesg="No device connected"
+    [[ -n "$connected_device" ]] && mesg="Connected: $connected_device"
+    opts=$(cut -d' ' -f3- <<<"$devices")
+    chosen=$(echo "$opts" | module_sub_rofi "Bluetooth" "$mesg")
+    [[ -z "$chosen" ]] && return
+    mac=$(grep -F -- "$chosen" <<<"$connected" | awk '{print $2; exit}')
+    [[ -n "$mac" ]] && bluetoothctl disconnect "$mac"
 }
 
 handle_notification() { /bin/bash $ROFI_DIR/scripts/notification.sh; }
@@ -102,34 +109,34 @@ handle_audio_output() {
 
     local -a sink_names sink_lines
 
-    _flush() {
+    _sink_flush() {
         [[ -z "$name" || -z "$desc" ]] && return
         [[ "$desc" == *"Controller "* ]] && desc="${desc##*Controller }"
         [[ ${#desc} -gt 35 ]] && desc="…${desc: -32}"
         local icon=" "
-        [[ "$name" == "$default_sink" ]] && {
+        if [[ "$name" == "$default_sink" ]]; then
             icon=""
             default_desc="$desc"
-        }
+        fi
         sink_names+=("$name")
         sink_lines+=("$icon $desc (${vol:-?})")
     }
 
     while IFS= read -r line; do
         if [[ "$line" == "Sink "* ]]; then
-            _flush
+            _sink_flush
             name=""
             desc=""
             vol=""
         elif [[ "$line" =~ ^[[:space:]]*Volume:[[:space:]] ]]; then
-            vol=$(echo "$line" | grep -oP '[0-9]+%' | head -1)
+            [[ "$line" =~ ([0-9]+%) ]] && vol="${BASH_REMATCH[1]}"
         elif [[ "$line" =~ ^[[:space:]]*Name:[[:space:]]+(.+) ]]; then
             name="${BASH_REMATCH[1]}"
         elif [[ "$line" =~ ^[[:space:]]*Description:[[:space:]]+(.+) ]]; then
             desc="${BASH_REMATCH[1]}"
         fi
     done < <(pactl list sinks 2>/dev/null)
-    _flush
+    _sink_flush
 
     ((${#sink_lines[@]} == 0)) && return
 
@@ -139,10 +146,10 @@ handle_audio_output() {
 
     local idx target_sink
     for idx in "${!sink_lines[@]}"; do
-        [[ "${sink_lines[$idx]}" == "$chosen" ]] && {
+        if [[ "${sink_lines[$idx]}" == "$chosen" ]]; then
             target_sink="${sink_names[$idx]}"
             break
-        }
+        fi
     done
 
     [[ -z "$target_sink" ]] && return
