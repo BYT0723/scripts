@@ -224,7 +224,7 @@ select_marker_wallpaper() {
         fi
         title=$(printf '%s' "$title" | tr '\t\n\r' '   ')
         icon=$(project_preview "$d" 2>/dev/null) || icon=""
-        # NUL 字节 bash 变量装不下: 行尾先写 \001 占位, 喂 rofi 前统一 tr 成 NUL (同 windows-selector)
+        # NUL 字节 bash 变量装不下: 行尾先写 \001 占位, 喂 rofi 前统一 tr 成 NUL
         printf '%s (%s)\001icon\x1f%s\x1f\n' "$title" "$id" "$icon" >>"$menu"
         printf '%s\n' "$d" >>"$map"
     done <<<"$files"

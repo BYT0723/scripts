@@ -84,7 +84,7 @@ DWM 启动 → autostart.sh ─┬─ picom / dunst / xsettingsd / snixembed / l
 | `ddcutil` | 外接显示器 DDC 亮度 (`setvcp 10`) | monitor-brightness.sh / theme.sh（过渡插值每轮调用） |
 | `setxkbmap` | 键盘布局 | keyboard.sh / autostart.sh |
 | `xdotool` | X11 自动化 | screenshot.sh / screencast.sh / utils/monitor.sh / dwm-launcher.sh |
-| `wmctrl` | 窗口计数 | rofi/scripts/windows-selector.sh |
+| `wmctrl` | rofi 窗口切换 (`window-command`) | rofi/config.rasi |
 | `xss-lock` | 空闲/挂起锁屏事件源 (MIT-SCREEN-SAVER + logind) | screen.sh |
 | `picom` | 窗口合成器 | autostart.sh |
 | `xsettingsd` | XSETTINGS 广播 (GTK 主题/字体) | autostart.sh / theme.sh (set_gtk_theme) |
