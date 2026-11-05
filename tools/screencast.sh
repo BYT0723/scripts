@@ -20,7 +20,16 @@ countdown() {
 setup_virtual_devices() {
     echo "$(pactl load-module module-null-sink sink_name=screencast_sink sink_properties=device.description=ScreencastVirtualSink)" >>"/tmp/screencast_sink"
     echo "$(pactl load-module module-loopback source="$(pactl get-default-sink)".monitor sink=screencast_sink sink_input_properties=device.description=ScreencastDesktop)" >>"/tmp/screencast_default_sink"
-    echo "$(pactl load-module module-loopback source="$(pactl get-default-source)" sink=screencast_sink sink_input_properties=device.description=ScreencastMic)" >>"/tmp/screencast_default_source"
+
+    local src mic_opts=()
+    src="$(pactl get-default-source)"
+    # 单声道源的 channel map 可能是 aux0（如 PCM2902），PipeWire 混入立体声
+    # sink 时只会进左声道；显式按 mono 上混，保证左右声道都有声音。
+    if pactl -f json list sources |
+        jq -e --arg n "$src" 'any(.[]; .name == $n and (.sample_specification | test(" 1ch ")))' >/dev/null; then
+        mic_opts=(channels=1 channel_map=mono)
+    fi
+    echo "$(pactl load-module module-loopback source="$src" sink=screencast_sink "${mic_opts[@]}" sink_input_properties=device.description=ScreencastMic)" >>"/tmp/screencast_default_source"
 }
 
 cleanup_virtual_devices() {
@@ -117,6 +126,7 @@ recording_time() {
     printf "%dh %dm %ds" $((diff / 3600)) $((diff % 3600 / 60)) $((diff % 60))
 }
 
+if [ "${SCREENCAST_NO_DISPATCH:-0}" != 1 ]; then
 case "${1:-}" in
 start)
     setup_virtual_devices
@@ -144,3 +154,4 @@ cleanup) cleanup_virtual_devices ;;
     exit 1
     ;;
 esac
+fi
