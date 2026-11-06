@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# rofi/scripts/wallpaper.sh web/scene 选择器末尾 yazi 目录入口回归测试:
+# rofi/scripts/wallpaper.sh web 选择器末尾 yazi 目录入口回归测试:
 #   末条为 "Browse directory (yazi)" (__YAZI__), Enter 经 yazi 选目录 (文件取上层),
-#   web 要 index.html / scene 要 scene.pkg|json, 非法 notify 留 selector, 取消回 selector,
+#   web 要 index.html, 非法 notify 留 selector, 取消回 selector,
 #   Alt+1/2/3 落在末条忽略重显。image/video 不受影响 (沿用 tools/wallpaper.sh -m select)。
 # 沿 rofi-wallpaper-selector-keys_test.sh 先例: awk 提取函数 + mock rofi/yazi/外部命令
 # 注意: 序号断言依赖单一条目池 (sentinel 恒为序号 1); 多行序列用字面换行 (同 selector-keys 先例)。
@@ -28,20 +28,12 @@ mkdir -p "$WEBPOOL/111"
 echo "<html></html>" >"$WEBPOOL/111/index.html"
 printf '{"title":"w111","preview":"preview.jpg","file":"index.html","type":"web"}' >"$WEBPOOL/111/project.json"
 echo "fake" >"$WEBPOOL/111/preview.jpg"
-SCENEPOOL="$TEST_DIR/scenepool"
-mkdir -p "$SCENEPOOL/333"
-echo '{"title":"s"}' >"$SCENEPOOL/333/scene.json"
-printf '{"title":"s333","preview":"preview.gif","file":"scene.json","type":"scene"}' >"$SCENEPOOL/333/project.json"
-echo "fake" >"$SCENEPOOL/333/preview.gif"
 mkdir -p "$TEST_DIR/good-web"
 echo "<html></html>" >"$TEST_DIR/good-web/index.html"
 printf '{"title":"good","preview":"preview.jpg","file":"index.html","type":"web"}' >"$TEST_DIR/good-web/project.json"
-mkdir -p "$TEST_DIR/good-scene"
-echo '{"title":"s"}' >"$TEST_DIR/good-scene/scene.json"
-printf '{"title":"gs","preview":"preview.gif","file":"scene.json","type":"scene"}' >"$TEST_DIR/good-scene/project.json"
 mkdir -p "$TEST_DIR/baddir"
 echo "nothing" >"$TEST_DIR/baddir/note.txt"
-printf '{"monitors":{"TESTMON":{"random_web_dir":"%s","random_scene_dir":"%s"}}}' "$WEBPOOL" "$SCENEPOOL" >"$HOME/.config/dwm/wallpaper.json"
+printf '{"monitors":{"TESTMON":{"random_web_dir":"%s"}}}' "$WEBPOOL" >"$HOME/.config/dwm/wallpaper.json"
 MONITOR="TESTMON"
 WORK_DIR="$TEST_DIR/fakeroot"
 cat >"$TEST_DIR/fakeroot/tools/wallpaper.sh" <<'EOF'
@@ -160,20 +152,6 @@ select_marker_wallpaper "Web" random_web_dir web
 check "D: Alt+1 不打开外部程序" '[[ ! -f $TEST_DIR/xdg.log ]]'
 check "D: Alt+1 不应用壁纸" '[[ ! -f $TEST_DIR/wallpaper.calls ]]'
 check "D: 重显后 ESC 退出" '[ "$(rofi_calls)" = 2 ]'
-
-# ---- E: scene 合法目录应用 ----
-reset_case
-printf '%s\n' "$TEST_DIR/good-scene" >"$YAZI_CHOSEN"
-set_seq "1" "0"
-select_marker_wallpaper "Scene" random_scene_dir scene
-check "E: scene 合法目录触发 file 应用" 'grep -q "file $TEST_DIR/good-scene" "$TEST_DIR/wallpaper.calls"'
-
-# ---- F: scene 选文件取上层 (yazi 返回文件) ----
-reset_case
-printf '%s\n' "$TEST_DIR/good-scene/scene.json" >"$YAZI_CHOSEN"
-set_seq "1" "0"
-select_marker_wallpaper "Scene" random_scene_dir scene
-check "F: 文件输入归一到目录后应用" 'grep -q "file $TEST_DIR/good-scene" "$TEST_DIR/wallpaper.calls"'
 
 # ---- G: 旧行为不变: 首条 Enter 直接应用, 不调 yazi ----
 reset_case

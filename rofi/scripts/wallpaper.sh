@@ -148,7 +148,7 @@ module_parse <<'MODULES'
 next|󰑐|Next|
 select||Select|
 random_switch||Random|cmd:icon toggle conf wallpaper random number "$MONITOR"
-random_type|󱧶|Type|cmd:t=$(getConfig -m "$MONITOR" random_type); case "$t" in video) echo "";; web) echo "";; scene) echo "";; *) echo "";; esac
+random_type|󱧶|Type|cmd:t=$(getConfig -m "$MONITOR" random_type); case "$t" in video) echo "";; web) echo "";; *) echo "";; esac
 random_duration|󰔟|Duration|cmd:getConfig -m "$MONITOR" duration
 fps||FPS|cmd:get_video_render_config "$MONITOR" fps
 property|󰔉|Property|cmd:n=$(prop_tunables "$MONITOR" 2>/dev/null | grep -c .); [ "${n:-0}" -gt 0 ] 2>/dev/null && echo "$n"
@@ -156,20 +156,17 @@ property_reset|󰜉|Reset Property|
 random_images_path||Images Path|
 random_videos_path||Videos Path|
 random_web_path||Web Path|
-random_scene_path||Scene Path|
 random_images_path_dark||Images Path (Dark)|
 random_videos_path_dark||Videos Path (Dark)|
 random_web_path_dark||Web Path (Dark)|
 MODULES
 handle_next() { ("$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" next &) }
-# yazi 选目录 (web/scene): 起始于主题目录, 文件输入归一到上层,
-# 经 project_entry 校验入口 (web 认 project.json:file，回退 index.html;
-# scene 互认 scene.pkg|json) 后直接应用。
+# yazi 选目录 (web): 起始于主题目录, 文件输入归一到上层,
+# 经 project_entry 校验入口 (web 认 project.json:file，回退 index.html) 后直接应用。
 # 成功 (已应用) 返回 0, 取消/非法返回 1 (调用方继续循环重显)。
-# Usage: select_yazi_directory <config-base> (kind 按 base 名推导: *scene* 即 scene)
+# Usage: select_yazi_directory <config-base>
 select_yazi_directory() {
-    local base="$1" kind="web" start tmp picked
-    [[ "$base" == *scene* ]] && kind="scene"
+    local base="$1" start tmp picked
     start=$(expand_path "$(get_theme_dir "$MONITOR" "$base")")
     [ -d "$start" ] || start="$HOME"
     tmp=$(mktemp) || return 1
@@ -179,21 +176,17 @@ select_yazi_directory() {
     [ -n "$picked" ] || return 1
     [ -e "$picked" ] || return 1
     [ -f "$picked" ] && picked=$(dirname "$picked")
-    if ! project_entry "$picked" "$kind" >/dev/null 2>&1; then
-        if [ "$kind" = "web" ]; then
-            system-notify critical "Wallpaper" "Not a web wallpaper (missing entry from project.json)"$'\n'"$picked"
-        else
-            system-notify critical "Wallpaper" "Not a scene wallpaper (missing scene.pkg/json)"$'\n'"$picked"
-        fi
+    if ! project_entry "$picked" "web" >/dev/null 2>&1; then
+        system-notify critical "Wallpaper" "Not a web wallpaper (missing entry from project.json)"$'\n'"$picked"
         return 1
     fi
     "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" file "$picked"
 }
-# web/scene 用 rofi 图文选择器 (标题+预览缩略图): yazi 顶层只见数字 id,
+# web 用 rofi 图文选择器 (标题+预览缩略图): yazi 顶层只见数字 id,
 # 名字在 project.json:title 里, 预览经 project_preview (preview 字段优先，回退
 # preview.*)。池为含 project.json 且 type 匹配的目录 (find_project_dirs)。image/video 保留 yazi 大图预览。
 # 末条为 yazi 目录入口 (map 值为 __YAZI__), 同 image/video 选择逻辑按目录挑选。
-# Usage: select_marker_wallpaper <label> <config-base> <type: web|scene>
+# Usage: select_marker_wallpaper <label> <config-base> <type: web>
 select_marker_wallpaper() {
     local label="$1" base="$2" wtype="$3"
     local dir depth files
@@ -296,7 +289,6 @@ select_marker_wallpaper() {
 handle_select() {
     case "$(getConfig -m "$MONITOR" random_type)" in
     web) select_marker_wallpaper "Web" random_web_dir web ;;
-    scene) select_marker_wallpaper "Scene" random_scene_dir scene ;;
     *) "$WORK_DIR"/tools/wallpaper.sh -m "$MONITOR" select ;;
     esac
 }
@@ -304,8 +296,8 @@ handle_random_switch() { toggleConf wallpaper random number "$MONITOR"; }
 handle_random_type() {
     local cur chosen
     cur=$(getConfig -m "$MONITOR" random_type)
-    chosen=$(printf 'image\nvideo\nweb\nscene' | module_sub_rofi "Random type" "current: $cur")
-    case "$chosen" in image | video | web | scene) ;; *) return ;; esac
+    chosen=$(printf 'image\nvideo\nweb' | module_sub_rofi "Random type" "current: $cur")
+    case "$chosen" in image | video | web) ;; *) return ;; esac
     [ "$chosen" = "$cur" ] && return
     jq --arg m "$MONITOR" --arg v "$chosen" '.monitors[$m].random_type = $v' \
         "$conf" >"$conf.tmp" && mv "$conf.tmp" "$conf"
@@ -316,8 +308,8 @@ handle_fps() {
     set_video_render_config "$MONITOR" fps "FPS" "Video frame rate limit (0 = unlimited, ≥ 0)" 0 &&
         reapply_video_wallpaper "$MONITOR"
 }
-# ---- Wallpaper user property (web/scene slider/color/file/bool/combo) ----
-# --list-properties 仅 web/scene 有输出 (image/video 直接失败);
+# ---- Wallpaper user property (web slider/color/file/bool/combo) ----
+# --list-properties 仅 web 有输出 (image/video 直接失败);
 # group/Screen 属 -g 几何窗口, -m 无法寻址同样失败 → 通知后返回 (限定单 monitor)。
 # slider 走 yad --scale --print-partial 逐值实时 set;
 # color 的 yad 对话框无 partial (--changed-action 仅 CHK/CB/SW 有效),
@@ -391,8 +383,7 @@ prop_color_hex() { # "r g b" (0..1 floats) → #rrggbb; 非法输入输出空
         printf "#%02X%02X%02X", int(r), int(g), int(b)}' <<<"$1" 2>/dev/null
 }
 prop_hex_to_rgb() { # #rrggbb/#rgb → "r g b" (%.6f floats); 非法输入失败
-    # scene 把 color 原样透传给 JS (按空格 split), 不认 hex; web 两者都认。
-    # set 一律转回 triple, 两后端通用。
+    # web 同时接受 hex 与 triple; set 一律转回 triple。
     local h="${1#\#}" r g b
     if [[ "$h" =~ ^[0-9a-fA-F]{6}$ ]]; then
         r=$((16#${h:0:2}))
@@ -544,7 +535,7 @@ _apply_property() { # <name>: 按 type 调起对应编辑器 ($tunables 取自�
         init=$(prop_color_hex "$cur")
         new=$(yad --color --title="Wallpaper Property" --text="$MONITOR : $label" \
             ${init:+--init-color="$init"} 2>/dev/null)
-        # yad 输出 hex; set 前转回 triple (scene 只认 triple, web 两者都认)。
+        # yad 输出 hex; set 前转回 triple。
         # 取消/ESC 恢复原值 (OK 但输出为空视为无改动, 不恢复)
         prop_commit_once "$name" "$original" "$?" "$(prop_hex_to_rgb "$(printf '%s' "$new" | tr -d '\n')")"
         return
@@ -608,7 +599,6 @@ handle_property_reset() { prop_reset; }
 handle_random_images_path() { pick_config_dir "$MONITOR" random_image_dir; }
 handle_random_videos_path() { pick_config_dir "$MONITOR" random_video_dir; }
 handle_random_web_path() { pick_config_dir "$MONITOR" random_web_dir; }
-handle_random_scene_path() { pick_config_dir "$MONITOR" random_scene_dir; }
 handle_random_images_path_dark() { pick_config_dir "$MONITOR" random_image_dir_dark; }
 handle_random_videos_path_dark() { pick_config_dir "$MONITOR" random_video_dir_dark; }
 handle_random_web_path_dark() { pick_config_dir "$MONITOR" random_web_dir_dark; }

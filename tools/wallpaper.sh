@@ -34,19 +34,16 @@ random_wallpaper() {
     "web")
         dir=$(get_theme_dir "$monitor" random_web_dir "$theme")
         ;;
-    "scene")
-        dir=$(get_theme_dir "$monitor" random_scene_dir "$theme")
-        ;;
     *)
         error "Unknown random type: $random_type"
         return
         ;;
     esac
 
-    # web/scene 池为含 project.json 且 type 匹配的目录 (find_project_dirs)；
+    # web 池为含 project.json 且 type 匹配的目录 (find_project_dirs)；
     # image/video 为文件池 (find_wallpapers + pattern)。
     local files
-    if [ "$random_type" = "web" ] || [ "$random_type" = "scene" ]; then
+    if [ "$random_type" = "web" ]; then
         if ! files=$(find_project_dirs "$dir" "$depth" "$random_type"); then
             # Error already printed by find_project_dirs (bare return would
             # yield 0: entering the branch means the negated test is true)
@@ -98,7 +95,6 @@ select_wallpaper() {
     video) dir=$(get_theme_dir "$monitor" random_video_dir) ;;
     image) dir=$(get_theme_dir "$monitor" random_image_dir) ;;
     web) dir=$(get_theme_dir "$monitor" random_web_dir) ;;
-    scene) dir=$(get_theme_dir "$monitor" random_scene_dir) ;;
     *)
         rm -f "$tmp"
         return 1
@@ -111,10 +107,10 @@ select_wallpaper() {
     local picked
     picked=$(cat "$tmp")
     rm -f "$tmp"
-    # web/scene 要的是含 project.json 且 type 匹配的目录 (入口经 project_entry
-    # 判定：web 认 file 字段回退 index.html，scene 互认 scene.pkg|json)：
+    # web 要的是含 project.json 且 type 匹配的目录 (入口经 project_entry
+    # 判定：web 认 file 字段回退 index.html)：
     # 选中文件取其上层, 无合法入口则拒绝
-    if [ "$random_type" = "web" ] || [ "$random_type" = "scene" ]; then
+    if [ "$random_type" = "web" ]; then
         [ -f "$picked" ] && picked=$(dirname "$picked")
         project_entry "$picked" "$random_type" >/dev/null 2>&1 || return 1
     fi
@@ -210,14 +206,14 @@ theme_wallpaper() {
     for t in "${targets[@]}"; do
         is_group_member "$t" && continue
         # 记忆恢复优先 (仍存在才用, 否则回退 random):
-        # image/video 记忆是文件 (-f), web/scene 记忆是目录 (-d)。
+        # image/video 记忆是文件 (-f), web 记忆是目录 (-d)。
         # 不能统一用 -f: 目录恒判假, 每次走 random 还覆盖掉好记忆 (DP-1 实测)。
         desired=""
         last=$(get_last_wallpaper "$t" "$mode" 2>/dev/null)
         if [ -n "$last" ]; then
             rt=$(getConfig -m "$t" random_type)
             case "$rt" in
-            web | scene) [ -d "$last" ] && desired="$last" ;;
+            web) [ -d "$last" ] && desired="$last" ;;
             image | video) [ -f "$last" ] && desired="$last" ;;
             # 未知新类型: 文件目录都接受 (-e)。若默认 -f，新目录型一来就重蹈
             # DP-1 的覆辙 (恒判假 → 每次 random 还覆盖记忆)；-e 不可能误杀，
@@ -249,7 +245,7 @@ theme_wallpaper() {
 
 # 确保 xwallpaperd 存活: 存活直接复用 (热重启重跑 autostart 时不杀 daemon,
 # 否则窗口销毁重建多闪一次); 仅死亡/缺失才拉起。
-# scene 渲染要读引擎共享资源 (WE assets/shaders, util 纹理)。指向本机那份
+# web 渲染要读引擎共享资源 (WE assets/shaders, util 纹理)。指向本机那份
 # WE 安装即可 (不存在会自动回退到内置近似 header); 只指路, 不复制/分发资产。
 _XW_ASSETS_DIR="${XW_ASSETS_DIR:-/mnt/windows_d/steam/steamapps/common/wallpaper_engine/assets}"
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# web/scene 经 project.json 解析 preview/file/type 的契约测试 (TDD):
+# web 经 project.json 解析 preview/file/type 的契约测试 (TDD):
 #   project_type <dir>              → 小写 type，无/坏返回非零
 #   project_preview <dir>           → 字段优先，回退 preview.*，都无返回非零
-#   project_entry <dir> [kind]      → web 认 file 字段(含 wallpaper.html)，
-#                                     回退 index.html；scene 互认 scene.json/pkg
+#   project_entry <dir>             → web 认 file 字段(含 wallpaper.html)，
+#                                     回退 index.html；scene 遗留目录视为非法
 #   find_project_dirs <root> <depth> <type> → 只返回含 project.json 且 type 匹配的目录
 # 运行: bash tests/wallpaper-project-json_test.sh
 
@@ -20,7 +20,7 @@ source "$DWM/tools/wallpaper-lib.sh"
 
 # ---- fixture ----
 POOL="$TEST_DIR/pool"
-mkdir -p "$POOL/web-a" "$POOL/web-custom" "$POOL/scene-pkg" "$POOL/scene-json" \
+mkdir -p "$POOL/web-a" "$POOL/web-custom" "$POOL/legacy-scene" \
     "$POOL/fallback-preview" "$POOL/no-preview" "$POOL/no-entry" "$POOL/bare" "$POOL/badjson"
 
 # web-a: 标准 web（字段全命中）
@@ -33,15 +33,10 @@ printf '{"title":"C","preview":"preview.jpg","file":"wallpaper.html","type":"web
 echo "<html></html>" >"$POOL/web-custom/wallpaper.html"
 echo "fakejpg" >"$POOL/web-custom/preview.jpg"
 
-# scene-pkg: file=scene.json 但落盘只有 scene.pkg（3497575235 反例）
-printf '{"title":"S","preview":"preview.gif","file":"scene.json","type":"Scene"}' >"$POOL/scene-pkg/project.json"
-echo '{"pkg":1}' >"$POOL/scene-pkg/scene.pkg"
-echo "fakegif" >"$POOL/scene-pkg/preview.gif"
-
-# scene-json: 落盘 scene.json
-printf '{"title":"J","preview":"preview.gif","file":"scene.json","type":"scene"}' >"$POOL/scene-json/project.json"
-echo '{"scene":1}' >"$POOL/scene-json/scene.json"
-echo "fakegif" >"$POOL/scene-json/preview.gif"
+# legacy-scene: 旧 scene 遗留目录 (type=scene, 仅 scene.pkg, 无 web 入口) → 非法
+printf '{"title":"S","preview":"preview.gif","file":"scene.json","type":"scene"}' >"$POOL/legacy-scene/project.json"
+echo '{"pkg":1}' >"$POOL/legacy-scene/scene.pkg"
+echo "fakegif" >"$POOL/legacy-scene/preview.gif"
 
 # fallback-preview: 无 preview 字段，回退 preview.png
 printf '{"title":"F","file":"index.html","type":"Web"}' >"$POOL/fallback-preview/project.json"
@@ -71,7 +66,6 @@ check() { # desc, cond
 
 # ---- project_type ----
 check "type: web 小写" '[ "$(project_type "$POOL/web-a")" = "web" ]'
-check "type: Scene 归一化小写" '[ "$(project_type "$POOL/scene-pkg")" = "scene" ]'
 check "type: Web 首字母大写归一化" '[ "$(project_type "$POOL/fallback-preview")" = "web" ]'
 check "type: 无 project.json 返回非零" '! project_type "$POOL/bare" >/dev/null 2>&1'
 check "type: 损坏 json 返回非零" '! project_type "$POOL/badjson" >/dev/null 2>&1'
@@ -88,22 +82,16 @@ check "entry(web): file=wallpaper.html 反例" '[ "$(project_entry "$POOL/web-cu
 check "entry(web): 缺 kind 时按 project.json type 推导" '[ "$(project_entry "$POOL/web-custom")" = "$POOL/web-custom/wallpaper.html" ]'
 check "entry(web): 损坏 json 回退 index.html" '[ "$(project_entry "$POOL/badjson" web)" = "$POOL/badjson/index.html" ]'
 check "entry(web): 无入口返回非零" '! project_entry "$POOL/no-entry" web >/dev/null 2>&1'
-check "entry(scene): file=json 落盘pkg 互认" '[ "$(project_entry "$POOL/scene-pkg" scene)" = "$POOL/scene-pkg/scene.pkg" ]'
-check "entry(scene): 落盘 scene.json" '[ "$(project_entry "$POOL/scene-json" scene)" = "$POOL/scene-json/scene.json" ]'
-check "entry(scene): 缺 kind 时按 type 推导" '[ "$(project_entry "$POOL/scene-pkg")" = "$POOL/scene-pkg/scene.pkg" ]'
-check "entry(scene): 无 marker 返回非零" '! project_entry "$POOL/no-entry" scene >/dev/null 2>&1'
+check "entry: 遗留 scene 目录返回非零" '! project_entry "$POOL/legacy-scene" >/dev/null 2>&1'
+check "entry: 遗留 scene 目录 (传 kind) 返回非零" '! project_entry "$POOL/legacy-scene" web >/dev/null 2>&1'
 
 # ---- find_project_dirs ----
 web_dirs=$(find_project_dirs "$POOL" 3 web 2>/dev/null | sort)
 check "find: web 含标准目录" 'printf "%s\n" "$web_dirs" | grep -qx "$POOL/web-a"'
 check "find: web 含 wallpaper.html 目录" 'printf "%s\n" "$web_dirs" | grep -qx "$POOL/web-custom"'
 check "find: web 含回退 preview 目录" 'printf "%s\n" "$web_dirs" | grep -qx "$POOL/fallback-preview"'
-check "find: web 排除 scene 目录" '! printf "%s\n" "$web_dirs" | grep -qx "$POOL/scene-pkg"'
+check "find: web 排除遗留 scene 目录" '! printf "%s\n" "$web_dirs" | grep -qx "$POOL/legacy-scene"'
 check "find: web 排除裸 index.html 目录" '! printf "%s\n" "$web_dirs" | grep -qx "$POOL/bare"'
-scene_dirs=$(find_project_dirs "$POOL" 3 scene 2>/dev/null | sort)
-check "find: scene 含 pkg 互认目录" 'printf "%s\n" "$scene_dirs" | grep -qx "$POOL/scene-pkg"'
-check "find: scene 含 json 目录" 'printf "%s\n" "$scene_dirs" | grep -qx "$POOL/scene-json"'
-check "find: scene 排除 web 目录" '! printf "%s\n" "$scene_dirs" | grep -qx "$POOL/web-a"'
 check "find: type 大小写无关 (WEB)" '[ -n "$(find_project_dirs "$POOL" 3 WEB 2>/dev/null)" ]'
 check "find: 无匹配返回非零" '! find_project_dirs "$POOL/bare" 3 web >/dev/null 2>&1'
 check "find: 不存在的根返回非零" '! find_project_dirs "$POOL/nonexistent" 3 web >/dev/null 2>&1'

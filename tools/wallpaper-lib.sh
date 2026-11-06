@@ -59,7 +59,6 @@ config["random_type"]="image"
 config["random_image_dir"]="~/Pictures"
 config["random_video_dir"]="~/Videos"
 config["random_web_dir"]="~/.local/share/Steam/steamapps/workshop/content/431960"
-config["random_scene_dir"]="~/.local/share/Steam/steamapps/workshop/content/431960"
 config["random_depth"]=3
 config["duration"]=30
 # video 渲染默认值 (未在 monitor/组的 video-render 配置时回退用; volume=0 等价静音)
@@ -95,10 +94,10 @@ xw_set() {
     else
         args=(set "--$backend" -g "$rect" --name "$target")
     fi
-    # video / web / scene 都受音量/静音与 keybinds 控制 (image 无 control 不加)
-    if [ "$type" = "video" ] || [ "$type" = "page" ] || [ "$type" = "scene" ]; then
+    # video / page 都受音量/静音与 keybinds 控制 (image 无 control 不加)
+    if [ "$type" = "video" ] || [ "$type" = "page" ]; then
         local volume fps
-        # volume 0 与 mute 等价 (video: mpv mute=yes; web/scene: 驱动到 0);
+        # volume 0 与 mute 等价 (video: mpv mute=yes; web: 驱动到 0);
         # 未配置 video-render 时回退 config["volume"]/config["fps"] 默认值
         volume=$(jq -r --arg n "$confname" '.monitors[$n]["video-render"].volume // empty' "$conf" 2>/dev/null)
         [ -z "$volume" ] && volume="${config[volume]:-0}"
@@ -308,13 +307,9 @@ shrink_path() {
 
 detect_file_type() {
     local filepath="$1"
-    # 目录: 带 scene.pkg / scene.json 标记的是 scene, 否则是 web (同 CLI 自动探测)
+    # 目录一律视为 web (page)；xwallpaper 已不再支持 scene 类型
     if [ -d "$filepath" ]; then
-        if [ -f "$filepath/scene.pkg" ] || [ -f "$filepath/scene.json" ]; then
-            echo "scene"
-        else
-            echo "page"
-        fi
+        echo "page"
         return
     fi
     local baseFilename=$(basename "${filepath// /_}")
@@ -328,12 +323,11 @@ detect_file_type() {
     esac
 }
 
-# ---- project.json 解析 (web/scene 唯一真实来源) ----
+# ---- project.json 解析 (web 唯一真实来源) ----
 # Wallpaper Engine 目录结构: project.json 含 title/preview/file/type 四字段。
-# file 不恒为 index.html (如 file=wallpaper.html)；scene 的 file 常为 scene.json
-# 但落盘只有 scene.pkg，两者互认。
+# file 不恒为 index.html (如 file=wallpaper.html)。
 
-# project.json 的 type 小写输出 (web/scene/...)；无文件/损坏/缺字段返回 1。
+# project.json 的 type 小写输出 (web/...)；无文件/损坏/缺字段返回 1。
 # Usage: project_type <dir>
 project_type() {
     local dir="$1"
@@ -370,19 +364,12 @@ project_preview() {
     return 1
 }
 
-# 入口文件绝对路径：file 字段优先 (存在才用)；scene 下 scene.json/scene.pkg 互认；
-# web 回退 index.html；kind 缺省按 project.json:type 推导；非法返回 1。
-# Usage: project_entry <dir> [web|scene]
+# 入口文件绝对路径：file 字段优先 (存在才用)；回退 index.html；非法返回 1。
+# Usage: project_entry <dir>
 project_entry() {
     local dir="$1"
-    local kind="$2"
     [ -n "$dir" ] || return 1
     [ -d "$dir" ] || return 1
-    if [ -z "$kind" ]; then
-        kind=$(project_type "$dir" 2>/dev/null) || kind=""
-    else
-        kind=$(printf '%s' "$kind" | tr '[:upper:]' '[:lower:]')
-    fi
     local f
     if [ -f "$dir/project.json" ]; then
         f=$(jq -r '.file // empty' "$dir/project.json" 2>/dev/null)
@@ -391,34 +378,10 @@ project_entry() {
             return 0
         fi
     fi
-    case "$kind" in
-    scene)
-        [ -f "$dir/scene.pkg" ] && {
-            printf '%s\n' "$dir/scene.pkg"
-            return 0
-        }
-        [ -f "$dir/scene.json" ] && {
-            printf '%s\n' "$dir/scene.json"
-            return 0
-        }
-        ;;
-    *)
-        [ -f "$dir/index.html" ] && {
-            printf '%s\n' "$dir/index.html"
-            return 0
-        }
-        ;;
-    esac
-    if [ -z "$kind" ]; then
-        [ -f "$dir/scene.pkg" ] && {
-            printf '%s\n' "$dir/scene.pkg"
-            return 0
-        }
-        [ -f "$dir/scene.json" ] && {
-            printf '%s\n' "$dir/scene.json"
-            return 0
-        }
-    fi
+    [ -f "$dir/index.html" ] && {
+        printf '%s\n' "$dir/index.html"
+        return 0
+    }
     return 1
 }
 

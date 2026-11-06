@@ -13,7 +13,7 @@
 #   S. combo 无 options → 回退自由输入
 #   I. 单 file + OK → yazi 选中 set 路径, 起始于壁纸目录
 #   J. file + 取消 → 恢复原值, 起始于当前值所在目录
-#   K. 多属性列表中 color 显示为 hex; set 时 hex 转回三元组 (scene 只认 triple)
+#   K. 多属性列表中 color 显示为 hex; set 时 hex 转回三元组
 # 运行: bash tests/wallpaper-property_test.sh
 
 DWM="$HOME/.dwm"
@@ -135,7 +135,7 @@ MONITOR="DP-1" MOCK_PICK="" handle_property
 check "E: fallback min 0" 'grep -q "min-value=0" "$XW_MOCK_LOG"'
 check "E: fallback max 100" 'grep -q "max-value=100" "$XW_MOCK_LOG"'
 
-# ---- F: 单 color + OK → set 三元组 (yad 给 hex, 统一转回 triple; scene 只认 triple) ----
+# ---- F: 单 color + OK → set 三元组 (yad 给 hex, 统一转回 triple) ----
 reset_state
 printf 'schemecolor\tcolor\t0.168627 0.168627 0.168627\n' >"$XW_MOCK_STATE/props"; export XW_PROPS_RC=0
 printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
