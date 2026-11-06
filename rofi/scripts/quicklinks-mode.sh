@@ -103,6 +103,96 @@ _fetch_favicon() {
     return 1
 }
 
+# ---- 默认浏览器检测 ----
+# _ff_profile_dir: 输出 firefox profile 绝对目录 (解析 profiles.ini Default=1,
+# IsRelative=1 时拼 $HOME/.mozilla/firefox; 失败回退 *.default-release glob); 失败输出空
+_ff_profile_dir() {
+    # 注意: bash 同行 local 多赋值不按序可见, base/ini 必须分行声明
+    local base="$HOME/.mozilla/firefox"
+    local ini="$base/profiles.ini"
+    local dir="" rec="" path="" isrel="" d=""
+    if [[ -f "$ini" ]]; then
+        rec=$(awk 'BEGIN{RS=""; FS="\n"} /Default=1/{print; exit}' "$ini" 2>/dev/null)
+        if [[ -n "$rec" ]]; then
+            path=$(printf '%s' "$rec" | grep -E '^Path=' | head -n1 | cut -d= -f2-)
+            isrel=$(printf '%s' "$rec" | grep -E '^IsRelative=' | head -n1 | cut -d= -f2-)
+            path=${path%$'\r'}
+            isrel=${isrel%$'\r'}
+            if [[ -n "$path" ]]; then
+                if [[ "$isrel" == "0" ]]; then dir="$path"; else dir="$base/$path"; fi
+            fi
+        fi
+    fi
+    if [[ -z "$dir" ]]; then
+        for d in "$base"/*.default-release; do
+            [[ -d "$d" ]] && {
+                dir="$d"
+                break
+            }
+        done
+    fi
+    [[ -n "$dir" && -d "$dir" ]] && printf '%s' "$dir"
+    return 0
+}
+
+# _browser_detect: 输出 "firefox|<profile_dir>"; 非 firefox/不可用时输出空 (调用方零行降级)
+_browser_detect() {
+    local desktop=""
+    if command -v xdg-settings >/dev/null 2>&1; then
+        desktop=$(xdg-settings get default-web-browser 2>/dev/null)
+    fi
+    if [[ -z "$desktop" && -n "${BROWSER:-}" ]]; then
+        desktop="$(basename "${BROWSER}")"
+        [[ "$desktop" != *.desktop ]] && desktop="$desktop.desktop"
+    fi
+    case "$desktop" in
+    [Ff]irefox*) printf 'firefox|%s' "$(_ff_profile_dir)" ;;
+    *) return 0 ;;
+    esac
+    return 0
+}
+
+# _ff_query: 只读查 profile 下 places.sqlite, 行内 $'\x1f' 分隔 (url/title/rev_host)
+_ff_query() { # $1=profile_dir $2=sql
+    local db="$1/places.sqlite"
+    [[ -f "$db" ]] || return 0
+    command -v sqlite3 >/dev/null 2>&1 || return 0
+    sqlite3 -separator $'\x1f' "file:$db?immutable=1" "$2" 2>/dev/null
+    return 0
+}
+
+# 标题清洗必须在 SQL 层: read 按 \n 逐行读, 含换行的标题会在 bash 侧错位断裂;
+# \x1f 为行内分隔符一并清洗 (char(31))
+_FF_CLEAN_TITLE="REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(p.title,''), char(10), ' '), char(13), ' '), char(9), ' '), char(31), ' ')"
+_FF_CLEAN_BMTITLE="REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(b.title, p.title, ''), char(10), ' '), char(13), ' '), char(9), ' '), char(31), ' ')"
+
+# _ff_history: 输出 "url\x1f恰title\x1frev_host" (frecency 降序, 500 封顶; hidden/visit=0/非 http 过滤)
+_ff_history() { # $1=profile_dir
+    _ff_query "$1" "SELECT p.url, $_FF_CLEAN_TITLE, COALESCE(p.rev_host,'') FROM moz_places p WHERE p.hidden = 0 AND p.visit_count > 0 AND p.url LIKE 'http%' ORDER BY p.frecency DESC LIMIT 500;"
+}
+
+# _ff_bookmarks: 输出 "url\x1f恰title" (全量; type=1 书签, 非 http 过滤)
+_ff_bookmarks() { # $1=profile_dir
+    _ff_query "$1" "SELECT p.url, $_FF_CLEAN_BMTITLE FROM moz_bookmarks b JOIN moz_places p ON p.id = b.fk WHERE b.type = 1 AND p.url LIKE 'http%';"
+}
+
+# _ff_best_match: 关键词查历史/书签最佳命中并输出 url (无命中输出空)
+# $1=profile_dir $2=hist|bm $3=关键词 (LIKE 转义 % _ \, 单引号双写防注入)
+_ff_best_match() {
+    local dir="$1" what="$2" esc="$3" cond
+    esc=${esc//\\/\\\\}
+    esc=${esc//%/\\%}
+    esc=${esc//_/\\_}
+    esc=${esc//\'/\'\'}
+    cond="(p.url LIKE '%$esc%' ESCAPE '\\' OR COALESCE(p.title,'') LIKE '%$esc%' ESCAPE '\\')"
+    if [[ "$what" == bm ]]; then
+        cond="(p.url LIKE '%$esc%' ESCAPE '\\' OR COALESCE(b.title, p.title, '') LIKE '%$esc%' ESCAPE '\\')"
+        _ff_query "$dir" "SELECT p.url FROM moz_bookmarks b JOIN moz_places p ON p.id = b.fk WHERE b.type = 1 AND p.url LIKE 'http%' AND $cond ORDER BY p.frecency DESC LIMIT 1;"
+    else
+        _ff_query "$dir" "SELECT p.url FROM moz_places p WHERE p.hidden = 0 AND p.visit_count > 0 AND p.url LIKE 'http%' AND $cond ORDER BY p.frecency DESC LIMIT 1;"
+    fi
+}
+
 # ---- parse links ----
 
 # 生成链接 id: 优先 uuidgen, 无则 base64(name|url) fallback 并提示安装
@@ -168,6 +258,11 @@ _ensure_icons() {
         _host_from_url "$surl"
         _collect_host "$_HOST"
     done < <(jq -r '.searcher[]?.url' "$CONFIG" 2>/dev/null)
+    # 浏览器历史/书签 host (由 _load_browser_rows 收集, 恒初始化, 见 _list 调用序)
+    local h
+    for h in "${_browser_hosts[@]}"; do
+        _collect_host "$h"
+    done
     ((${#pending[@]})) || return 0
     # 分片并发 (每 8 个等一轮), 避免首次全量 miss 时数十个并发 curl 触发限流
     (
@@ -180,10 +275,59 @@ _ensure_icons() {
     ) >/dev/null 2>&1 &
 }
 
+# 浏览器历史/书签行: _hist_rows/_bm_rows 为 "title\x1furl\x1fhost" 三元组,
+# _browser_hosts 供 _ensure_icons 预取 favicon; $1 为 _browser_detect 输出
+_load_browser_rows() {
+    _hist_rows=()
+    _bm_rows=()
+    _browser_hosts=()
+    # 测试缝: QUICKLINKS_NO_BROWSER 非空时跳过 (既有 _list 精确断言保持 hermetic)
+    [[ -n "${QUICKLINKS_NO_BROWSER:-}" ]] && return 0
+    local kind="${1%%|*}" dir="${1#*|}" url title host
+    [[ "$kind" == firefox && -n "$dir" ]] || return 0
+    while IFS=$'\x1f' read -r url title _; do
+        [[ -n "$url" ]] || continue
+        title=${title//$'\n'/ }
+        title=${title//$'\r'/ }
+        title=${title//$'\t'/ }
+        [[ -z "$title" ]] && title="$url"
+        _host_from_url "$url"
+        host="$_HOST"
+        _hist_rows+=("$title"$'\x1f'"$url"$'\x1f'"$host")
+        _browser_hosts+=("$host")
+    done < <(_ff_history "$dir")
+    while IFS=$'\x1f' read -r url title; do
+        [[ -n "$url" ]] || continue
+        title=${title//$'\n'/ }
+        title=${title//$'\r'/ }
+        title=${title//$'\t'/ }
+        [[ -z "$title" ]] && title="$url"
+        _host_from_url "$url"
+        host="$_HOST"
+        _bm_rows+=("$title"$'\x1f'"$url"$'\x1f'"$host")
+        _browser_hosts+=("$host")
+    done < <(_ff_bookmarks "$dir")
+}
+
+# 打印浏览器行: $1=行首标记 (^/*) $2=info 前缀 (hist|/bm|) $3 起=三元组数组
+_print_browser_rows() {
+    local mark="$1" ns="$2" row title url host
+    shift 2
+    for row in "$@"; do
+        IFS=$'\x1f' read -r title url host <<<"$row"
+        if [[ -f "$ICON_CACHE_DIR/$host.png" ]]; then
+            printf '%s %s — %s\0icon\x1f%s\x1finfo\x1f%s%s\n' "$mark" "$title" "$host" "$ICON_CACHE_DIR/$host.png" "$ns" "$url"
+        else
+            printf '%s %s — %s\0info\x1f%s%s\n' "$mark" "$title" "$host" "$ns" "$url"
+        fi
+    done
+}
+
 # _links 为 "name|id|url|host" 四元组, 缓存 hit 时附加图片属性
 _list() {
     _ensure_ids
     _load
+    _load_browser_rows "$(_browser_detect)"
     _ensure_icons
     local entry name id url host
     for entry in "${_links[@]}"; do
@@ -200,6 +344,9 @@ _list() {
     done
     printf '%s\0info\x1fnew\n' "$NEW_LINK"
     printf '%s\0info\x1fnew-searcher\n' "$NEW_SEARCHER"
+    # 浏览器历史 (^) 与书签 (*): info 命名空间 hist|url / bm|url, 不进 links 写库路径
+    ((${#_hist_rows[@]})) && _print_browser_rows '^' 'hist|' "${_hist_rows[@]}"
+    ((${#_bm_rows[@]})) && _print_browser_rows '*' 'bm|' "${_bm_rows[@]}"
     # @ 提示: 输入 @ 时 rofi 过滤仅剩 @<name> 行 (links/New 均不含 @) → 展示可用 searcher;
     # nonselectable 只展示不可选中, 不影响 RETV=2 自定义输入 (@name 搜索词走 _handle_input)
     local sname surl
@@ -216,6 +363,7 @@ _list() {
 
 # 按 id 打开 URL; 外部程序须后台执行 (rofi 会等待脚本 stdout 关闭)
 _open_url() {
+    [[ -n "${1:-}" ]] || return 0
     (xdg-open "$1" >/dev/null 2>&1 &)
 }
 
@@ -266,6 +414,8 @@ _write_json() {
 _edit_link() {
     local id="$1"
     [[ -n "$id" ]] || return 0
+    # 浏览器历史/书签行为只读: Alt+1 编辑直接 no-op
+    case "$id" in hist\|* | bm\|*) return 0 ;; esac
 
     local cur
     cur=$(jq -c --arg id "$id" '.links[] | select(.id == $id)' "$CONFIG" 2>/dev/null)
@@ -288,6 +438,8 @@ _edit_form() { # 表单录入 + 按 id 替换写库 (rofi 退出后执行)
 _delete_link() {
     local id="$1"
     [[ -n "$id" ]] || return 0
+    # 浏览器历史/书签行为只读: 删除直接 no-op
+    case "$id" in hist\|* | bm\|*) return 0 ;; esac
     local name
     name=$(jq -r --arg id "$id" '.links[] | select(.id == $id) | .name' "$CONFIG")
     [[ -n "$name" ]] || return 0
@@ -333,6 +485,8 @@ _dispatch() {
     case "${ROFI_INFO:-}" in
     new) _new_link ;;
     new-searcher) _new_searcher ;;
+    hist\|*) _open_url "${ROFI_INFO#hist|}" ;;
+    bm\|*) _open_url "${ROFI_INFO#bm|}" ;;
     *) _open_by_id "${ROFI_INFO:-}" ;;
     esac
 }
@@ -362,6 +516,29 @@ _searcher_url_by_name() {
 _handle_input() {
     local text="$*"
     [[ -n "$text" ]] || return 0
+    # ^历史 / *书签: 剥前缀实时查最佳命中并打开; 无关键词 no-op;
+    # 无命中/非 firefox 时落空, 整串(含前缀)走下方的默认搜索引擎 (与 @unknown 一致)
+    case "$text" in
+    ^* | \**)
+        local mark="${text:0:1}" kw="${text:1}" spec dir hit
+        if [[ -z "$kw" ]]; then
+            return 0
+        fi
+        spec=$(_browser_detect)
+        dir="${spec#*|}"
+        if [[ "${spec%%|*}" == firefox && -n "$dir" ]]; then
+            if [[ "$mark" == "^" ]]; then
+                hit=$(_ff_best_match "$dir" hist "$kw")
+            else
+                hit=$(_ff_best_match "$dir" bm "$kw")
+            fi
+            if [[ -n "$hit" ]]; then
+                _open_url "$hit"
+                return 0
+            fi
+        fi
+        ;;
+    esac
     if is_url "$text"; then
         [[ "$text" =~ ^https?:// ]] || text="https://$text"
         _open_url "$text"

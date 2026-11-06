@@ -125,20 +125,28 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | 函数               | 调用者                                                                 |
 | ------------------ | ---------------------------------------------------------------------- |
 | `_main()`          | 主入口 (按 ROFI_RETV 分派: 0=列表, 1=选中, 2=自定义输入, 3/11=删除, 10=编辑) |
-| `_list()`          | _main (RETV=0; _ensure_ids + _load + _ensure_icons 后输出; 缓存 hit 输出 `name\0icon\x1f<png>\x1finfo\x1f<id>`, miss/fail 输出纯文本 `name\0info\x1f<id>` + New 行 + New Searcher 行 + searcher @ 提示行 (`@<name>\0nonselectable\x1ftrue`, host 命中 favicon 缓存时追加 `\x1ficon\x1f<png>`; 输入 `@` 过滤仅剩这些行展示可用引擎, nonselectable 只展示不可选中, 不影响 RETV=2 自定义输入) + use-hot-keys; hit 判定内联 `[[ -f ]]` 避免 `$()` fork) |
+| `_list()`          | _main (RETV=0; _ensure_ids + _load + _load_browser_rows + _ensure_icons 后输出; 缓存 hit 输出 `name\0icon\x1f<png>\x1finfo\x1f<id>`, miss/fail 输出纯文本 `name\0info\x1f<id>` + New 行 + New Searcher 行 + 浏览器历史 `^ title — host\0info\x1fhist\|<url>` / 书签 `* title — host\0info\x1fbm\|<url>` 行 + searcher @ 提示行 (`@<name>\0nonselectable\x1ftrue`, host 命中 favicon 缓存时追加 `\x1ficon\x1f<png>`; 输入 `@` 过滤仅剩这些行展示可用引擎, nonselectable 只展示不可选中, 不影响 RETV=2 自定义输入 (`^`/`*` 输入过滤同理只剩历史/书签行) + use-hot-keys; hit 判定内联 `[[ -f ]]` 避免 `$()` fork; 测试缝 `QUICKLINKS_NO_BROWSER` 非空时跳过浏览器行 (既有 _list 精确断言保持 hermetic)) |
 | `_collect_host()`  | _ensure_icons (去重 + 跳过已 png/.fail, 未缓存 host 追加进 pending; 依赖调用者局部 seen/pending, bash 动态作用域) |
-| `_ensure_icons()`  | _list (收集 links + searcher 的 host 去重 → 后台子 shell 分片并发下载, 每 8 个 wait 一轮防限流; 已 png/.fail 跳过; searcher 引擎域名经 `_host_from_url` 提取; stdout/stderr 重定向防 SIGPIPE) |
-| `_dispatch()`      | _main (RETV=1; info=new → _new_link, info=new-searcher → _new_searcher, 否则按 id 打开) |
-| `_open_url()`      | _open_by_id, _handle_input (xdg-open 后台执行, 外部程序必须 `( cmd & )` 否则 rofi 等待其输出) |
+| `_ensure_icons()`  | _list (收集 links + searcher + `_browser_hosts` 的 host 去重 → 后台子 shell 分片并发下载, 每 8 个 wait 一轮防限流; 已 png/.fail 跳过; searcher 引擎域名经 `_host_from_url` 提取; stdout/stderr 重定向防 SIGPIPE) |
+| `_browser_detect()` | _list (经 _load_browser_rows), _handle_input (`^`/`*` 分支; `xdg-settings get default-web-browser` 为主、`$BROWSER` 回退, 输出 `firefox\|<profile_dir>`, 非 firefox/不可用输出空 → 调用方零行降级) |
+| `_ff_profile_dir()` | _browser_detect (解析 profiles.ini `Default=1` + `IsRelative`, 失败回退 `*.default-release` glob; 失败输出空) |
+| `_ff_query()`      | _ff_history, _ff_bookmarks, _ff_best_match (`sqlite3 -separator \x1f "file:<db>?immutable=1"` 只读, 缺库/缺 sqlite3 时空输出返回 0 且无 stderr) |
+| `_ff_history()`    | _load_browser_rows (frecency 降序 500 封顶, hidden/visit=0/非 http 过滤; 标题 SQL 层清洗换行/制表/\x1f — read 按行读, bash 层洗已太晚) |
+| `_ff_bookmarks()`  | _load_browser_rows (type=1 join 全量, 书签 title 优先, 同上清洗) |
+| `_ff_best_match()` | _handle_input (关键词 LIKE 转义后取 frecency 最佳 url, 无命中输出空) |
+| `_load_browser_rows()` | _list (检测串 → `_hist_rows`/`_bm_rows` 三元组 `title\x1furl\x1fhost` + `_browser_hosts`; 空标题回退 url) |
+| `_print_browser_rows()` | _list ($1=行首标记 ^/*, $2=info 前缀 hist\|/bm\|, 其余=三元组; favicon 命中附加 icon 属性) |
+| `_dispatch()`      | _main (RETV=1; info=new → _new_link, info=new-searcher → _new_searcher, `hist\|*`/`bm\|*` → _open_url 直接打开, 否则按 id 打开) |
+| `_open_url()`      | _open_by_id, _handle_input, _dispatch (hist\|/bm\| 分支; xdg-open 后台执行, 外部程序必须 `( cmd & )` 否则 rofi 等待其输出; 空串守卫) |
 | `_open_by_id()`    | _dispatch (jq 查 URL → _open_url)                                      |
-| `_handle_input()`  | _main (RETV=2; is_url ? 补协议打开 : 搜索引擎搜索; 首 token `@<name>` 精确匹配(忽略大小写)命中 searcher → 用目标引擎, 未命中/无 @ → 默认 searcher[0], searcher 数组为空回退 SEARCH_ENGINE; 仅 `@name` 无搜索词不打开) |
+| `_handle_input()`  | _main (RETV=2; `^`/`*` 开头 → 剥前缀实时查历史/书签最佳命中并打开, 无关键词 no-op, 无命中/非 firefox 则整串(含前缀)落到下述搜索; is_url ? 补协议打开 : 搜索引擎搜索; 首 token `@<name>` 精确匹配(忽略大小写)命中 searcher → 用目标引擎, 未命中/无 @ → 默认 searcher[0], searcher 数组为空回退 SEARCH_ENGINE; 仅 `@name` 无搜索词不打开) |
 | `_build_search_url()` | _handle_input (jq @uri 编码搜索词替换 `{key}`; 无 `{key}` 追加 url 末尾; bash 参数展开花括号须转义 `\{key\}`) |
 | `_searcher_url_by_name()` | _handle_input (jq ascii_downcase 忽略大小写精确匹配 searcher name → url, 未命中输出空) |
 | `_interact_async()`| _edit_link, _delete_link, _new_link, _new_searcher (后台子 shell 等 rofi 退出释放 grab 后执行命令 — script mode 下 rofi 存活期间 grab 键盘, 须先让 rofi 退出) |
 | `_write_json()`    | _ensure_ids, _edit_form, _delete_form, _new_form, _new_searcher_form (jq 表达式原子写回 CONFIG: 唯一 tmp + mv, 避免并发写 .tmp 冲突) |
-| `_edit_link()`     | _main (RETV=10; 按 id 预填数据 → _interact_async _edit_form)           |
+| `_edit_link()`     | _main (RETV=10; `hist\|*`/`bm\|*` 只读 no-op; 否则按 id 预填数据 → _interact_async _edit_form) |
 | `_edit_form()`     | _interact_async (表单录入 + 按 id 替换写库, 保留 id)                   |
-| `_delete_link()`   | _main (RETV=3/11; 按 id 取名字 → _interact_async _delete_form)         |
+| `_delete_link()`   | _main (RETV=3/11; `hist\|*`/`bm\|*` 只读 no-op; 否则按 id 取名字 → _interact_async _delete_form) |
 | `_delete_form()`   | _interact_async (module_confirm 确认后 jq 删除 + notify)               |
 | `_new_link()`      | _dispatch (info=new; → _interact_async _new_form)                      |
 | `_new_form()`      | _interact_async (剪贴板 URL 预填 + 表单校验 + jq 追加; clipboard_url 须在此执行 — xclip 可能阻塞, 不能留在 rofi grab 存活期间) |

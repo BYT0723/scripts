@@ -9,6 +9,9 @@ trap 'rm -rf "$TEST_DIR"' EXIT
 # 注入隔离的 favicon 缓存目录 (source 前生效)
 export ICON_CACHE_DIR="$TEST_DIR/icons"
 mkdir -p "$ICON_CACHE_DIR"
+# 屏蔽浏览器历史/书签行: _list 精确断言须 hermetic, 不读真机 places.sqlite
+# (浏览器行由独立用例覆盖, 见 Task 5)
+export QUICKLINKS_NO_BROWSER=1
 
 FAIL=0
 assert_eq() { # got want msg
@@ -569,6 +572,151 @@ before=$(md5sum "$CONFIG" | cut -d' ' -f1)
 ROFI_RETV=0 _main >/dev/null
 after=$(md5sum "$CONFIG" | cut -d' ' -f1)
 assert_eq "$before" "$after" "_ensure_ids: id 齐全时零写入"
+
+# ---- 浏览器历史/书签 (fake HOME + fixture places.sqlite, 真 sqlite3) ----
+BR_HOME="$TEST_DIR/br-home"
+mkdir -p "$BR_HOME/.mozilla/firefox/fakeprof"
+cat >"$BR_HOME/.mozilla/firefox/profiles.ini" <<'INI'
+[Profile0]
+Name=default-release
+IsRelative=1
+Path=fakeprof
+Default=1
+INI
+sqlite3 "$BR_HOME/.mozilla/firefox/fakeprof/places.sqlite" <<'SQL'
+CREATE TABLE moz_places(id INTEGER PRIMARY KEY, url TEXT, title TEXT, rev_host TEXT, hidden INTEGER DEFAULT 0, visit_count INTEGER DEFAULT 0, frecency INTEGER DEFAULT 0, last_visit_date INTEGER);
+INSERT INTO moz_places VALUES(1,'https://example.com/low','Example Low','moc.elpmaxe.',0,5,10,1);
+INSERT INTO moz_places VALUES(2,'https://example.com/high','Example High','moc.elpmaxe.',0,5,999,1);
+INSERT INTO moz_places VALUES(3,'https://hidden.test/','Hidden',NULL,1,9,9999,1);
+INSERT INTO moz_places VALUES(4,'place:query','Place','',0,1,50,1);
+INSERT INTO moz_places VALUES(5,'https://notitle.test/','','tset.eltiton.',0,2,20,1);
+INSERT INTO moz_places VALUES(6,'https://newline.test/','Line1
+Line2','tset.enilwen.',0,2,21,1);
+CREATE TABLE moz_bookmarks(id INTEGER PRIMARY KEY, type INTEGER, fk INTEGER, parent INTEGER, title TEXT);
+INSERT INTO moz_bookmarks VALUES(10,1,2,3,'Starred High');
+SQL
+cat >"$FAKE_BIN/xdg-settings" <<'EOF'
+#!/usr/bin/env bash
+echo "${MOCK_BROWSER_DESKTOP:-firefox.desktop}"
+EOF
+chmod +x "$FAKE_BIN/xdg-settings"
+mkdir -p "$TEST_DIR/emptybin"
+OLD_HOME="$HOME"
+export HOME="$BR_HOME"
+unset QUICKLINKS_NO_BROWSER
+
+# _browser_detect: firefox → profile 定位
+assert_eq "$(_browser_detect)" "firefox|$BR_HOME/.mozilla/firefox/fakeprof" "browser: firefox profile 定位"
+# _browser_detect: 非 firefox → 空 (mock 为外部进程, 变量须 export)
+export MOCK_BROWSER_DESKTOP="chromium.desktop"
+assert_eq "$(_browser_detect)" "" "browser: 非 firefox 返回空"
+unset MOCK_BROWSER_DESKTOP
+# _ff_profile_dir: 无 profiles.ini → glob fallback (~/.mozilla/firefox/*.default-release)
+mkdir -p "$BR_HOME/noprof/.mozilla/firefox/abc.default-release"
+HOME="$BR_HOME/noprof"
+assert_eq "$(_ff_profile_dir)" "$BR_HOME/noprof/.mozilla/firefox/abc.default-release" "browser: glob fallback"
+export HOME="$BR_HOME"
+
+# _ff_history: frecency 降序 + hidden/非http 过滤
+hist_out=$(_ff_history "$BR_HOME/.mozilla/firefox/fakeprof")
+assert_eq "$(printf '%s' "$hist_out" | head -1 | cut -d$'\x1f' -f1)" "https://example.com/high" "history: frecency 最佳在首行"
+[[ "$hist_out" != *'hidden.test'* && "$hist_out" != *'place:query'* ]] &&
+    echo "ok: history: hidden/非http 过滤" || {
+    echo "FAIL: history: hidden/非http 过滤"
+    FAIL=1
+}
+# _ff_bookmarks: 书签 title 优先
+bm_out=$(_ff_bookmarks "$BR_HOME/.mozilla/firefox/fakeprof")
+assert_eq "$bm_out" "https://example.com/high"$'\x1f'"Starred High" "bookmark: url + 书签 title"
+# DB 缺失 / sqlite3 缺失 → 空输出、返回 0、无 stderr
+assert_eq "$(_ff_history "$BR_HOME/nonexistent" 2>/dev/null)" "" "history: DB 缺失空输出"
+_ff_history "$BR_HOME/nonexistent" 2>/dev/null
+assert_eq "$?" "0" "history: DB 缺失返回 0"
+assert_eq "$(PATH="$TEST_DIR/emptybin" _ff_history "$BR_HOME/.mozilla/firefox/fakeprof" 2>/dev/null)" "" "history: sqlite3 缺失空输出"
+
+# _list: ^/* 行 + info 命名空间
+printf '{"links":[],"searcher":[]}' >"$CONFIG"
+_list >"$TEST_DIR/list-browser.out"
+assert_file_has "$TEST_DIR/list-browser.out" "info.hist|https://example.com/high" "_list: ^ 历史行 info=hist|url"
+assert_file_has "$TEST_DIR/list-browser.out" "info.bm|https://example.com/high" "_list: * 书签行 info=bm|url"
+# 空标题回退 URL + 标题换行清洗 (行数不断裂)
+assert_file_has "$TEST_DIR/list-browser.out" "notitle.test" "_list: 空标题回退显示"
+line_count=$(wc -l <"$TEST_DIR/list-browser.out")
+caret_lines=$(grep -ac '^\^ ' "$TEST_DIR/list-browser.out")
+assert_eq "$caret_lines" "4" "_list: 标题换行不产生断裂行 (历史 4 行)"
+
+# 后台打开断言: _open_url 双重后台, wait 未必等到落盘, 轮询代替单次 grep
+wait_for_log() { # $1=file $2=pattern $3=msg
+    local i
+    for i in $(seq 1 20); do
+        if grep -aqe "$2" "$1" 2>/dev/null; then
+            echo "ok: $3"
+            return 0
+        fi
+        sleep 0.1
+    done
+    echo "FAIL: $3 (file 不含 $2)"
+    FAIL=1
+    return 1
+}
+
+# _dispatch: hist|/bm| 打开 URL
+rm -f "$XDG_FAKE_LOG"
+ROFI_INFO='hist|https://example.com/high' ROFI_RETV=1 _main
+wait
+wait_for_log "$XDG_FAKE_LOG" "OPEN:https://example.com/high" "dispatch: hist| 打开"
+rm -f "$XDG_FAKE_LOG"
+ROFI_INFO='bm|https://example.com/high' ROFI_RETV=1 _main
+wait
+wait_for_log "$XDG_FAKE_LOG" "OPEN:https://example.com/high" "dispatch: bm| 打开"
+# Alt+1/Alt+2 守卫: CONFIG 不变
+before=$(md5sum "$CONFIG" | cut -d' ' -f1)
+ROFI_INFO='hist|https://example.com/high' ROFI_RETV=10 _main
+ROFI_INFO='bm|https://example.com/high' ROFI_RETV=11 _main
+wait
+assert_eq "$(md5sum "$CONFIG" | cut -d' ' -f1)" "$before" "守卫: Alt+1/Alt+2 不改 CONFIG"
+
+# _handle_input: ^ 最佳命中 / * 书签 / 回退 / 独立 ^ no-op / LIKE 转义
+printf '{"links":[],"searcher":[{"name":"g","url":"https://g.test/s?q={key}"}]}' >"$CONFIG"
+rm -f "$XDG_FAKE_LOG"
+ROFI_RETV=2 _main '^example'
+wait
+wait_for_log "$XDG_FAKE_LOG" "OPEN:https://example.com/high" "input: ^ 打开 frecency 最佳"
+if grep -aq 'g.test' "$XDG_FAKE_LOG"; then
+    echo "FAIL: input: ^ 命中时误走搜索引擎"
+    FAIL=1
+else
+    echo "ok: input: ^ 命中时不走搜索引擎"
+fi
+rm -f "$XDG_FAKE_LOG"
+ROFI_RETV=2 _main '*starred'
+wait
+wait_for_log "$XDG_FAKE_LOG" "OPEN:https://example.com/high" "input: * 打开书签命中"
+rm -f "$XDG_FAKE_LOG"
+ROFI_RETV=2 _main '^nomatchxyz'
+wait
+wait_for_log "$XDG_FAKE_LOG" "OPEN:https://g.test/s?q=%5Enomatchxyz" "input: ^ 无命中回退默认引擎 (整串作词)"
+rm -f "$XDG_FAKE_LOG"
+ROFI_RETV=2 _main '^'
+wait
+if [[ -s "$XDG_FAKE_LOG" ]]; then
+    echo "FAIL: input: 独立 ^ 应 no-op"
+    FAIL=1
+else
+    echo "ok: input: 独立 ^ no-op"
+fi
+rm -f "$XDG_FAKE_LOG"
+ROFI_RETV=2 _main '^100%'
+wait
+if grep -aq 'example.com' "$XDG_FAKE_LOG"; then
+    echo "FAIL: input: LIKE 转义失效 (% 通配了全库)"
+    FAIL=1
+else
+    echo "ok: input: LIKE 特殊字符转义"
+fi
+
+export HOME="$OLD_HOME"
+export QUICKLINKS_NO_BROWSER=1
 
 if ((FAIL)); then
     echo "== 有失败用例 =="
