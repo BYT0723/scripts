@@ -23,7 +23,6 @@ tools/lock.sh ──sources──► utils/notify.sh; ──requires──► i3
               ◄──sourced by── rofi/powermenu/type-{1..6}/powermenu.sh
 tools/screen.sh ──sources──► utils/notify.sh; ──requires─► xss-lock (extra); ──spawns──► xss-lock -- lock.sh lock (单一空闲权威); ──调用──► xset s <T> 0 + xset s noblank / xset s reset (音频抑制) / xset dpms 0 0 0
 tools/wallpaper.sh ──sources──► utils/notify.sh, tools/wallpaper-lib.sh, tools/wallpaper-render.sh
-tools/wallpaper-classify.py ──requires──► python3+PIL, ffmpeg/ffprobe (视频缩略图); 壁纸 light/dark 初筛 (B 规则暗像素占比), `--move` 按 verdict 搬进 light//dark/
 tools/screencast.sh ──sources──► utils/monitor.sh
 tools/brightness.sh ──sources──► utils/notify.sh
 tools/calendar.sh ──sources──► utils/notify.sh

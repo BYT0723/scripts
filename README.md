@@ -35,7 +35,6 @@
 | `bash tools/wallpaper.sh -m <monitor\|组> {next\|select}`；`-r`；`--theme <mode>` | 壁纸：下一张/选择；daemon 轮换；跟随主题色调切换 |
 | `bash tools/lock.sh {lock\|suspend}` | 锁屏（i3lock）/挂起；锁屏期间武装 DPMS（30s 灭屏）、暂停音乐、按 sink 静音全部输出、STOP `xwallpaperd` 防 DPMS 回弹 |
 | `source tools/monitor-brightness.sh`（`read_brightness`/`set_brightness`） | 单屏亮度：eDP 走 `brightnessctl`，外接屏走 `ddcutil setvcp 10`（DP aux 总线回退 + bus 文件缓存） |
-| `python3 tools/wallpaper-classify.py [--move] <dir>` | 壁纸 light/dark 初筛（B 规则暗像素占比；`--move` 按 verdict 搬进 `light/`/`dark/`） |
 | `bash tests/<name>_test.sh` | 回归测试（完整列表 `ls tests/*_test.sh`；全部零外部显示依赖，mock xrandr/ddcutil 等外部命令） |
 
 常用 rofi 入口（`rofi/scripts/` 均为 `module_loop` 注册表菜单，`key|icon|label|status` 四列，见 AGENTS.md §Rofi 模块注册表规范）：`module.sh`（系统总控）、`theme.sh`（主题/亮度/过渡锚点）、`wallpaper.sh`（壁纸/组/随机参数）、`quicklinks-mode.sh`（书签+`@引擎`搜索）、`mpd.sh`（音乐+封面）、`yt-dlp-wrapper.sh`（下载）、`screenshot.sh` / `screencast.sh` / `sing-box.sh` / `scrcpy.sh` / `sddm.sh` / `media-scraping.sh` / `notification.sh` / `emoji.sh`。
@@ -111,7 +110,7 @@ DWM 启动 → autostart.sh ─┬─ picom / dunst / xsettingsd / snixembed / l
 
 ### T4 — 可选 (缺失时有条件跳过)
 
-`mpc`/`mpd` `networkmanager`/`nm-applet` `fcitx5-im` `lxsession`/`lxpolkit` `udiskie` `bluez`/`bluetoothctl` `newsboat` `yt-dlp` `yazi` `cal`/`ccal` `st` `easyeffects`(默认注释) `conky` `sing-box` `scrcpy`/`android-tools` `autorandr` `snixembed` `wireless-tools`(`iwgetid`, 状态栏 wifi 名称) `python3`+`PIL`(wallpaper-classify.py)
+`mpc`/`mpd` `networkmanager`/`nm-applet` `fcitx5-im` `lxsession`/`lxpolkit` `udiskie` `bluez`/`bluetoothctl` `newsboat` `yt-dlp` `yazi` `cal`/`ccal` `st` `easyeffects`(默认注释) `conky` `sing-box` `scrcpy`/`android-tools` `autorandr` `snixembed` `wireless-tools`(`iwgetid`, 状态栏 wifi 名称)
 
 ---
 
@@ -138,7 +137,6 @@ DWM 启动 → autostart.sh ─┬─ picom / dunst / xsettingsd / snixembed / l
 | `wallpaper.sh` | 壁纸引擎 (随机/选择/daemon/跟随主题) | xwallpaper / ffprobe / mpv(旋转预览) / yazi |
 | `wallpaper-lib.sh` | 壁纸配置/组管理/渲染接口 | xwallpaper / jq / ffprobe / envsubst |
 | `wallpaper-render.sh` | xwallpaper 渲染层 (screen/monitor/group) | xwallpaper |
-| `wallpaper-classify.py` | 壁纸 light/dark 初筛（`--move` 自动归档） | python3+PIL / ffmpeg+ffprobe(视频缩略图) |
 | `monitor-brightness.sh` | 单屏亮度读写（eDP=brightnessctl，外接屏=ddcutil；DP aux 回退+bus 文件缓存） | brightnessctl / ddcutil / xrandr |
 | `screenshot.sh` | 截图 (区域/全屏/窗口/定时) | flameshot / xclip / nsxiv / xdotool |
 | `screencast.sh` | 屏幕录制 (含虚拟音频设备) | ffmpeg / slop / pactl / jq / xdotool |
