@@ -16,6 +16,8 @@ NEW_SEARCHER=" New Searcher"
 # script mode 下 rofi 存活期间 grab 键盘: 交互前须等待其退出释放 grab (实测 EOF→退出 < 0.4s)
 GRAB_RELEASE_WAIT=0.4
 
+MODULE_THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
+
 source "$WORK_DIR/utils/form.sh"
 source "$WORK_DIR/utils/notify.sh"
 source "$WORK_DIR/utils/url.sh"
@@ -657,9 +659,9 @@ _dispatch() {
     case "${ROFI_INFO:-}" in
     new) _new_link ;;
     new-searcher) _new_searcher ;;
-    browse-hist) _list_hist ;;       # 有输出 → rofi 原地刷新为历史子菜单 (不退出)
-    browse-bm) _list_bm ;;           # 同上: 书签子菜单
-    back) _list ;;                    # 返回主菜单
+    browse-hist) _list_hist ;; # 有输出 → rofi 原地刷新为历史子菜单 (不退出)
+    browse-bm) _list_bm ;;     # 同上: 书签子菜单
+    back) _list ;;             # 返回主菜单
     hist\|*) _open_url "${ROFI_INFO#hist|}" ;;
     bm\|*) _open_url "${ROFI_INFO#bm|}" ;;
     searcher\|*) _select_searcher "${ROFI_INFO#searcher|}" ;;
