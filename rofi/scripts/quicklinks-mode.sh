@@ -362,17 +362,17 @@ _list() {
     # 浏览入口: 输入 ^/* 过滤到对应入口 → 回车下钻 (ROFI_INFO=browse-* 输出子菜单 rofi 原地刷新)
     printf '%s\0info\x1fbrowse-hist\n' "$BROWSE_HIST"
     printf '%s\0info\x1fbrowse-bm\n' "$BROWSE_BM"
-    # @ 提示: 输入 @ 时 rofi 过滤仅剩 @<name> 行 (links/New/浏览入口均不含 @) → 展示可用 searcher;
-    # nonselectable 只展示不可选中, 不影响 RETV=2 自定义输入 (@name 搜索词走 _handle_input)
-    local sname surl
-    while IFS=$'\t' read -r sname surl; do
+    # @ 引擎: 输入 @ 时 rofi 过滤仅剩 @key 行 (links/New/浏览入口均不含 @) → 展示可用 searcher;
+    # 可选中 (info=searcher|<key>), 显示 "@key (name)"; 老数据缺 key 时回退 key=name
+    local skey sname surl
+    while IFS=$'\t' read -r skey sname surl; do
         _host_from_url "$surl"
         if [[ -f "$ICON_CACHE_DIR/$_HOST.png" ]]; then
-            printf '@%s\0nonselectable\x1ftrue\x1ficon\x1f%s\n' "$sname" "$ICON_CACHE_DIR/$_HOST.png"
+            printf '@%s (%s)\0icon\x1f%s\x1finfo\x1fsearcher|%s\n' "$skey" "$sname" "$ICON_CACHE_DIR/$_HOST.png" "$skey"
         else
-            printf '@%s\0nonselectable\x1ftrue\n' "$sname"
+            printf '@%s (%s)\0info\x1fsearcher|%s\n' "$skey" "$sname" "$skey"
         fi
-    done < <(jq -r '.searcher[]? | [.name, .url] | @tsv' "$CONFIG" 2>/dev/null)
+    done < <(jq -r '.searcher[]? | [(.key // .name), .name, .url] | @tsv' "$CONFIG" 2>/dev/null)
     _list_footer main
 }
 
@@ -449,8 +449,8 @@ _write_json() {
 _edit_link() {
     local id="$1"
     [[ -n "$id" ]] || return 0
-    # 浏览器历史/书签只读 + 导航行: Alt+1 编辑直接 no-op
-    case "$id" in hist\|* | bm\|* | browse-* | back) return 0 ;; esac
+    # 浏览器历史/书签只读 + 导航行 + searcher (走 _edit_searcher): Alt+1 编辑直接 no-op
+    case "$id" in hist\|* | bm\|* | browse-* | back | searcher\|*) return 0 ;; esac
 
     local cur
     cur=$(jq -c --arg id "$id" '.links[] | select(.id == $id)' "$CONFIG" 2>/dev/null)
@@ -473,8 +473,8 @@ _edit_form() { # 表单录入 + 按 id 替换写库 (rofi 退出后执行)
 _delete_link() {
     local id="$1"
     [[ -n "$id" ]] || return 0
-    # 浏览器历史/书签只读 + 导航行: 删除直接 no-op
-    case "$id" in hist\|* | bm\|* | browse-* | back) return 0 ;; esac
+    # 浏览器历史/书签只读 + 导航行 + searcher (走 _delete_searcher): 删除直接 no-op
+    case "$id" in hist\|* | bm\|* | browse-* | back | searcher\|*) return 0 ;; esac
     local name
     name=$(jq -r --arg id "$id" '.links[] | select(.id == $id) | .name' "$CONFIG")
     [[ -n "$name" ]] || return 0
@@ -486,6 +486,105 @@ _delete_form() { # 确认 + 删除写库 (rofi 退出后执行)
     module_confirm "删除「$name」？" &&
         _write_json --arg id "$id" 'del(.links[] | select(.id == $id))' &&
         tool-notify normal "Quicklinks" "已删除: $name"
+}
+
+# searcher 专属三字段循环 (Key/Name/URL): 仅校验非空 + URL 合法 (白名单/判重由调用方按旧值放行后检查);
+# 成功设置 _LINK_KEY/_LINK_NAME/_LINK_URL, 取消返回 1
+_edit_searcher_loop() {
+    local key="$1" name="$2" url="$3"
+    while :; do
+        local json=$(
+            FORM_TITLE="Searcher" form_show <<EOF
+key|entry|Key|${key:-}|
+name|entry|Name|${name:-}|
+url|entry|URL ({key} 占位)|${url:-}|
+EOF
+        )
+        [[ -z "$json" ]] && return 1
+
+        key=$(jq -r '.key' <<<"$json")
+        name=$(jq -r '.name' <<<"$json")
+        url=$(jq -r '.url' <<<"$json")
+        key=$(trim_str "$key")
+        name=$(trim_str "$name")
+        url=$(trim_str "$url")
+        if [[ -z "$key" ]]; then
+            tool-notify critical "Quicklinks" "搜索引擎 Key 不能为空"
+            continue
+        fi
+        if [[ -z "$name" ]]; then
+            tool-notify critical "Quicklinks" "搜索引擎名称不能为空"
+            continue
+        fi
+        if [[ -z "$url" ]]; then
+            tool-notify critical "Quicklinks" "搜索引擎 URL 不能为空"
+            continue
+        fi
+
+        if ! valid_url "$url" && ! valid_url "https://$url"; then
+            tool-notify critical "Quicklinks" "搜索引擎 URL 无效: $url"
+            continue
+        fi
+        [[ "$url" =~ ^https?:// ]] || url="https://$url"
+        break
+    done
+    _LINK_KEY="$key"
+    _LINK_NAME="$name"
+    _LINK_URL="$url"
+}
+
+# Alt+1 编辑 searcher: 按 key (忽略大小写, 含 name 回退) 定位, 预填当前值, 保存按旧 key 替换 (保序, 无 id)
+_edit_searcher() {
+    local key="$1"
+    [[ -n "$key" ]] || return 0
+    local cur ckey cname curl
+    cur=$(_searcher_entry_by_key "$key")
+    [[ -n "$cur" ]] || return 0
+    ckey=$(jq -r '.key // .name' <<<"$cur")
+    cname=$(jq -r '.name' <<<"$cur")
+    curl=$(jq -r '.url' <<<"$cur")
+    _interact_async _edit_searcher_form "$ckey" "$ckey" "$cname" "$curl"
+}
+
+_edit_searcher_form() { # 表单录入 + 按旧 key 替换写库 (rofi 退出后执行)
+    local old="$1" key="$2" name="$3" url="$4"
+    local oldname
+    oldname=$(jq -r --arg n "$old" '.searcher[]? | select(((.key // .name) | ascii_downcase == ($n | ascii_downcase)) or (.name | ascii_downcase == ($n | ascii_downcase))) | .name' "$CONFIG" 2>/dev/null | head -1)
+    _edit_searcher_loop "$key" "$name" "$url" || return 1
+    if ! _searcher_name_valid "$_LINK_KEY"; then
+        tool-notify critical "Quicklinks" "搜索引擎 Key 仅允许字母/数字/-/_: $_LINK_KEY"
+        return 1
+    fi
+    if [[ "${_LINK_KEY,,}" != "${old,,}" ]] && jq -e --arg n "$_LINK_KEY" \
+        'any(.searcher[]?; ((.key // .name) | ascii_downcase) == ($n | ascii_downcase))' "$CONFIG" >/dev/null 2>&1; then
+        tool-notify critical "Quicklinks" "搜索引擎 Key 已存在: $_LINK_KEY"
+        return 1
+    fi
+    if [[ "${_LINK_NAME,,}" != "${oldname,,}" ]] && jq -e --arg n "$_LINK_NAME" \
+        'any(.searcher[]?; (.name | ascii_downcase) == ($n | ascii_downcase))' "$CONFIG" >/dev/null 2>&1; then
+        tool-notify critical "Quicklinks" "搜索引擎名称已存在: $_LINK_NAME"
+        return 1
+    fi
+    _write_json --arg old "$old" --arg key "$_LINK_KEY" --arg name "$_LINK_NAME" --arg url "$_LINK_URL" \
+        '(.searcher[] | select(((.key // .name) | ascii_downcase == ($old | ascii_downcase)) or (.name | ascii_downcase == ($old | ascii_downcase)))) |= {key: $key, name: $name, url: $url}'
+}
+
+# Alt+2/Shift+Delete 删除 searcher: 按 key (忽略大小写, 含 name 回退) 定位, 确认后删除
+_delete_searcher() {
+    local key="$1"
+    [[ -n "$key" ]] || return 0
+    local cur ckey
+    cur=$(_searcher_entry_by_key "$key")
+    [[ -n "$cur" ]] || return 0
+    ckey=$(jq -r '.key // .name' <<<"$cur")
+    _interact_async _delete_searcher_form "$ckey"
+}
+
+_delete_searcher_form() { # 确认 + 删除写库 (rofi 退出后执行)
+    local name="$1"
+    module_confirm "删除搜索引擎「$name」？" &&
+        _write_json --arg n "$name" 'del(.searcher[]? | select(((.key // .name) | ascii_downcase == ($n | ascii_downcase)) or (.name | ascii_downcase == ($n | ascii_downcase))))' &&
+        tool-notify normal "Quicklinks" "已删除搜索引擎: $name"
 }
 
 # New: 剪贴板有效 URL 预填, 表单校验后追加
@@ -502,18 +601,56 @@ _new_form() { # 剪贴板预填 + 表单 + 追加写库 (rofi 退出后执行)
             '.links += [{name: $name, url: $url, id: $id}]'
 }
 
-# New Searcher: 表单录入后追加到 .searcher (name 为唯一键, 无 id)
+# searcher 名白名单 (searcher 专属, links 不受影响): 字母+数字+-_
+_searcher_name_valid() { [[ "${1:-}" =~ ^[A-Za-z0-9_-]+$ ]]; }
+
+# New Searcher: 表单录入后追加到 .searcher (key/name 各自唯一, 无 id)
 _new_searcher() { _interact_async _new_searcher_form; }
 
-_new_searcher_form() { # 表单 + 追加写库 (rofi 退出后执行)
-    _edit_loop "" "" "URL ({key} 占位)" "New Searcher" || return 1
-    if jq -e --arg n "$_LINK_NAME" \
-        'any(.searcher[]?; .name | ascii_downcase == ($n | ascii_downcase))' "$CONFIG" >/dev/null 2>&1; then
-        tool-notify critical "Quicklinks" "搜索引擎已存在: $_LINK_NAME"
+_new_searcher_form() { # 三字段表单 + 追加写库 (rofi 退出后执行)
+    _edit_searcher_loop "" "" "" || return 1
+    if ! _searcher_name_valid "$_LINK_KEY"; then
+        tool-notify critical "Quicklinks" "搜索引擎 Key 仅允许字母/数字/-/_: $_LINK_KEY"
         return 1
     fi
-    _write_json --arg name "$_LINK_NAME" --arg url "$_LINK_URL" \
-        '.searcher += [{name: $name, url: $url}]'
+    if jq -e --arg n "$_LINK_KEY" \
+        'any(.searcher[]?; ((.key // .name) | ascii_downcase) == ($n | ascii_downcase))' "$CONFIG" >/dev/null 2>&1; then
+        tool-notify critical "Quicklinks" "搜索引擎 Key 已存在: $_LINK_KEY"
+        return 1
+    fi
+    if jq -e --arg n "$_LINK_NAME" \
+        'any(.searcher[]?; (.name | ascii_downcase) == ($n | ascii_downcase))' "$CONFIG" >/dev/null 2>&1; then
+        tool-notify critical "Quicklinks" "搜索引擎名称已存在: $_LINK_NAME"
+        return 1
+    fi
+    _write_json --arg key "$_LINK_KEY" --arg name "$_LINK_NAME" --arg url "$_LINK_URL" \
+        '.searcher += [{key: $key, name: $name, url: $url}]'
+}
+
+# Enter 选中 searcher: 弹输入框取词后用该引擎搜索
+# 注意: RETV=1 时 rofi 传的是选中行文本 (如 "@gg (Google)"), 不是过滤框输入,
+# 不可把 "$@" 当搜索词解析 (否则会搜出行文本里的 "(Google)"); 有词搜索走 RETV=2 自定义输入
+_select_searcher() {
+    local key="$1"
+    [[ -n "$key" ]] || return 0
+    local cur ckey url
+    cur=$(_searcher_entry_by_key "$key")
+    [[ -n "$cur" ]] || return 0
+    ckey=$(jq -r '.key // .name' <<<"$cur")
+    url=$(_searcher_url_by_key "$ckey")
+    [[ -n "$url" ]] || return 0
+    _interact_async _select_searcher_form "$ckey"
+}
+
+_select_searcher_form() { # 输入框取词后用该引擎搜索 (rofi 退出后执行)
+    local key="$1" url kw
+    url=$(_searcher_url_by_key "$key")
+    [[ -n "$url" ]] || return 0
+    kw=$(module_input "Search @$key" "输入搜索关键词" "")
+    [[ -n "$kw" ]] || return 0
+    kw=$(trim_str "$kw")
+    [[ -n "$kw" ]] || return 0
+    _open_url "$(_build_search_url "$url" "$kw")"
 }
 
 _dispatch() {
@@ -525,6 +662,7 @@ _dispatch() {
     back) _list ;;                    # 返回主菜单
     hist\|*) _open_url "${ROFI_INFO#hist|}" ;;
     bm\|*) _open_url "${ROFI_INFO#bm|}" ;;
+    searcher\|*) _select_searcher "${ROFI_INFO#searcher|}" ;;
     *) _open_by_id "${ROFI_INFO:-}" ;;
     esac
 }
@@ -542,15 +680,37 @@ _build_search_url() {
     printf '%s' "$base"
 }
 
-# 按 name 精确匹配 (忽略大小写) 查找 searcher url, 未命中输出空
-_searcher_url_by_name() {
-    jq -r --arg n "$1" \
-        '.searcher[]? | select(.name | ascii_downcase == ($n | ascii_downcase)) | .url' "$CONFIG" 2>/dev/null |
-        head -1
+# 按 key 精确匹配 (忽略大小写) 查找 searcher 条目, 无 key 老数据回退按 name;
+# key 优先, 无 key 命再按 name 回退 (兼容老配置); 命中输出紧凑 JSON, 未命中输出空
+_searcher_entry_by_key() {
+    local entry
+    entry=$(jq -c --arg n "$1" \
+        '.searcher[]? | select((.key // .name) | ascii_downcase == ($n | ascii_downcase))' "$CONFIG" 2>/dev/null |
+        head -1)
+    if [[ -z "$entry" ]]; then
+        entry=$(jq -c --arg n "$1" \
+            '.searcher[]? | select(.name | ascii_downcase == ($n | ascii_downcase))' "$CONFIG" 2>/dev/null |
+            head -1)
+    fi
+    printf '%s' "$entry"
+}
+
+# 按 key 精确匹配 (忽略大小写) 查找 searcher url (key 优先, name 回退), 未命中输出空
+_searcher_url_by_key() {
+    local url
+    url=$(jq -r --arg n "$1" \
+        '.searcher[]? | select((.key // .name) | ascii_downcase == ($n | ascii_downcase)) | .url' "$CONFIG" 2>/dev/null |
+        head -1)
+    if [[ -z "$url" ]]; then
+        url=$(jq -r --arg n "$1" \
+            '.searcher[]? | select(.name | ascii_downcase == ($n | ascii_downcase)) | .url' "$CONFIG" 2>/dev/null |
+            head -1)
+    fi
+    printf '%s' "$url"
 }
 
 # 自定义输入: URL → 补协议打开; 否则搜索引擎
-# 搜索解析: 首 token @<name> 精确匹配(忽略大小写)命中 searcher → 用目标引擎; 未命中/无 @ → 默认 searcher[0]
+# 搜索解析: 首 token @key 精确匹配(忽略大小写, key 优先+name 回退)命中 searcher → 用目标引擎; 未命中/无 @ → 默认 searcher[0]
 _handle_input() {
     local text="$*"
     [[ -n "$text" ]] || return 0
@@ -600,7 +760,7 @@ _handle_input() {
         first="${text%% *}"
         name="${first#@}"
         [[ -n "$name" && "$text" != "$first" ]] || return 0
-        url=$(_searcher_url_by_name "$name")
+        url=$(_searcher_url_by_key "$name")
         [[ -n "$url" ]] && term="${text#* }"
     fi
 
@@ -658,8 +818,12 @@ _main() {
     0) _list ;;
     1) _dispatch ;;
     2) _handle_input "$*" ;;
-    3 | 11) _delete_link "${ROFI_INFO:-}" ;;
-    10) _edit_link "${ROFI_INFO:-}" ;;
+    3 | 11)
+        case "${ROFI_INFO:-}" in searcher\|*) _delete_searcher "${ROFI_INFO#searcher|}" ;; *) _delete_link "${ROFI_INFO:-}" ;; esac
+        ;;
+    10)
+        case "${ROFI_INFO:-}" in searcher\|*) _edit_searcher "${ROFI_INFO#searcher|}" ;; *) _edit_link "${ROFI_INFO:-}" ;; esac
+        ;;
     *) exit 0 ;;
     esac
 }

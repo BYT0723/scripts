@@ -44,7 +44,7 @@ tools/steam-workshop-auto.sh ◄──autostart.sh 后台直起──► sw_sync
 
 rofi/scripts/yt-dlp-wrapper.sh ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh, tools/yt-dlp.sh
 
-rofi/scripts/quicklinks-mode.sh──sources──► utils/form.sh, utils/notify.sh, utils/url.sh, utils/string.sh, rofi/scripts/lib-module.sh (module_confirm); ──挂载于── rofi/launchers/type-3/launcher.sh (combi 模式 quicklinks modi)
+rofi/scripts/quicklinks-mode.sh──sources──► utils/form.sh, utils/notify.sh, utils/url.sh, utils/string.sh, rofi/scripts/lib-module.sh (module_confirm, module_input); ──挂载于── rofi/launchers/type-3/launcher.sh (combi 模式 quicklinks modi)
 rofi/scripts/steam-workshop.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh, tools/steam-workshop.sh; ──calls──► sw_download (STEAM_WORKSHOP_DRIVER=auto 时有 aurelia 优先 `aurelia workshop install --no-recurse`, 失败 fallback steamcmd +login <user>/+workshop_download_item, 后台子 shell + system-notify)
 rofi/scripts/module.sh      ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/wallpaper.sh   ──sources──► rofi/scripts/util.sh, rofi/scripts/lib-module.sh, utils/notify.sh, tools/wallpaper-lib.sh, tools/wallpaper-render.sh
@@ -123,8 +123,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 
 | 函数               | 调用者                                                                 |
 | ------------------ | ---------------------------------------------------------------------- |
-| `_main()`          | 主入口 (按 ROFI_RETV 分派: 0=主菜单, 1=选中/下钻/返回, 2=自定义输入, 3/11=删除, 10=编辑) |
-| `_list()`          | _main (RETV=0 主菜单; _ensure_ids + _load + _ensure_icons (browser_hosts 恒空, 只预取 links/searcher) 后输出 links 行 (hit `name\0icon\x1f<png>\x1finfo\x1f<id>`, miss/fail 纯文本 `name\0info\x1f<id>`) + New/New Searcher 行 + `^ History`/`* Bookmarks` 浏览入口行 + searcher `@<name>\0nonselectable\x1ftrue` 提示行 (host 命中缓存追加 `\x1ficon\x1f<png>`; 输入 `@` 过滤展示, nonselectable 只展示不可选中, 不影响 RETV=2 自定义输入) + `_list_footer main`; 主菜单无 ^/* 明细行, 避免污染普通查询过滤; hit 判定内联 `[[ -f ]]` 避免 `$()` fork) |
+| `_main()`          | 主入口 (按 ROFI_RETV 分派: 0=主菜单, 1=选中/下钻/返回, 2=自定义输入, 3/11=删除 (searcher\|* → _delete_searcher), 10=编辑 (searcher\|* → _edit_searcher)) |
+| `_list()`          | _main (RETV=0 主菜单; _ensure_ids + _load + _ensure_icons (browser_hosts 恒空, 只预取 links/searcher) 后输出 links 行 (hit `name\0icon\x1f<png>\x1finfo\x1f<id>`, miss/fail 纯文本 `name\0info\x1f<id>`) + New/New Searcher 行 + `^ History`/`* Bookmarks` 浏览入口行 + searcher `@key (name)` 可选中行 (`@key (name)\0icon\x1f<png>\x1finfo\x1fsearcher|<key>`, 无 icon 时 `@key (name)\0info\x1fsearcher|<key>`; 缺 key 老数据回退 key=name) + `_list_footer main`; 主菜单无 ^/* 明细行, 避免污染普通查询过滤; hit 判定内联 `[[ -f ]]` 避免 `$()` fork) |
 | `_list_hist()` / `_list_bm()` | _dispatch (RETV=1 info=browse-hist/bm; back 首行 + `_load_browser_rows` 历史/书签 `title — host\0info\x1fhist\|<url>` / `title — host\0info\x1fbm\|<url>` 行 (子菜单不带 ^/* 前缀) + `_list_footer hist|bm`; 有输出 → rofi 原地刷新不退出; 测试缝 `QUICKLINKS_NO_BROWSER` 非空时跳过浏览器行 (主菜单精确断言保持 hermetic)) |
 | `_list_footer()`   | _list/_list_hist/_list_bm (输出 `\0data\x1f<main\|hist\|bm>` (经 ROFI_DATA 回传供 _handle_input 判上下文) + `\0use-hot-keys\x1ftrue`) |
 | `_collect_host()`  | _ensure_icons (去重 + 跳过已 png/.fail, 未缓存 host 追加进 pending; 依赖调用者局部 seen/pending, bash 动态作用域) |
@@ -137,23 +137,32 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `_ff_best_match()` | _handle_input (关键词 LIKE 转义后取 frecency 最佳 url, 无命中输出空) |
 | `_load_browser_rows()` | _list_hist/_list_bm (检测串 → `_hist_rows`/`_bm_rows` 三元组 `title\x1furl\x1fhost` + `_browser_hosts`; 空标题回退 url) |
 | `_print_browser_rows()` | _list_hist/_list_bm ($1=info 前缀 hist\|/bm\|, 其余=三元组; favicon 命中附加 icon 属性) |
-| `_dispatch()`      | _main (RETV=1; info=new → _new_link, new-searcher → _new_searcher, browse-hist/bm → _list_hist/_list_bm (有输出 → rofi 原地刷新), back → _list, `hist\|*`/`bm\|*` → _open_url 直接打开, 否则按 id 打开) |
+| `_dispatch()`      | _main (RETV=1 透参; info=new → _new_link, new-searcher → _new_searcher, browse-hist/bm → _list_hist/_list_bm (有输出 → rofi 原地刷新), back → _list, `hist\|*`/`bm\|*` → _open_url 直接打开, `searcher\|*` → _select_searcher (自带 key 直搜, 无 key 异步 module_input 取词), 否则按 id 打开) |
 | `_open_url()`      | _open_by_id, _handle_input, _dispatch (hist\|/bm\| 分支; xdg-open 后台执行, 外部程序必须 `( cmd & )` 否则 rofi 等待其输出; 空串守卫) |
 | `_open_by_id()`    | _dispatch (jq 查 URL → _open_url)                                      |
-| `_handle_input()`  | _main (RETV=2; 先按 ROFI_DATA 上下文补前缀 (hist/bm 子菜单内裸词自动补 `^`/`*`, 显式 ^/*/@ 不变); `^`/`*` 开头 → 剥前缀实时查历史/书签最佳命中并打开, 无关键词 no-op, 无命中/非 firefox 则整串(含前缀)落到下述搜索; is_url ? 补协议打开 : 搜索引擎搜索; 首 token `@<name>` 精确匹配(忽略大小写)命中 searcher → 用目标引擎, 未命中/无 @ → 默认 searcher[0], searcher 数组为空回退 SEARCH_ENGINE; 仅 `@name` 无搜索词不打开) |
+| `_handle_input()`  | _main (RETV=2; 先按 ROFI_DATA 上下文补前缀 (hist/bm 子菜单内裸词自动补 `^`/`*`, 显式 ^/*/@ 不变); `^`/`*` 开头 → 剥前缀实时查历史/书签最佳命中并打开, 无关键词 no-op, 无命中/非 firefox 则整串(含前缀)落到下述搜索; is_url ? 补协议打开 : 搜索引擎搜索; 首 token `@key` 精确匹配(忽略大小写, key 优先+name 回退)命中 searcher → 用目标引擎, 未命中/无 @ → 默认 searcher[0], searcher 数组为空回退 SEARCH_ENGINE; 仅 `@key` 无搜索词不打开) |
 | `_build_search_url()` | _handle_input (jq @uri 编码搜索词替换 `{key}`; 无 `{key}` 追加 url 末尾; bash 参数展开花括号须转义 `\{key\}`) |
-| `_searcher_url_by_name()` | _handle_input (jq ascii_downcase 忽略大小写精确匹配 searcher name → url, 未命中输出空) |
-| `_interact_async()`| _edit_link, _delete_link, _new_link, _new_searcher (后台子 shell 等 rofi 退出释放 grab 后执行命令 — script mode 下 rofi 存活期间 grab 键盘, 须先让 rofi 退出) |
+| `_searcher_entry_by_key()` | _edit_searcher, _delete_searcher (key 优先+name 回退, 忽略大小写; 命中输出紧凑 JSON) |
+| `_searcher_url_by_key()` | _select_searcher, _select_searcher_form, _handle_input (key 优先+name 回退, 忽略大小写; 未命中输出空) |
+| `_interact_async()`| _edit_link, _delete_link, _new_link, _new_searcher, _edit_searcher, _delete_searcher, _select_searcher (后台子 shell 等 rofi 退出释放 grab 后执行命令 — script mode 下 rofi 存活期间 grab 键盘, 须先让 rofi 退出) |
 | `_write_json()`    | _ensure_ids, _edit_form, _delete_form, _new_form, _new_searcher_form (jq 表达式原子写回 CONFIG: 唯一 tmp + mv, 避免并发写 .tmp 冲突) |
-| `_edit_link()`     | _main (RETV=10; `hist\|*`/`bm\|*`/browse-*/back 只读/导航 no-op; 否则按 id 预填数据 → _interact_async _edit_form) |
+| `_edit_link()`     | _main (RETV=10; `hist\|*`/`bm\|*`/browse-*/back/searcher\|* 只读/导航/searcher no-op (searcher 走 _edit_searcher); 否则按 id 预填数据 → _interact_async _edit_form) |
 | `_edit_form()`     | _interact_async (表单录入 + 按 id 替换写库, 保留 id)                   |
-| `_delete_link()`   | _main (RETV=3/11; `hist\|*`/`bm\|*`/browse-*/back 只读/导航 no-op; 否则按 id 取名字 → _interact_async _delete_form) |
+| `_delete_link()`   | _main (RETV=3/11; `hist\|*`/`bm\|*`/browse-*/back/searcher\|* 只读/导航/searcher no-op (searcher 走 _delete_searcher); 否则按 id 取名字 → _interact_async _delete_form) |
 | `_delete_form()`   | _interact_async (module_confirm 确认后 jq 删除 + notify)               |
+| `_edit_searcher()` | _main (RETV=10 searcher\|* 分支; 按 key 忽略大小写定位 (含 name 回退) → _interact_async _edit_searcher_form) |
+| `_edit_searcher_loop()` | _new_searcher_form, _edit_searcher_form (searcher 专属三字段 Key/Name/URL 录入 + 非空/URL 校验循环; 白名单/判重由调用方单次判定) |
+| `_edit_searcher_form()` | _interact_async (三字段录入 + 白名单 + key/name 各自忽略大小写撞名校验 (自身放行) + 按旧 key 忽略大小写替换写库, 保序) |
+| `_delete_searcher()` | _main (RETV=3/11 searcher\|* 分支; 按 key 忽略大小写定位 (含 name 回退) → _interact_async _delete_searcher_form) |
+| `_delete_searcher_form()` | _interact_async (module_confirm 确认后 jq 忽略大小写删除 + notify) |
+| `_select_searcher()` | _dispatch (searcher\|* 分支; 一律 _interact_async _select_searcher_form (RETV=1 行文本不可解析); 有词搜索走 RETV=2) |
+| `_select_searcher_form()` | _interact_async (module_input 取词, 取消/空词 no-op, 否则用该引擎搜索) |
+| `_searcher_name_valid()` | _new_searcher_form, _edit_searcher_form (key 白名单 `^[A-Za-z0-9_-]+$`, searcher 专属; 判 key 用) |
 | `_new_link()`      | _dispatch (info=new; → _interact_async _new_form)                      |
 | `_new_form()`      | _interact_async (剪贴板 URL 预填 + 表单校验 + jq 追加; clipboard_url 须在此执行 — xclip 可能阻塞, 不能留在 rofi grab 存活期间) |
 | `_new_searcher()`  | _dispatch (info=new-searcher; → _interact_async _new_searcher_form)    |
-| `_new_searcher_form()` | _interact_async (复用 _edit_loop 表单 + jq 追加到 `.searcher`; name 忽略大小写重名 → critical notify 拒绝, 不写入) |
-| `_edit_loop()`     | _edit_form, _new_form, _new_searcher_form (表单录入 + 校验循环; 仅 name/url 两字段; 第三参 url_label 自定义 URL 字段标签) |
+| `_new_searcher_form()` | _interact_async (三字段录入 + 白名单 + jq 追加 `{key,name,url}`; key 非法/撞名或 name 空/撞名 (各自忽略大小写) → critical notify 拒绝, 不写入) |
+| `_edit_loop()`     | _edit_form, _new_form (links 两字段表单录入 + 校验循环; 第三参 url_label 自定义 URL 字段标签; searcher 走专属 `_edit_searcher_loop`) |
 | `clipboard_url()`  | _new_form (剪贴板严格 URL 校验, 无效静默返回非 0)                      |
 | `_gen_id()`        | _ensure_ids, _new_form (uuid 优先, base64 fallback)                    |
 | `_ensure_ids()`    | _list (全部有 id 时零写入早退, 仅缺 id 时全量重生成)                    |

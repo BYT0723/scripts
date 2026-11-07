@@ -210,18 +210,18 @@ else
     FAIL=1
 fi
 
-# ---- Task 2b: @ 提示 searcher 行 (searcher 不隔离, 保留主菜单) ----
-# 输入 @ 时 rofi 过滤仅剩 @<name> 行 → 提示可用引擎; nonselectable 使其不可选中
+# ---- Task 2b: @ 引擎 searcher 行 (searcher 不隔离, 保留主菜单) ----
+# 输入 @ 时 rofi 过滤仅剩 @key 行 → 展示可用引擎; 显示 @key (name), 可选中 (info=searcher|<key>), Enter 搜索 / Alt+1 编辑 / Alt+2 删除
 cat >"$CONFIG" <<'JSON'
 {"searcher":[
-  {"name":"google","url":"https://www.google.com/search?q={key}"},
-  {"name":"bing","url":"https://www.bing.com/search?q={key}"}
+  {"key":"g","name":"Google","url":"https://www.google.com/search?q={key}"},
+  {"key":"b","name":"Bing Search","url":"https://www.bing.com/search?q={key}"}
 ],"links":[]}
 JSON
 _list >"$TEST_DIR/list-searcher.out"
-printf '%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n%s\0info\x1fbrowse-hist\n%s\0info\x1fbrowse-bm\n@google\0nonselectable\x1ftrue\n@bing\0nonselectable\x1ftrue\n\0data\x1fmain\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" "$BROWSE_HIST" "$BROWSE_BM" >"$TEST_DIR/list-searcher.expected"
+printf '%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n%s\0info\x1fbrowse-hist\n%s\0info\x1fbrowse-bm\n@g (Google)\0info\x1fsearcher|g\n@b (Bing Search)\0info\x1fsearcher|b\n\0data\x1fmain\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" "$BROWSE_HIST" "$BROWSE_BM" >"$TEST_DIR/list-searcher.expected"
 if cmp -s "$TEST_DIR/list-searcher.out" "$TEST_DIR/list-searcher.expected"; then
-    echo "ok: _list 含 searcher → @<name> 提示行 + nonselectable 不可选中 (+历史/书签浏览入口)"
+    echo "ok: _list 含 searcher → @key (name) 可选中行 + info=searcher|<key> (+历史/书签浏览入口)"
 else
     echo "FAIL: _list searcher 提示行"
     echo "--- got ---"
@@ -236,9 +236,9 @@ wait
 rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
 : >"$ICON_CACHE_DIR/google.com.png"
 _list >"$TEST_DIR/list-searcher-icon.out"
-printf '%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n%s\0info\x1fbrowse-hist\n%s\0info\x1fbrowse-bm\n@google\0nonselectable\x1ftrue\x1ficon\x1f%s\n@bing\0nonselectable\x1ftrue\n\0data\x1fmain\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" "$BROWSE_HIST" "$BROWSE_BM" "$ICON_CACHE_DIR/google.com.png" >"$TEST_DIR/list-searcher-icon.expected"
+printf '%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n%s\0info\x1fbrowse-hist\n%s\0info\x1fbrowse-bm\n@g (Google)\0icon\x1f%s\x1finfo\x1fsearcher|g\n@b (Bing Search)\0info\x1fsearcher|b\n\0data\x1fmain\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" "$BROWSE_HIST" "$BROWSE_BM" "$ICON_CACHE_DIR/google.com.png" >"$TEST_DIR/list-searcher-icon.expected"
 if cmp -s "$TEST_DIR/list-searcher-icon.out" "$TEST_DIR/list-searcher-icon.expected"; then
-    echo "ok: _list searcher icon hit → @<name> + \\x1f 连接 icon 属性"
+    echo "ok: _list searcher icon hit → @key (name) + \\x1f 连接 icon 属性"
 else
     echo "FAIL: _list searcher icon 展示"
     echo "--- got ---"
@@ -492,9 +492,9 @@ assert_eq "$(jq -r '.links | length' "$CONFIG")" "3" "新增: 无剪贴板仍可
 SEARCHER_CONFIG="$TEST_DIR/searcher.json"
 cat >"$SEARCHER_CONFIG" <<'JSON'
 {"searcher":[
-  {"name":"google","url":"https://www.google.com/search?q={key}"},
-  {"name":"Github","url":"https://github.com/search?q={key}&type=code"},
-  {"name":"ddg","url":"https://duckduckgo.com/?q="}
+  {"key":"g","name":"Google","url":"https://www.google.com/search?q={key}"},
+  {"key":"gh","name":"Github","url":"https://github.com/search?q={key}&type=code"},
+  {"key":"ddg","name":"DuckDuckGo","url":"https://duckduckgo.com/?q="}
 ],"links":[]}
 JSON
 
@@ -510,11 +510,14 @@ assert_file_has "$XDG_FAKE_LOG" "OPEN:https://www.google.com/search?q=hello%20wo
 sopen "你好"
 assert_file_has "$XDG_FAKE_LOG" "OPEN:https://www.google.com/search?q=%E4%BD%A0%E5%A5%BD" "searcher: 中文 URL 编码"
 
-sopen "@github hello"
-assert_file_has "$XDG_FAKE_LOG" "OPEN:https://github.com/search?q=hello&type=code" "searcher: @name 精确匹配命中 (忽略大小写)"
+sopen "@gh hello"
+assert_file_has "$XDG_FAKE_LOG" "OPEN:https://github.com/search?q=hello&type=code" "searcher: @key 精确匹配命中 (忽略大小写)"
 
-sopen "@github a&b"
+sopen "@gh a&b"
 assert_file_has "$XDG_FAKE_LOG" "OPEN:https://github.com/search?q=a%26b&type=code" "searcher: 搜索词 & 编码后 {key} 替换"
+
+sopen "@Github hello"
+assert_file_has "$XDG_FAKE_LOG" "OPEN:https://github.com/search?q=hello&type=code" "searcher: @name 老名回退命中 (兼容无 key 数据)"
 
 sopen "@unknown hello"
 assert_file_has "$XDG_FAKE_LOG" "OPEN:https://www.google.com/search?q=%40unknown%20hello" "searcher: @未命中 → 回退默认, 整串含 @ 作搜索词"
@@ -522,12 +525,12 @@ assert_file_has "$XDG_FAKE_LOG" "OPEN:https://www.google.com/search?q=%40unknown
 sopen "@ddg hello"
 assert_file_has "$XDG_FAKE_LOG" "OPEN:https://duckduckgo.com/?q=hello" "searcher: url 无 {key} → 搜索词追加末尾"
 
-sopen "@google"
+sopen "@g"
 if [[ -s "$XDG_FAKE_LOG" ]]; then
-    echo "FAIL: @name 无搜索词不应打开"
+    echo "FAIL: @key 无搜索词不应打开"
     FAIL=1
 else
-    echo "ok: @name 无搜索词 → 不打开"
+    echo "ok: @key 无搜索词 → 不打开"
 fi
 
 # ---- Task 7: 新增 searcher (info=new-searcher) ----
@@ -539,24 +542,159 @@ cat >"$CONFIG" <<'JSON'
 ]}
 JSON
 
-export MOCK_YAD_OUTPUT="Google Search|https://www.google.com/search?q={key}"
+export MOCK_YAD_OUTPUT="gs|Google Search|https://www.google.com/search?q={key}"
 ROFI_RETV=1 ROFI_INFO=new-searcher _main
 wait
 unset MOCK_YAD_OUTPUT
 assert_eq "$(jq -r '.searcher | length' "$CONFIG")" "1" "新增 searcher: 条数 +1"
-assert_eq "$(jq -r '.searcher[0].name' "$CONFIG")" "Google Search" "新增 searcher: name 写入"
+assert_eq "$(jq -r '.searcher[0].key' "$CONFIG")" "gs" "新增 searcher: key 写入"
+assert_eq "$(jq -r '.searcher[0].name' "$CONFIG")" "Google Search" "新增 searcher: name 写入 (可含空格)"
 assert_eq "$(jq -r '.searcher[0].url' "$CONFIG")" "https://www.google.com/search?q={key}" "新增 searcher: url 写入 (含 {key})"
 assert_eq "$(jq -r '.searcher[0] | has("id")' "$CONFIG")" "false" "新增 searcher: 无 id 字段"
 assert_eq "$(jq -r '.links | length' "$CONFIG")" "2" "新增 searcher: links 不变"
 
+# 重 key (忽略大小写) → critical 通知, 不写入
+export MOCK_YAD_OUTPUT="GS|Other|https://example.com/search?q={key}"
+rm -f "$XDG_FAKE_LOG"
+ROFI_RETV=1 ROFI_INFO=new-searcher _main
+wait
+unset MOCK_YAD_OUTPUT
+assert_eq "$(jq -r '.searcher | length' "$CONFIG")" "1" "新增 searcher: 重 key 不写入"
+assert_file_has "$XDG_FAKE_LOG" "-u critical" "新增 searcher: 重 key 触发 critical 通知"
+
 # 重名 (忽略大小写) → critical 通知, 不写入
-export MOCK_YAD_OUTPUT="google search|https://example.com/search?q={key}"
+export MOCK_YAD_OUTPUT="other|google search|https://example.com/search?q={key}"
 rm -f "$XDG_FAKE_LOG"
 ROFI_RETV=1 ROFI_INFO=new-searcher _main
 wait
 unset MOCK_YAD_OUTPUT
 assert_eq "$(jq -r '.searcher | length' "$CONFIG")" "1" "新增 searcher: 重名不写入"
 assert_file_has "$XDG_FAKE_LOG" "-u critical" "新增 searcher: 重名触发 critical 通知"
+
+# 非法 key (含空格/@ 不合 ^[A-Za-z0-9_-]+$) → critical 通知, 不写入
+export MOCK_YAD_OUTPUT="bad key|Bad|https://example.com/search?q={key}"
+rm -f "$XDG_FAKE_LOG"
+ROFI_RETV=1 ROFI_INFO=new-searcher _main
+wait
+unset MOCK_YAD_OUTPUT
+assert_eq "$(jq -r '.searcher | length' "$CONFIG")" "1" "新增 searcher: 非法 key 不写入"
+assert_file_has "$XDG_FAKE_LOG" "-u critical" "新增 searcher: 非法 key 触发 critical 通知"
+
+# ---- Task 8: searcher 编辑/删除/Enter (Alt+1/Alt+2, @key) ----
+cat >"$CONFIG" <<'JSON'
+{"links":[
+  {"name":"GitHub","url":"https://github.com","id":"id-1"}
+],"searcher":[
+  {"key":"g","name":"Google","url":"https://www.google.com/search?q={key}"}
+]}
+JSON
+
+# Alt+1 编辑: 改 key+名+URL, 保序, links 不变
+export MOCK_YAD_OUTPUT="b|Bing|https://www.bing.com/search?q={key}"
+ROFI_RETV=10 ROFI_INFO='searcher|g' _main
+wait
+unset MOCK_YAD_OUTPUT
+assert_eq "$(jq -r '.searcher[0].key' "$CONFIG")" "b" "searcher 编辑: 改 key 写入"
+assert_eq "$(jq -r '.searcher[0].name' "$CONFIG")" "Bing" "searcher 编辑: 改名写入"
+assert_eq "$(jq -r '.searcher[0].url' "$CONFIG")" "https://www.bing.com/search?q={key}" "searcher 编辑: 改 URL 写入"
+assert_eq "$(jq -r '.links | length' "$CONFIG")" "1" "searcher 编辑: links 不变"
+
+# Alt+1 编辑撞 key (忽略大小写) → critical, 不写入
+cat >"$CONFIG" <<'JSON'
+{"links":[],"searcher":[
+  {"key":"g","name":"Google","url":"https://www.google.com/search?q={key}"},
+  {"key":"b","name":"Bing","url":"https://www.bing.com/search?q={key}"}
+]}
+JSON
+export MOCK_YAD_OUTPUT="B|Bing2|https://www.bing.com/search?q={key}"
+rm -f "$XDG_FAKE_LOG"
+ROFI_RETV=10 ROFI_INFO='searcher|g' _main
+wait
+unset MOCK_YAD_OUTPUT
+assert_eq "$(jq -r '.searcher[0].key' "$CONFIG")" "g" "searcher 编辑: 撞 key 不写入"
+assert_file_has "$XDG_FAKE_LOG" "-u critical" "searcher 编辑: 撞 key 触发 critical 通知"
+
+# Alt+1 编辑撞名 (忽略大小写) → critical, 不写入
+export MOCK_YAD_OUTPUT="gg|BING|https://www.bing.com/search?q={key}"
+rm -f "$XDG_FAKE_LOG"
+ROFI_RETV=10 ROFI_INFO='searcher|g' _main
+wait
+unset MOCK_YAD_OUTPUT
+assert_eq "$(jq -r '.searcher[0].key' "$CONFIG")" "g" "searcher 编辑: 撞名不写入"
+assert_file_has "$XDG_FAKE_LOG" "-u critical" "searcher 编辑: 撞名触发 critical 通知"
+
+# Alt+1 编辑非法 key → critical, 不写入
+export MOCK_YAD_OUTPUT="bad key|Google|https://x.test/"
+rm -f "$XDG_FAKE_LOG"
+ROFI_RETV=10 ROFI_INFO='searcher|g' _main
+wait
+unset MOCK_YAD_OUTPUT
+assert_eq "$(jq -r '.searcher[0].key' "$CONFIG")" "g" "searcher 编辑: 非法 key 不写入"
+assert_file_has "$XDG_FAKE_LOG" "-u critical" "searcher 编辑: 非法 key 触发 critical 通知"
+
+# Alt+2 删除: No 不删 / Yes 删除, links 不变
+cat >"$CONFIG" <<'JSON'
+{"links":[
+  {"name":"GitHub","url":"https://github.com","id":"id-1"}
+],"searcher":[
+  {"key":"g","name":"Google","url":"https://www.google.com/search?q={key}"}
+]}
+JSON
+export MOCK_ROFI_OUTPUT="No"
+ROFI_RETV=11 ROFI_INFO='searcher|g' _main
+wait
+unset MOCK_ROFI_OUTPUT
+assert_eq "$(jq -r '.searcher | length' "$CONFIG")" "1" "searcher 删除: 确认 No 不删除"
+export MOCK_ROFI_OUTPUT="Yes"
+ROFI_RETV=11 ROFI_INFO='searcher|g' _main
+wait
+unset MOCK_ROFI_OUTPUT
+assert_eq "$(jq -r '.searcher | length' "$CONFIG")" "0" "searcher 删除: 确认 Yes 删除"
+assert_eq "$(jq -r '.links | length' "$CONFIG")" "1" "searcher 删除: links 不变"
+
+# 老数据无 key: 显示回退 @name (name), Enter 照常可用
+cat >"$CONFIG" <<'JSON'
+{"links":[],"searcher":[
+  {"name":"google","url":"https://www.google.com/search?q={key}"}
+]}
+JSON
+_list >"$TEST_DIR/list-nokey.out"
+assert_file_has "$TEST_DIR/list-nokey.out" "@google (google)" "searcher 兼容: 无 key 显示 @name (name)"
+assert_file_has "$TEST_DIR/list-nokey.out" "info.searcher|google" "searcher 兼容: 无 key 时 info 回退 key=name"
+rm -f "$XDG_FAKE_LOG"
+ROFI_RETV=2 _main "@google hello"
+sleep 0.3
+assert_file_has "$XDG_FAKE_LOG" "OPEN:https://www.google.com/search?q=hello" "searcher 兼容: 无 key 条目 @name 自定义输入直搜"
+
+# Enter 自带词直搜该引擎 (忽略大小写, 按 key)
+cat >"$CONFIG" <<'JSON'
+{"links":[],"searcher":[
+  {"key":"g","name":"Google","url":"https://www.google.com/search?q={key}"},
+  {"key":"b","name":"Bing Search","url":"https://www.bing.com/search?q={key}"}
+]}
+JSON
+# 回归: Enter 行文本 (@b (Bing Search)) 不得被当搜索词 (曾误搜 "(Bing Search)"); 取消则 no-op
+rm -f "$XDG_FAKE_LOG"
+module_input() { return 1; }
+ROFI_RETV=1 ROFI_INFO='searcher|b' _main "@b (Bing Search)"
+sleep 0.8
+wait
+unset -f module_input
+if [[ -s "$XDG_FAKE_LOG" ]]; then
+    echo "FAIL: searcher Enter 行文本误触搜索"
+    FAIL=1
+else
+    echo "ok: searcher Enter 行文本不搜索 (取消 no-op)"
+fi
+
+# Enter → module_input 取词后搜 (mock module_input)
+rm -f "$XDG_FAKE_LOG"
+module_input() { printf 'my kw'; }
+ROFI_RETV=1 ROFI_INFO='searcher|g' _main "@g (Google)"
+sleep 0.8
+wait
+unset -f module_input
+assert_file_has "$XDG_FAKE_LOG" "OPEN:https://www.google.com/search?q=my%20kw" "searcher Enter: 弹输入框取词后搜"
 
 # 恢复 links-only fixture (_ensure_ids 零写入测试需要干净基准)
 cat >"$CONFIG" <<'JSON'
