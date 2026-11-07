@@ -17,7 +17,7 @@ quicklinks="$HOME/.dwm/rofi/scripts/quicklinks-mode.sh"
 
 ## Run
 rofi \
-    -modes "combi,quicklinks:${quicklinks}" \
+    -modes "combi,quicklinks:${quicklinks},calc" \
     -combi-modes "drun,run,ssh" \
     -show-icons \
     -display-combi " " \
@@ -25,6 +25,15 @@ rofi \
     -display-run " " \
     -display-ssh " " \
     -theme-str 'configuration {display-quicklinks: "󰖟 ";}' \
+    -display-calc "󰪚 " \
+    -theme-str 'configuration { calc {
+        no-bold: false;
+        terse: false;
+        no-history: true;
+        calc-command: "echo -n '{result}' | xclip -selection clipboard";
+        hint-result: "Res: ";
+		hint-welcome: "calculate something...";
+    }}' \
     -theme-str 'configuration {terminal: "'${TERMINAL:-kitty}'";}' \
     -show combi \
     -theme "${dir}/${theme}.rasi"
