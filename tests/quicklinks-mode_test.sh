@@ -196,9 +196,9 @@ echo "NOTIFY:\$*" >> "$XDG_FAKE_LOG"
 EOF
 chmod +x "$FAKE_BIN/xdg-open" "$FAKE_BIN/yad" "$FAKE_BIN/rofi" "$FAKE_BIN/notify-send"
 
-# ---- Task 2: 列表输出 ----
+# ---- Task 2: 列表输出 (主菜单: links + New + 浏览入口, @/^/* 明细下沉子菜单) ----
 _list >"$TEST_DIR/list.out"
-printf 'GitHub\0info\x1fid-1\nExample\0info\x1fid-2\n%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" >"$TEST_DIR/list.expected"
+printf 'GitHub\0info\x1fid-1\nExample\0info\x1fid-2\n%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n%s\0info\x1fbrowse-hist\n%s\0info\x1fbrowse-bm\n\0data\x1fmain\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" "$BROWSE_HIST" "$BROWSE_BM" >"$TEST_DIR/list.expected"
 if cmp -s "$TEST_DIR/list.out" "$TEST_DIR/list.expected"; then
     echo "ok: _list 输出 (含 info 元数据, New 行底部, use-hot-keys)"
 else
@@ -210,7 +210,7 @@ else
     FAIL=1
 fi
 
-# ---- Task 2b: @ 提示 searcher 行 ----
+# ---- Task 2b: @ 提示 searcher 行 (searcher 不隔离, 保留主菜单) ----
 # 输入 @ 时 rofi 过滤仅剩 @<name> 行 → 提示可用引擎; nonselectable 使其不可选中
 cat >"$CONFIG" <<'JSON'
 {"searcher":[
@@ -219,9 +219,9 @@ cat >"$CONFIG" <<'JSON'
 ],"links":[]}
 JSON
 _list >"$TEST_DIR/list-searcher.out"
-printf '%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n@google\0nonselectable\x1ftrue\n@bing\0nonselectable\x1ftrue\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" >"$TEST_DIR/list-searcher.expected"
+printf '%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n%s\0info\x1fbrowse-hist\n%s\0info\x1fbrowse-bm\n@google\0nonselectable\x1ftrue\n@bing\0nonselectable\x1ftrue\n\0data\x1fmain\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" "$BROWSE_HIST" "$BROWSE_BM" >"$TEST_DIR/list-searcher.expected"
 if cmp -s "$TEST_DIR/list-searcher.out" "$TEST_DIR/list-searcher.expected"; then
-    echo "ok: _list 含 searcher → @<name> 提示行 + nonselectable 不可选中"
+    echo "ok: _list 含 searcher → @<name> 提示行 + nonselectable 不可选中 (+历史/书签浏览入口)"
 else
     echo "FAIL: _list searcher 提示行"
     echo "--- got ---"
@@ -236,7 +236,7 @@ wait
 rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
 : >"$ICON_CACHE_DIR/google.com.png"
 _list >"$TEST_DIR/list-searcher-icon.out"
-printf '%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n@google\0nonselectable\x1ftrue\x1ficon\x1f%s\n@bing\0nonselectable\x1ftrue\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" "$ICON_CACHE_DIR/google.com.png" >"$TEST_DIR/list-searcher-icon.expected"
+printf '%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n%s\0info\x1fbrowse-hist\n%s\0info\x1fbrowse-bm\n@google\0nonselectable\x1ftrue\x1ficon\x1f%s\n@bing\0nonselectable\x1ftrue\n\0data\x1fmain\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" "$BROWSE_HIST" "$BROWSE_BM" "$ICON_CACHE_DIR/google.com.png" >"$TEST_DIR/list-searcher-icon.expected"
 if cmp -s "$TEST_DIR/list-searcher-icon.out" "$TEST_DIR/list-searcher-icon.expected"; then
     echo "ok: _list searcher icon hit → @<name> + \\x1f 连接 icon 属性"
 else
@@ -272,7 +272,7 @@ wait
 rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
 : >"$ICON_CACHE_DIR/github.com.png"
 _list >"$TEST_DIR/list-hit.out"
-printf 'GitHub\0icon\x1f%s\x1finfo\x1fid-1\nExample\0info\x1fid-2\n%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' "$ICON_CACHE_DIR/github.com.png" "$NEW_LINK" "$NEW_SEARCHER" >"$TEST_DIR/list-hit.expected"
+printf 'GitHub\0icon\x1f%s\x1finfo\x1fid-1\nExample\0info\x1fid-2\n%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n%s\0info\x1fbrowse-hist\n%s\0info\x1fbrowse-bm\n\0data\x1fmain\n\0use-hot-keys\x1ftrue\n' "$ICON_CACHE_DIR/github.com.png" "$NEW_LINK" "$NEW_SEARCHER" "$BROWSE_HIST" "$BROWSE_BM" >"$TEST_DIR/list-hit.expected"
 if cmp -s "$TEST_DIR/list-hit.out" "$TEST_DIR/list-hit.expected"; then
     echo "ok: _list hit → 图片属性, 行文本无字符 icon"
 else
@@ -283,18 +283,17 @@ else
     xxd "$TEST_DIR/list-hit.expected" | head -10
     FAIL=1
 fi
-# 回归锁定: hit 行内属性必须 \x1f 连接 (第二 \0 会截断 info → ROFI_INFO 丢失)
-# \0info 只应出现在 Example (miss) 与 New/New Searcher 行, 共 3 行; GitHub hit 行不得含
+# \0info 只应出现在 miss/New/New Searcher/浏览入口行, 共 5 行; GitHub hit 行不得含
 # 注意: 模式须单引号让 grep -P 解析 \x00 (bash $'\x00' 展开的字面 NUL 会截断模式); grep -a 对 NUL 文件不可靠
 n=$(grep -Pac '\x00info' "$TEST_DIR/list-hit.out")
-assert_eq "$n" "3" "hit 行属性以 \\x1f 连接 (\\0info 仅 miss/New/New Searcher 行, 共 3 行)"
+assert_eq "$n" "5" "hit 行属性以 \\x1f 连接 (\\0info 仅 miss/New/New Searcher/浏览入口行, 共 5 行)"
 
 # fail: .fail 标记 → 与 miss 相同 fallback 输出 (纯文本行)
 wait
 rm -rf "$ICON_CACHE_DIR" && mkdir -p "$ICON_CACHE_DIR"
 : >"$ICON_CACHE_DIR/github.com.png.fail"
 _list >"$TEST_DIR/list-fail.out"
-printf 'GitHub\0info\x1fid-1\nExample\0info\x1fid-2\n%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" >"$TEST_DIR/list-fail.expected"
+printf 'GitHub\0info\x1fid-1\nExample\0info\x1fid-2\n%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n%s\0info\x1fbrowse-hist\n%s\0info\x1fbrowse-bm\n\0data\x1fmain\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" "$BROWSE_HIST" "$BROWSE_BM" >"$TEST_DIR/list-fail.expected"
 if cmp -s "$TEST_DIR/list-fail.out" "$TEST_DIR/list-fail.expected"; then
     echo "ok: _list fail → fallback 原样输出"
 else
@@ -315,7 +314,7 @@ cat >"$CONFIG" <<'JSON'
 ]}
 JSON
 _list >"$TEST_DIR/list-pipe.out"
-printf 'A|B\0info\x1fid-pipe\n%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" >"$TEST_DIR/list-pipe.expected"
+printf 'A|B\0info\x1fid-pipe\n%s\0info\x1fnew\n%s\0info\x1fnew-searcher\n%s\0info\x1fbrowse-hist\n%s\0info\x1fbrowse-bm\n\0data\x1fmain\n\0use-hot-keys\x1ftrue\n' "$NEW_LINK" "$NEW_SEARCHER" "$BROWSE_HIST" "$BROWSE_BM" >"$TEST_DIR/list-pipe.expected"
 if cmp -s "$TEST_DIR/list-pipe.out" "$TEST_DIR/list-pipe.expected"; then
     echo "ok: 分隔符: name/url 含 | 不破坏解析"
 else
@@ -634,16 +633,60 @@ _ff_history "$BR_HOME/nonexistent" 2>/dev/null
 assert_eq "$?" "0" "history: DB 缺失返回 0"
 assert_eq "$(PATH="$TEST_DIR/emptybin" _ff_history "$BR_HOME/.mozilla/firefox/fakeprof" 2>/dev/null)" "" "history: sqlite3 缺失空输出"
 
-# _list: ^/* 行 + info 命名空间
-printf '{"links":[],"searcher":[]}' >"$CONFIG"
+# _list 主菜单: 无 ^/* 明细行 (下沉子菜单), 仅留浏览入口; searcher @ 提示保留 (不隔离)
+printf '{"links":[],"searcher":[{"name":"g","url":"https://g.test/s?q={key}"}]}' >"$CONFIG"
 _list >"$TEST_DIR/list-browser.out"
-assert_file_has "$TEST_DIR/list-browser.out" "info.hist|https://example.com/high" "_list: ^ 历史行 info=hist|url"
-assert_file_has "$TEST_DIR/list-browser.out" "info.bm|https://example.com/high" "_list: * 书签行 info=bm|url"
-# 空标题回退 URL + 标题换行清洗 (行数不断裂)
-assert_file_has "$TEST_DIR/list-browser.out" "notitle.test" "_list: 空标题回退显示"
-line_count=$(wc -l <"$TEST_DIR/list-browser.out")
-caret_lines=$(grep -ac '^\^ ' "$TEST_DIR/list-browser.out")
-assert_eq "$caret_lines" "4" "_list: 标题换行不产生断裂行 (历史 4 行)"
+assert_file_has "$TEST_DIR/list-browser.out" "info.browse-hist" "_list 主菜单含历史浏览入口"
+assert_file_has "$TEST_DIR/list-browser.out" "info.browse-bm" "_list 主菜单含书签浏览入口"
+assert_file_has "$TEST_DIR/list-browser.out" "@g" "_list 主菜单保留 @ 提示行 (searcher 不隔离)"
+if grep -aqe 'info.hist|' "$TEST_DIR/list-browser.out" || grep -aqe 'info.bm|' "$TEST_DIR/list-browser.out"; then
+    echo "FAIL: _list 主菜单不得含 hist|/bm| 明细行"
+    FAIL=1
+else
+    echo "ok: _list 主菜单无 hist|/bm| 明细行 (隔离)"
+fi
+# 下钻: ROFI_INFO=browse-hist → 仅历史行 + back 首行 + data hist (rofi 收到输出原地刷新不退出)
+ROFI_INFO='browse-hist' ROFI_RETV=1 _main >"$TEST_DIR/list-hist-sub.out"
+assert_file_has "$TEST_DIR/list-hist-sub.out" "info.hist|https://example.com/high" "下钻 hist: 历史行 info=hist|url"
+assert_file_has "$TEST_DIR/list-hist-sub.out" "info.back" "下钻 hist: back 首行"
+assert_file_has "$TEST_DIR/list-hist-sub.out" "data.hist" "下钻 hist: ROFI_DATA=hist"
+if grep -aqe 'info.bm|' "$TEST_DIR/list-hist-sub.out"; then
+    echo "FAIL: 下钻 hist 不得含 bm| 行"
+    FAIL=1
+else
+    echo "ok: 下钻 hist 无 bm| 行 (隔离)"
+fi
+ROFI_INFO='browse-bm' ROFI_RETV=1 _main >"$TEST_DIR/list-bm-sub.out"
+assert_file_has "$TEST_DIR/list-bm-sub.out" "info.bm|https://example.com/high" "下钻 bm: 书签行 info=bm|url"
+assert_file_has "$TEST_DIR/list-bm-sub.out" "data.bm" "下钻 bm: ROFI_DATA=bm"
+if grep -aqe 'info.hist|' "$TEST_DIR/list-bm-sub.out"; then
+    echo "FAIL: 下钻 bm 不得含 hist| 行"
+    FAIL=1
+else
+    echo "ok: 下钻 bm 无 hist| 行 (隔离)"
+fi
+# 返回: back → 主菜单 (links/New/浏览入口 + data main)
+printf '{"links":[{"name":"L","url":"https://l.test","id":"id-l"}],"searcher":[]}' >"$CONFIG"
+ROFI_INFO='back' ROFI_RETV=1 _main >"$TEST_DIR/list-back.out"
+assert_file_has "$TEST_DIR/list-back.out" "data.main" "返回 back: data main"
+assert_file_has "$TEST_DIR/list-back.out" "info.browse-hist" "返回 back: 浏览入口恢复"
+printf '{"links":[],"searcher":[]}' >"$CONFIG"
+# 空标题回退 URL + 标题换行清洗 (行数不断裂, 以 hist 子菜单输出为准)
+assert_file_has "$TEST_DIR/list-hist-sub.out" "notitle.test" "hist 子菜单: 空标题回退显示"
+dash_lines=$(grep -ac ' — ' "$TEST_DIR/list-hist-sub.out")
+assert_eq "$dash_lines" "4" "hist 子菜单: 无 ^ 前缀, 标题换行不产生断裂行 (历史 4 行)"
+if grep -aqe '^\^ ' "$TEST_DIR/list-hist-sub.out"; then
+    echo "FAIL: hist 子菜单明细行不应带 ^ 前缀"
+    FAIL=1
+else
+    echo "ok: hist 子菜单明细行无 ^ 前缀"
+fi
+if grep -aqe '^\* ' "$TEST_DIR/list-bm-sub.out"; then
+    echo "FAIL: bm 子菜单明细行不应带 * 前缀"
+    FAIL=1
+else
+    echo "ok: bm 子菜单明细行无 * 前缀"
+fi
 
 # 后台打开断言: _open_url 双重后台, wait 未必等到落盘, 轮询代替单次 grep
 wait_for_log() { # $1=file $2=pattern $3=msg
@@ -669,10 +712,12 @@ rm -f "$XDG_FAKE_LOG"
 ROFI_INFO='bm|https://example.com/high' ROFI_RETV=1 _main
 wait
 wait_for_log "$XDG_FAKE_LOG" "OPEN:https://example.com/high" "dispatch: bm| 打开"
-# Alt+1/Alt+2 守卫: CONFIG 不变
+# Alt+1/Alt+2 守卫: CONFIG 不变 (hist|/bm| 只读 + browse-*/back 导航行)
 before=$(md5sum "$CONFIG" | cut -d' ' -f1)
 ROFI_INFO='hist|https://example.com/high' ROFI_RETV=10 _main
 ROFI_INFO='bm|https://example.com/high' ROFI_RETV=11 _main
+ROFI_INFO='browse-hist' ROFI_RETV=10 _main
+ROFI_INFO='back' ROFI_RETV=11 _main
 wait
 assert_eq "$(md5sum "$CONFIG" | cut -d' ' -f1)" "$before" "守卫: Alt+1/Alt+2 不改 CONFIG"
 
@@ -714,6 +759,31 @@ if grep -aq 'example.com' "$XDG_FAKE_LOG"; then
 else
     echo "ok: input: LIKE 特殊字符转义"
 fi
+# ROFI_DATA 上下文: 子菜单内裸词免前缀 (hist→历史最佳, bm→书签最佳, main→搜索引擎)
+rm -f "$XDG_FAKE_LOG"
+ROFI_DATA=hist ROFI_RETV=2 _main 'example'
+wait
+wait_for_log "$XDG_FAKE_LOG" "OPEN:https://example.com/high" "input: ROFI_DATA=hist 裸词走历史最佳"
+# 否定断言须用精确 URL: xdg-open 双重后台落盘有竞态, 早前用例的 g.test 写可能延迟到达本轮 log
+if grep -aq 'g.test/s?q=example' "$XDG_FAKE_LOG"; then
+    echo "FAIL: input: hist 上下文误走搜索引擎"
+    FAIL=1
+else
+    echo "ok: input: hist 上下文不走搜索引擎"
+fi
+rm -f "$XDG_FAKE_LOG"
+ROFI_DATA=bm ROFI_RETV=2 _main 'starred'
+wait
+wait_for_log "$XDG_FAKE_LOG" "OPEN:https://example.com/high" "input: ROFI_DATA=bm 裸词走书签最佳"
+rm -f "$XDG_FAKE_LOG"
+ROFI_DATA=main ROFI_RETV=2 _main 'example'
+wait
+wait_for_log "$XDG_FAKE_LOG" "OPEN:https://g.test/s?q=example" "input: ROFI_DATA=main 裸词走搜索引擎"
+# 子菜单内显式前缀不受上下文影响 (@直达)
+rm -f "$XDG_FAKE_LOG"
+ROFI_DATA=hist ROFI_RETV=2 _main '@g example'
+wait
+wait_for_log "$XDG_FAKE_LOG" "OPEN:https://g.test/s?q=example" "input: hist 上下文 @ 仍走引擎直达"
 
 export HOME="$OLD_HOME"
 export QUICKLINKS_NO_BROWSER=1

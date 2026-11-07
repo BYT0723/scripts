@@ -6,6 +6,11 @@ WORK_DIR="$(dirname "$ROFI_DIR")"
 
 CONFIG="${CONFIG:-$HOME/.config/dwm/quicklinks.json}"
 SEARCH_ENGINE="https://www.google.com/search?q="
+# 浏览入口 (主菜单仅留 history/bookmarks 入口行, 明细下沉子菜单: 输入 ^/* 过滤到入口 → 回车下钻)
+# searcher 不隔离: @ 提示行保留在主菜单 (沿旧行为)
+BROWSE_HIST="^ History"
+BROWSE_BM="* Bookmarks"
+BACK_ROW="← Back"
 NEW_LINK=" New"
 NEW_SEARCHER=" New Searcher"
 # script mode 下 rofi 存活期间 grab 键盘: 交互前须等待其退出释放 grab (实测 EOF→退出 < 0.4s)
@@ -309,25 +314,35 @@ _load_browser_rows() {
     done < <(_ff_bookmarks "$dir")
 }
 
-# 打印浏览器行: $1=行首标记 (^/*) $2=info 前缀 (hist|/bm|) $3 起=三元组数组
+# 打印浏览器行: $1=info 前缀 (hist|/bm|) $2 起=三元组数组
+# (子菜单上下文已明确类型, 明细行不再带 ^/* 前缀)
 _print_browser_rows() {
-    local mark="$1" ns="$2" row title url host
-    shift 2
+    local ns="$1" row title url host
+    shift
     for row in "$@"; do
         IFS=$'\x1f' read -r title url host <<<"$row"
         if [[ -f "$ICON_CACHE_DIR/$host.png" ]]; then
-            printf '%s %s — %s\0icon\x1f%s\x1finfo\x1f%s%s\n' "$mark" "$title" "$host" "$ICON_CACHE_DIR/$host.png" "$ns" "$url"
+            printf '%s — %s\0icon\x1f%s\x1finfo\x1f%s%s\n' "$title" "$host" "$ICON_CACHE_DIR/$host.png" "$ns" "$url"
         else
-            printf '%s %s — %s\0info\x1f%s%s\n' "$mark" "$title" "$host" "$ns" "$url"
+            printf '%s — %s\0info\x1f%s%s\n' "$title" "$host" "$ns" "$url"
         fi
     done
 }
 
+# 列表尾部 header: data 标记当前层级 (main/hist/bm, 经 ROFI_DATA 回传) + 快捷键开关
+_list_footer() { # $1=data 标记
+    printf '\0data\x1f%s\n' "$1"
+    printf '\0use-hot-keys\x1ftrue\n'
+}
+
 # _links 为 "name|id|url|host" 四元组, 缓存 hit 时附加图片属性
+# 主菜单: links + New 行 + 历史/书签浏览入口 + searcher @ 提示行
+# (历史/书签明细下沉子菜单, 避免污染普通查询过滤; searcher 不隔离, 沿旧行为保留 @ 提示)
 _list() {
     _ensure_ids
     _load
-    _load_browser_rows "$(_browser_detect)"
+    # 主菜单不加载浏览器行: _browser_hosts 恒空, _ensure_icons 只预取 links/searcher
+    _browser_hosts=()
     _ensure_icons
     local entry name id url host
     for entry in "${_links[@]}"; do
@@ -344,10 +359,10 @@ _list() {
     done
     printf '%s\0info\x1fnew\n' "$NEW_LINK"
     printf '%s\0info\x1fnew-searcher\n' "$NEW_SEARCHER"
-    # 浏览器历史 (^) 与书签 (*): info 命名空间 hist|url / bm|url, 不进 links 写库路径
-    ((${#_hist_rows[@]})) && _print_browser_rows '^' 'hist|' "${_hist_rows[@]}"
-    ((${#_bm_rows[@]})) && _print_browser_rows '*' 'bm|' "${_bm_rows[@]}"
-    # @ 提示: 输入 @ 时 rofi 过滤仅剩 @<name> 行 (links/New 均不含 @) → 展示可用 searcher;
+    # 浏览入口: 输入 ^/* 过滤到对应入口 → 回车下钻 (ROFI_INFO=browse-* 输出子菜单 rofi 原地刷新)
+    printf '%s\0info\x1fbrowse-hist\n' "$BROWSE_HIST"
+    printf '%s\0info\x1fbrowse-bm\n' "$BROWSE_BM"
+    # @ 提示: 输入 @ 时 rofi 过滤仅剩 @<name> 行 (links/New/浏览入口均不含 @) → 展示可用 searcher;
     # nonselectable 只展示不可选中, 不影响 RETV=2 自定义输入 (@name 搜索词走 _handle_input)
     local sname surl
     while IFS=$'\t' read -r sname surl; do
@@ -358,7 +373,27 @@ _list() {
             printf '@%s\0nonselectable\x1ftrue\n' "$sname"
         fi
     done < <(jq -r '.searcher[]? | [.name, .url] | @tsv' "$CONFIG" 2>/dev/null)
-    printf '\0use-hot-keys\x1ftrue\n'
+    _list_footer main
+}
+
+# 历史子菜单: back 首行 + 历史明细行 (info 命名空间 hist|url, 不进 links 写库路径)
+_list_hist() {
+    _load
+    _load_browser_rows "$(_browser_detect)"
+    _ensure_icons
+    printf '%s\0info\x1fback\n' "$BACK_ROW"
+    ((${#_hist_rows[@]})) && _print_browser_rows 'hist|' "${_hist_rows[@]}"
+    _list_footer hist
+}
+
+# 书签子菜单: back 首行 + 书签明细行 (info 命名空间 bm|url)
+_list_bm() {
+    _load
+    _load_browser_rows "$(_browser_detect)"
+    _ensure_icons
+    printf '%s\0info\x1fback\n' "$BACK_ROW"
+    ((${#_bm_rows[@]})) && _print_browser_rows 'bm|' "${_bm_rows[@]}"
+    _list_footer bm
 }
 
 # 按 id 打开 URL; 外部程序须后台执行 (rofi 会等待脚本 stdout 关闭)
@@ -414,8 +449,8 @@ _write_json() {
 _edit_link() {
     local id="$1"
     [[ -n "$id" ]] || return 0
-    # 浏览器历史/书签行为只读: Alt+1 编辑直接 no-op
-    case "$id" in hist\|* | bm\|*) return 0 ;; esac
+    # 浏览器历史/书签只读 + 导航行: Alt+1 编辑直接 no-op
+    case "$id" in hist\|* | bm\|* | browse-* | back) return 0 ;; esac
 
     local cur
     cur=$(jq -c --arg id "$id" '.links[] | select(.id == $id)' "$CONFIG" 2>/dev/null)
@@ -438,8 +473,8 @@ _edit_form() { # 表单录入 + 按 id 替换写库 (rofi 退出后执行)
 _delete_link() {
     local id="$1"
     [[ -n "$id" ]] || return 0
-    # 浏览器历史/书签行为只读: 删除直接 no-op
-    case "$id" in hist\|* | bm\|*) return 0 ;; esac
+    # 浏览器历史/书签只读 + 导航行: 删除直接 no-op
+    case "$id" in hist\|* | bm\|* | browse-* | back) return 0 ;; esac
     local name
     name=$(jq -r --arg id "$id" '.links[] | select(.id == $id) | .name' "$CONFIG")
     [[ -n "$name" ]] || return 0
@@ -485,6 +520,9 @@ _dispatch() {
     case "${ROFI_INFO:-}" in
     new) _new_link ;;
     new-searcher) _new_searcher ;;
+    browse-hist) _list_hist ;;       # 有输出 → rofi 原地刷新为历史子菜单 (不退出)
+    browse-bm) _list_bm ;;           # 同上: 书签子菜单
+    back) _list ;;                    # 返回主菜单
     hist\|*) _open_url "${ROFI_INFO#hist|}" ;;
     bm\|*) _open_url "${ROFI_INFO#bm|}" ;;
     *) _open_by_id "${ROFI_INFO:-}" ;;
@@ -516,6 +554,16 @@ _searcher_url_by_name() {
 _handle_input() {
     local text="$*"
     [[ -n "$text" ]] || return 0
+    # 子菜单上下文 (ROFI_DATA): 裸词免前缀 (hist→历史最佳, bm→书签最佳);
+    # 显式 ^/*/@ 前缀不受影响, 走下方原有分支
+    case "${ROFI_DATA:-}" in
+    hist)
+        case "$text" in ^* | \** | @*) ;; *) text="^$text" ;; esac
+        ;;
+    bm)
+        case "$text" in ^* | \** | @*) ;; *) text="*$text" ;; esac
+        ;;
+    esac
     # ^历史 / *书签: 剥前缀实时查最佳命中并打开; 无关键词 no-op;
     # 无命中/非 firefox 时落空, 整串(含前缀)走下方的默认搜索引擎 (与 @unknown 一致)
     case "$text" in
