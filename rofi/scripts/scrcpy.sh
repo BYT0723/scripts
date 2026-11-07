@@ -25,12 +25,23 @@ SCRCPY_FLAGS=" \
 --power-off-on-close \
 "
 
+# scrcpy 窗口聚焦时的按键映射: X11 keysym 名 → 滑动方向 (up/down)
+# 键名用 `xmodmap -pke` 查; 换键只改这张表, 逻辑不用动
+declare -A SCRCPY_KEYMAP=(
+    [Up]=down
+    [Down]=up
+)
+
 _sanitize_key() {
     echo "$1" | tr -c '[:alnum:]' '_'
 }
 
 _device_pid_file() {
     echo "/tmp/scrcpy_pid_$(_sanitize_key "$1")"
+}
+
+_scrcpy_keys_pid_file() {
+    echo "/tmp/scrcpy_keys_$(_sanitize_key "$1")"
 }
 
 _check_deps() {
@@ -127,15 +138,79 @@ _is_device_connected() {
     return 1
 }
 
+_swipe() { # $1=serial $2=up|down: 单指滑动 (短视频上下切换用), 滑动区间 25%~75%
+    local serial="$1" dir="$2" size w h x y1 y2
+    size=$(adb -s "$serial" shell wm size </dev/null 2>/dev/null | tr -d '\r' |
+        awk -F': ' '/Override size/ {o=$2} /Physical size/ {p=$2} END {print (o ? o : p)}')
+    [[ "$size" =~ ^([0-9]+)x([0-9]+)$ ]] || return 1
+    w=${BASH_REMATCH[1]}
+    h=${BASH_REMATCH[2]}
+    x=$((w / 2))
+    case "$dir" in
+        up) y1=$((h * 3 / 4)); y2=$((h / 4)) ;;
+        down) y1=$((h / 4)); y2=$((h * 3 / 4)) ;;
+        *) return 1 ;;
+    esac
+    adb -s "$serial" shell input swipe "$x" "$y1" "$x" "$y2" 200 </dev/null >/dev/null 2>&1
+}
+
+_watch_scrcpy_keys() { # $1=serial $2=scrcpy pid: 只在 scrcpy 窗口聚焦时按 SCRCPY_KEYMAP 转成滑动
+    local serial="$1" pid="$2" wid="" i line rc etype latch="" state ksym dir pid_file
+    command -v xev >/dev/null 2>&1 && command -v xdotool >/dev/null 2>&1 || return
+    for i in $(seq 1 50); do
+        # xdotool search 默认 --any, 必须 --all, 否则 --pid 条件不生效
+        wid=$(xdotool search --all --onlyvisible --pid "$pid" --class scrcpy 2>/dev/null | head -n1)
+        [ -n "$wid" ] && break
+        kill -0 "$pid" 2>/dev/null || return
+        sleep 0.2
+    done
+    [ -z "$wid" ] && return
+    pid_file=$(_scrcpy_keys_pid_file "$serial")
+    echo "$BASHPID" >"$pid_file"
+
+    coproc XEV { exec xev -id "$wid" -event keyboard 2>/dev/null; }
+    # 退出时带走 xev (coproc 的 exec 保证 XEV_PID 就是 xev), 并清理自己的 pid 文件
+    trap 'kill "$XEV_PID" 2>/dev/null; [ "$(cat "$pid_file" 2>/dev/null)" = "$BASHPID" ] && rm -f "$pid_file"' EXIT
+    trap 'exit 1' TERM INT HUP
+    while kill -0 "$pid" 2>/dev/null; do
+        IFS= read -r -t 2 -u "${XEV[0]}" line
+        rc=$?
+        if [ "$rc" -gt 0 ]; then
+            [ "$rc" -gt 128 ] || break # 超时继续等, EOF (xev 退出) 结束
+            continue
+        fi
+        case "$line" in
+            KeyPress*) etype=press ;;
+            KeyRelease*) etype=release; latch="" ;;
+        esac
+        [ "$etype" = press ] || continue
+        [[ "$line" =~ state\ (0x[0-9a-fA-F]+),\ keycode\ [0-9]+\ \(keysym\ 0x[0-9a-fA-F]+,\ ([A-Za-z0-9_]+)\) ]] || continue
+        state=$((BASH_REMATCH[1]))
+        ksym=${BASH_REMATCH[2]}
+        dir=${SCRCPY_KEYMAP[$ksym]:-}
+        [ -n "$dir" ] || continue
+        [ -z "$latch" ] || continue
+        ((state & ~0x13)) && continue # 带 Ctrl/Alt/Super 的组合留给 scrcpy/app 自己 (0x13 = Shift|Lock|Mod2)
+        latch=1
+        _swipe "$serial" "$dir"
+    done
+}
+
 _connect() {
     local serial="$1"
     nohup scrcpy ${SCRCPY_FLAGS} -s "$serial" >/dev/null 2>&1 &
-    echo $! >"$(_device_pid_file "$serial")"
+    local pid=$!
+    echo "$pid" >"$(_device_pid_file "$serial")"
+    _watch_scrcpy_keys "$serial" "$pid" </dev/null >/dev/null 2>&1 &
     _quit=1 # scrcpy 已起, 退出菜单 (其余 handler 返回后回到上级菜单)
 }
 
 _disconnect() {
-    local pid_file=$(_device_pid_file "$1")
+    local pid_file=$(_device_pid_file "$1") keys_pid_file=$(_scrcpy_keys_pid_file "$1")
+    if [ -f "$keys_pid_file" ]; then
+        kill "$(cat "$keys_pid_file")" 2>/dev/null
+        rm -f "$keys_pid_file"
+    fi
     if [ -f "$pid_file" ]; then
         kill "$(cat "$pid_file")" 2>/dev/null
         rm -f "$pid_file"
