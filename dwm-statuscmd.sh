@@ -158,7 +158,7 @@ declare -A actions=(
     [$ST_WEATHER,$middle]='xdg-open https://wttr.in/?T'
     [$ST_WEATHER,$right]='W="$HOME/.local/state/dwm/cache"; notify-send -c status -i weather -h string:x-dunst-stack-tag:weatherForecast "Weather Forecast" "当前天气:$(tr "\t" " " < "$W/weather")\n\n$(cat "$W/weather-forecast")"'
     [$ST_MPD,$left]='"$ROFI_SCRIPT_DIR/mpd.sh"'
-    [$ST_MPD,$middle]='mpd --kill; pkill -x mpdris2-rs 2>/dev/null; pkill -x mpdris2 2>/dev/null'
+    [$ST_MPD,$middle]='systemctl --user stop mpdris2-rs.service mpd.service'
     [$ST_MPD,$scroll_up]='_mpd_volume up'
     [$ST_MPD,$scroll_down]='_mpd_volume down'
     [$ST_MPD,$right]=_mpd_rmpc

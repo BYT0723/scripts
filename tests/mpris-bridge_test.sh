@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# mpd.sh MPRIS 桥同步测试 (source + mock, 无 MPD/rofi/D-Bus)
+# mpd.sh MPRIS 桥同步测试 (source + mock, 无 MPD/rofi/D-Bus/systemd)
 # 运行: bash tests/mpris-bridge_test.sh
+# 行为: 启动/停止经 systemctl --user 管理 mpd.service / mpdris2-rs.service (幂等);
+# mpdris2 (python 版) 已移除, 仅支持 mpdris2-rs。
 
 TEST_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT="$TEST_ROOT/rofi/scripts/mpd.sh"
@@ -50,10 +52,9 @@ FAKE_BIN="$TEST_DIR/bin"
 mkdir -p "$FAKE_BIN"
 export MOCK_STATE_DIR="$TEST_DIR/state"
 mkdir -p "$MOCK_STATE_DIR"
-export MPD_LOG="$TEST_DIR/mpd.log" PGREP_LOG="$TEST_DIR/pgrep.log"
-export PKILL_LOG="$TEST_DIR/pkill.log" BRIDGE_LOG="$TEST_DIR/bridge.log"
+export SYSTEMCTL_LOG="$TEST_DIR/systemctl.log"
 export NOTIFY_LOG="$TEST_DIR/notify.log"
-: >"$MPD_LOG" >"$PGREP_LOG" >"$PKILL_LOG" >"$BRIDGE_LOG" >"$NOTIFY_LOG"
+: >"$SYSTEMCTL_LOG" >"$NOTIFY_LOG"
 
 cat >"$FAKE_BIN/mpc" <<'EOF'
 #!/usr/bin/env bash
@@ -67,28 +68,15 @@ case "$*" in
 *) exit 0 ;;
 esac
 EOF
-cat >"$FAKE_BIN/mpd" <<'EOF'
+cat >"$FAKE_BIN/systemctl" <<'EOF'
 #!/usr/bin/env bash
-printf 'mpd %s\n' "$*" >>"$MPD_LOG"
-touch "$MOCK_STATE_DIR/mpd_up"
-EOF
-cat >"$FAKE_BIN/pgrep" <<'EOF'
-#!/usr/bin/env bash
-printf 'pgrep %s\n' "$*" >>"$PGREP_LOG"
-[[ " ${MOCK_PGREP_RUNNING:-} " == *" $2 "* ]]
-EOF
-cat >"$FAKE_BIN/pkill" <<'EOF'
-#!/usr/bin/env bash
-printf 'pkill %s\n' "$*" >>"$PKILL_LOG"
+printf 'systemctl %s\n' "$*" >>"$SYSTEMCTL_LOG"
+[[ "$*" == *"start mpd.service"* ]] && touch "$MOCK_STATE_DIR/mpd_up"
 exit 0
 EOF
 cat >"$FAKE_BIN/mpdris2-rs" <<'EOF'
 #!/usr/bin/env bash
-printf 'mpdris2-rs %s\n' "$*" >>"$BRIDGE_LOG"
-EOF
-cat >"$FAKE_BIN/mpdris2" <<'EOF'
-#!/usr/bin/env bash
-printf 'mpdris2 %s\n' "$*" >>"$BRIDGE_LOG"
+exit 0
 EOF
 cat >"$FAKE_BIN/notify-send" <<'EOF'
 #!/usr/bin/env bash
@@ -97,27 +85,26 @@ EOF
 chmod +x "$FAKE_BIN"/*
 export PATH="$FAKE_BIN:$PATH"
 
-# ---- 场景 PATH (hermetic): 被测脚本只能看到这里的桥 ----
+# ---- 场景 PATH (hermetic): 被测脚本只能看到这里的二进制 ----
 # 本机 /usr/bin 自带 mpdris2-rs, chmod 盖不住它穿透 command -v, 故 source 时用窄 PATH
 SCEN_BIN="$TEST_DIR/scenbin"
 mkdir -p "$SCEN_BIN"
-for _n in mpc mpd pgrep pkill notify-send; do ln -s "$FAKE_BIN/$_n" "$SCEN_BIN/$_n"; done
+for _n in mpc systemctl notify-send; do ln -s "$FAKE_BIN/$_n" "$SCEN_BIN/$_n"; done
 ln -s "$(command -v head)" "$SCEN_BIN/head"
 ln -s "$(command -v dirname)" "$SCEN_BIN/dirname" # 被测脚本顶层 ROFI_DIR 解析必需
 ln -s "$(command -v bash)" "$SCEN_BIN/bash"
 ln -s "$(command -v env)" "$SCEN_BIN/env"
 for _n in touch rm mkdir; do ln -s "$(command -v "$_n")" "$SCEN_BIN/$_n"; done # mock 与 EXIT trap 用的 harness 工具 (非桥逻辑, 不影响隔离性)
-link_bridges() { # names... (空参=无桥)
-    rm -f "$SCEN_BIN/mpdris2-rs" "$SCEN_BIN/mpdris2"
+link_bridge() { # 有参=有 mpdris2-rs, 空参=缺失
+    rm -f "$SCEN_BIN/mpdris2-rs"
     for _b in "$@"; do ln -s "$FAKE_BIN/$_b" "$SCEN_BIN/$_b"; done
 }
 
-reset_state() { # [running]
+reset_state() { # [mpd_up]
     rm -f "$MOCK_STATE_DIR/mpd_up"
-    MOCK_PGREP_RUNNING="${1:-}"
-    export MOCK_PGREP_RUNNING
-    : >"$MPD_LOG" >"$PGREP_LOG" >"$PKILL_LOG" >"$BRIDGE_LOG" >"$NOTIFY_LOG"
-    link_bridges # 默认无桥, 各场景显式 link
+    [[ "${1:-}" == "up" ]] && touch "$MOCK_STATE_DIR/mpd_up"
+    : >"$SYSTEMCTL_LOG" >"$NOTIFY_LOG"
+    link_bridge # 默认无桥, 各场景显式 link
 }
 
 run_mpd_menu() {
@@ -125,45 +112,38 @@ run_mpd_menu() {
     wait 2>/dev/null
 }
 
-# ---- S1: MPD 由菜单拉起时桥同步启动 (mpdris2-rs 优先) ----
+# ---- S1: MPD 由菜单拉起时经 systemctl 启动, 桥同步 start ----
 reset_state
-link_bridges mpdris2-rs mpdris2
+link_bridge mpdris2-rs
 run_mpd_menu
 assert_cond "S1: mpd 被拉起" '[ -f "$MOCK_STATE_DIR/mpd_up" ]'
-assert_eq "$(cat "$BRIDGE_LOG")" "mpdris2-rs " "S1: mpdris2-rs 被启动一次"
+assert_cond "S1: systemctl 启动 mpd" 'grep -q "systemctl --user start mpd.service" "$SYSTEMCTL_LOG"'
+assert_cond "S1: systemctl 启动 mpdris2-rs" 'grep -q "systemctl --user start mpdris2-rs.service" "$SYSTEMCTL_LOG"'
 
-# ---- S2: 桥已在运行则不重复启动 ----
-reset_state "mpdris2-rs"
-touch "$MOCK_STATE_DIR/mpd_up"
-link_bridges mpdris2-rs mpdris2
+# ---- S2: MPD 已在运行则不重复 start mpd, 桥 start 幂等下发 ----
+reset_state up
+link_bridge mpdris2-rs
 run_mpd_menu
-assert_eq "$(cat "$BRIDGE_LOG")" "" "S2: 桥已跑时零启动"
+assert_cond "S2: 不重复 start mpd" '! grep -q "start mpd.service" "$SYSTEMCTL_LOG"'
+assert_cond "S2: 桥 start 照发 (systemd 幂等)" 'grep -q "start mpdris2-rs.service" "$SYSTEMCTL_LOG"'
 
-# ---- S2b: 无 rs 时回退 mpdris2 ----
-reset_state
-touch "$MOCK_STATE_DIR/mpd_up"
-link_bridges mpdris2
+# ---- S3: 缺失 mpdris2-rs 通知且菜单继续 ----
+reset_state up
 run_mpd_menu
-assert_eq "$(cat "$BRIDGE_LOG")" "mpdris2 " "S2b: 回退启动 mpdris2"
-
-# ---- S3: 双缺失通知且菜单继续 ----
-reset_state
-touch "$MOCK_STATE_DIR/mpd_up"
-run_mpd_menu
-assert_cond "S3: 通知提示安装其一" 'grep -q "mpdris2" "$NOTIFY_LOG"'
+assert_cond "S3: 通知提示安装 mpdris2-rs" 'grep -q "mpdris2-rs" "$NOTIFY_LOG"'
+assert_cond "S3: 缺失时不调 systemctl 桥" '! grep -q "mpdris2-rs.service" "$SYSTEMCTL_LOG"'
 assert_eq "$status" "playing" "S3: 通知后菜单逻辑继续 (status 可用)"
 
-# ---- S4: kill 路径同步杀桥 ----
+# ---- S4: kill 路径经 systemctl 停桥+停 MPD (先桥后面) ----
 kill_line="$(grep -F 'ST_MPD,$middle' "$STATUSCMD")"
-assert_cond "S4: kill 行含 pkill mpdris2-rs" '[[ "$kill_line" == *"pkill -x mpdris2-rs"* ]]'
-assert_cond "S4: kill 行含 pkill mpdris2" '[[ "$kill_line" == *"pkill -x mpdris2"* ]]'
-assert_cond "S4: mpd --kill 仍在串首" '[[ "$kill_line" == *"mpd --kill"* ]]'
+assert_cond "S4: kill 行停 mpdris2-rs" '[[ "$kill_line" == *"systemctl --user stop mpdris2-rs.service"* ]]'
+assert_cond "S4: kill 行停 mpd" '[[ "$kill_line" == *"mpd.service"* ]]'
+assert_cond "S4: 不再用 mpd --kill" '[[ "$kill_line" != *"mpd --kill"* ]]'
+assert_cond "S4: 不再 pkill 桥" '[[ "$kill_line" != *"pkill"* ]]'
 kill_action="$(printf '%s' "$kill_line" | sed -n "s/.*middle\]='\(.*\)'/\1/p")"
-: >"$MPD_LOG" >"$PKILL_LOG"
-PATH="$FAKE_BIN:$PATH" eval "$kill_action" # mock 优先: 防真 mpd --kill 误伤用户 daemon
-assert_cond "S4: eval 关掉 mpd" 'grep -q "^mpd --kill" "$MPD_LOG"'
-assert_cond "S4: eval 杀 mpdris2-rs" 'grep -q "pkill -x mpdris2-rs" "$PKILL_LOG"'
-assert_cond "S4: eval 杀 mpdris2" 'grep -q "pkill -x mpdris2$" "$PKILL_LOG"'
+: >"$SYSTEMCTL_LOG"
+PATH="$FAKE_BIN:$PATH" eval "$kill_action" # mock 优先: PATH 前置使 systemctl 走 mock, 不碰用户真服务
+assert_cond "S4: eval 停掉桥与 MPD" 'grep -q "systemctl --user stop mpdris2-rs.service mpd.service" "$SYSTEMCTL_LOG"'
 
 if [[ "$FAIL" -eq 0 ]]; then echo "ALL PASS"; else echo "FAILURES PRESENT"; fi
 exit "$FAIL"
