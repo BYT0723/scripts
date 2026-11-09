@@ -69,14 +69,56 @@ fi
 # 未安装 mpdris2-rs 时无桥接管, 回退到手动 notify (否则切歌静默)
 _have_mpris() { command -v mpdris2-rs >/dev/null 2>&1; }
 
-# MPRIS 桥: MPD 就绪后确保 mpdris2-rs 在运行 (systemd user service, start 幂等);
+# mpdris2-rs 通知模板 — repo 即配置源, 由 _mpris_override_action 生成 systemd drop-in
+# (service 本身不含参数, ~/.config/systemd 也不在备份范围; 生成物由本脚本重建)。
+# 占位符: %state% %title% %artist% %album% %album_artist% %elapsed% %duration% %empty% 等;
+# 正文用 \n 换行。改完下次打开本菜单即生效 (内容变了才 restart)。
+MPDRIS2_NOTIFY_ARGS=(
+    --notification-summary "%state%"
+    --notification-summary-paused "%state%"
+    --notification-body "<b>%title%</b>\n%artist%\n%album%\n%empty%"
+    --notification-body-paused "<b>%title%</b>\n%artist%\n%album%\n%empty%"
+)
+
+# 生成/更新用户级 drop-in, 输出 systemctl 动作 (start|restart)。
+# 模板没变 → start (幂等, 不打断正在运行的桥); 变了 → daemon-reload 后 restart。
+# unit 里 % 是 specifier, 写入时必须转义成 %%; 数组里仍写单 % 便于阅读。
+_mpris_override_action() {
+    local dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/mpdris2-rs.service.d"
+    local file="$dir/override.conf"
+    local cmdline="ExecStart=/usr/bin/mpdris2-rs"
+    local want flag val i
+    for ((i = 0; i < ${#MPDRIS2_NOTIFY_ARGS[@]}; i += 2)); do
+        flag="${MPDRIS2_NOTIFY_ARGS[i]}"
+        val="${MPDRIS2_NOTIFY_ARGS[i + 1]}"
+        val="${val//$'\n'/\\n}" # 真实换行会破坏 unit 单行语法
+        val="${val//\"/\\\"}"   # unit 双引号内需转义
+        val="${val//%/%%}"      # systemd specifier 转义
+        cmdline+=" $flag \"$val\""
+    done
+    want=$'[Service]\nExecStart=\n'"$cmdline"
+    if [[ -f "$file" && "$(<"$file")" == "$want" ]]; then
+        printf 'start'
+        return
+    fi
+    # 写失败按未变处理: 继续用现有/默认配置, 不因生成配置挡住菜单
+    mkdir -p "$dir" 2>/dev/null &&
+        printf '%s\n' "$want" >"$file" 2>/dev/null || {
+        printf 'start'
+        return
+    }
+    systemctl --user daemon-reload >/dev/null 2>&1
+    printf 'restart'
+}
+
+# MPRIS 桥: MPD 就绪后确保 mpdris2-rs 在运行 (systemd user service);
 # 未安装只通知不中断 (菜单照常打开)
 _ensure_mpris_bridge() {
     if ! _have_mpris; then
         notify-send -c tools -i dialog-error "MPRIS" "mpdris2-rs not found. Please install mpdris2-rs"
         return 0
     fi
-    systemctl --user start mpdris2-rs.service >/dev/null 2>&1
+    systemctl --user "$(_mpris_override_action)" mpdris2-rs.service >/dev/null 2>&1
 }
 
 if ! mpc status &>/dev/null; then

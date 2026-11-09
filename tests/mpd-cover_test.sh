@@ -2,7 +2,8 @@
 # mpd.sh fetch_cover 封面提取测试 (source + mock, 无 MPD/rofi)
 # 运行: bash tests/mpd-cover_test.sh
 
-SCRIPT="$HOME/.dwm/rofi/scripts/mpd.sh"
+TEST_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT="$TEST_ROOT/rofi/scripts/mpd.sh"
 TEST_DIR=$(mktemp -d)
 trap 'rm -rf "$TEST_DIR"' EXIT
 
@@ -107,6 +108,11 @@ case "$*" in
 esac
 EOF
 chmod +x "$FAKE_BIN/mpc"
+
+# systemctl / mpdris2-rs: source mpd.sh 时会生成 drop-in 并管理桥, 测试不得触碰真实用户服务
+printf '#!/usr/bin/env bash\nexit 0\n' >"$FAKE_BIN/systemctl"
+printf '#!/usr/bin/env bash\nexit 0\n' >"$FAKE_BIN/mpdris2-rs"
+chmod +x "$FAKE_BIN/systemctl" "$FAKE_BIN/mpdris2-rs"
 
 export PATH="$FAKE_BIN:$PATH"
 

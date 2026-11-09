@@ -2,6 +2,7 @@
 # mpd.sh MPRIS 桥同步测试 (source + mock, 无 MPD/rofi/D-Bus/systemd)
 # 运行: bash tests/mpris-bridge_test.sh
 # 行为: 启动/停止经 systemctl --user 管理 mpd.service / mpdris2-rs.service (幂等);
+# 通知模板由 repo 生成为 mpdris2-rs.service drop-in, 改了才 reload+restart;
 # mpdris2 (python 版) 已移除, 仅支持 mpdris2-rs。
 
 TEST_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -30,10 +31,12 @@ assert_cond() { # msg cond
     fi
 }
 
-# ---- 隔离 HOME ----
+# ---- 隔离 HOME / XDG (drop-in 生成到隔离的 config 目录) ----
 export HOME="$TEST_DIR/home"
 export XDG_CACHE_HOME="$TEST_DIR/cache"
-mkdir -p "$HOME" "$XDG_CACHE_HOME"
+export XDG_CONFIG_HOME="$TEST_DIR/config"
+mkdir -p "$HOME" "$XDG_CACHE_HOME" "$XDG_CONFIG_HOME"
+OVERRIDE="$XDG_CONFIG_HOME/systemd/user/mpdris2-rs.service.d/override.conf"
 
 # ---- 搭 mock ROFI_DIR 结构 ----
 MOCK_ROFI="$TEST_DIR/rofi"
@@ -100,11 +103,15 @@ link_bridge() { # 有参=有 mpdris2-rs, 空参=缺失
     for _b in "$@"; do ln -s "$FAKE_BIN/$_b" "$SCEN_BIN/$_b"; done
 }
 
-reset_state() { # [mpd_up]
+reset_state() { # [mpd_up] — 重置 MPD/日志/桥链接, 保留已生成的 drop-in
     rm -f "$MOCK_STATE_DIR/mpd_up"
     [[ "${1:-}" == "up" ]] && touch "$MOCK_STATE_DIR/mpd_up"
     : >"$SYSTEMCTL_LOG" >"$NOTIFY_LOG"
     link_bridge # 默认无桥, 各场景显式 link
+}
+
+reset_config() { # 清掉已生成的 drop-in (模拟首次运行 / 恢复备份后)
+    rm -rf "$XDG_CONFIG_HOME/systemd"
 }
 
 run_mpd_menu() {
@@ -112,20 +119,29 @@ run_mpd_menu() {
     wait 2>/dev/null
 }
 
-# ---- S1: MPD 由菜单拉起时经 systemctl 启动, 桥同步 start ----
+# ---- S1: MPD 由菜单拉起时经 systemctl 启动; 首次生成 drop-in + reload/restart ----
+reset_config
 reset_state
 link_bridge mpdris2-rs
 run_mpd_menu
 assert_cond "S1: mpd 被拉起" '[ -f "$MOCK_STATE_DIR/mpd_up" ]'
 assert_cond "S1: systemctl 启动 mpd" 'grep -q "systemctl --user start mpd.service" "$SYSTEMCTL_LOG"'
-assert_cond "S1: systemctl 启动 mpdris2-rs" 'grep -q "systemctl --user start mpdris2-rs.service" "$SYSTEMCTL_LOG"'
+assert_cond "S1: 生成 user drop-in" '[ -f "$OVERRIDE" ]'
+assert_cond "S1: drop-in 重置 ExecStart" 'grep -qx "ExecStart=" "$OVERRIDE"'
+assert_cond "S1: 模板写入 argv (% 转义为 %%)" \
+    'grep -qF "ExecStart=/usr/bin/mpdris2-rs" "$OVERRIDE" && grep -qF "%%state%%" "$OVERRIDE" && grep -qF "%%title%%" "$OVERRIDE"'
+assert_cond "S1: 正文换行保留为 \\n" 'grep -qF "\n%%artist%%" "$OVERRIDE"'
+assert_cond "S1: reload 后 restart 桥" \
+    'grep -q "systemctl --user daemon-reload" "$SYSTEMCTL_LOG" && grep -q "systemctl --user restart mpdris2-rs.service" "$SYSTEMCTL_LOG"'
 
-# ---- S2: MPD 已在运行则不重复 start mpd, 桥 start 幂等下发 ----
+# ---- S2: 模板未变则不重写/reload/restart, 桥 start 幂等下发 ----
 reset_state up
 link_bridge mpdris2-rs
 run_mpd_menu
 assert_cond "S2: 不重复 start mpd" '! grep -q "start mpd.service" "$SYSTEMCTL_LOG"'
-assert_cond "S2: 桥 start 照发 (systemd 幂等)" 'grep -q "start mpdris2-rs.service" "$SYSTEMCTL_LOG"'
+assert_cond "S2: 模板未变不 daemon-reload" '! grep -q "daemon-reload" "$SYSTEMCTL_LOG"'
+assert_cond "S2: 桥 start 照发 (systemd 幂等)" 'grep -q "systemctl --user start mpdris2-rs.service" "$SYSTEMCTL_LOG"'
+assert_cond "S2: 不 restart 桥" '! grep -q "restart mpdris2-rs" "$SYSTEMCTL_LOG"'
 
 # ---- S3: 缺失 mpdris2-rs 通知且菜单继续 ----
 reset_state up
@@ -144,6 +160,15 @@ kill_action="$(printf '%s' "$kill_line" | sed -n "s/.*middle\]='\(.*\)'/\1/p")"
 : >"$SYSTEMCTL_LOG"
 PATH="$FAKE_BIN:$PATH" eval "$kill_action" # mock 优先: PATH 前置使 systemctl 走 mock, 不碰用户真服务
 assert_cond "S4: eval 停掉桥与 MPD" 'grep -q "systemctl --user stop mpdris2-rs.service mpd.service" "$SYSTEMCTL_LOG"'
+
+# ---- S5: drop-in 内容漂移 → 重写 + daemon-reload + restart ----
+reset_state up
+link_bridge mpdris2-rs
+printf '[Service]\n' >"$OVERRIDE"
+run_mpd_menu
+assert_cond "S5: 漂移的 drop-in 被重建" 'grep -qF "%%title%%" "$OVERRIDE"'
+assert_cond "S5: 变更后 reload + restart" \
+    'grep -q "daemon-reload" "$SYSTEMCTL_LOG" && grep -q "restart mpdris2-rs.service" "$SYSTEMCTL_LOG"'
 
 if [[ "$FAIL" -eq 0 ]]; then echo "ALL PASS"; else echo "FAILURES PRESENT"; fi
 exit "$FAIL"
