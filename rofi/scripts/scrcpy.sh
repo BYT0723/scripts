@@ -25,11 +25,12 @@ SCRCPY_FLAGS=" \
 --power-off-on-close \
 "
 
-# scrcpy 窗口聚焦时的按键映射: X11 keysym 名 → 滑动方向 (up/down)
+# scrcpy 窗口聚焦时的按键映射: X11 keysym 名 → 滑动方向 (up/down/back)
 # 键名用 `xmodmap -pke` 查; 换键只改这张表, 逻辑不用动
 declare -A SCRCPY_KEYMAP=(
     [Up]=down
     [Down]=up
+    [Left]=back
 )
 
 _sanitize_key() {
@@ -171,8 +172,8 @@ _display_rotation() { # $1=serial → 0..3 当前旋转 (1/3 为横屏), 拿不�
     [[ "$rot" =~ ^[0-3]$ ]] && printf '%s' "$rot" || printf '0'
 }
 
-_swipe() { # $1=serial $2=up|down: 单指滑动 (短视频上下切换用), 滑动区间 25%~75%
-    local serial="$1" dir="$2" size w h x y1 y2 rot tmp
+_swipe() { # $1=serial $2=up|down|back: 单指滑动 (up/down 短视频上下切换, 25%~75%; back 左边缘右滑返回, x 5%→40%, y 50%)
+    local serial="$1" dir="$2" size w h x y1 y2 rot tmp x1 x2 y
     size=$(adb -s "$serial" shell wm size </dev/null 2>/dev/null | tr -d '\r' |
         awk -F': ' '/Override size/ {o=$2} /Physical size/ {p=$2} END {print (o ? o : p)}')
     [[ "$size" =~ ^([0-9]+)x([0-9]+)$ ]] || return 1
@@ -189,9 +190,14 @@ _swipe() { # $1=serial $2=up|down: 单指滑动 (短视频上下切换用), 滑�
     case "$dir" in
         up) y1=$((h * 3 / 4)); y2=$((h / 4)) ;;
         down) y1=$((h / 4)); y2=$((h * 3 / 4)) ;;
+        back) x1=$((w / 20)); x2=$((w * 2 / 5)); y=$((h / 2)) ;;
         *) return 1 ;;
     esac
-    adb -s "$serial" shell input swipe "$x" "$y1" "$x" "$y2" 200 </dev/null >/dev/null 2>&1
+    if [[ "$dir" == back ]]; then
+        adb -s "$serial" shell input swipe "$x1" "$y" "$x2" "$y" 200 </dev/null >/dev/null 2>&1
+    else
+        adb -s "$serial" shell input swipe "$x" "$y1" "$x" "$y2" 200 </dev/null >/dev/null 2>&1
+    fi
 }
 
 _watch_scrcpy_keys() { # $1=serial $2=scrcpy pid: 只在 scrcpy 窗口聚焦时按 SCRCPY_KEYMAP 转成滑动

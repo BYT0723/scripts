@@ -284,10 +284,10 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `main()` | 主流程 (顶层, `SCRCPY_NO_DISPATCH=1` 时跳过以便测试 source; `while` 循环持续交互, `_connect` 成功置 `_quit` 退出, ESC 退出) / tests/scrcpy-lan-scan_test.sh |
 | `_build_menu()` | main() 每轮调用 (组菜单 + 派发 handler, 状态实时重建) |
 | `_display_rotation()` | _swipe (只信 displayId 0 的 `mOverrideDisplayInfo` 行: `, app W x H,` 判宽高 → `rotation N` → 老格式兜底, 拿不到回 0; mBase/displayShape 是静态值不可信) |
-| `_swipe()` | _watch_scrcpy_keys (单指滑动注入: `adb shell input swipe`, 横向居中、纵向 25%~75%, 200ms; `wm size` 取 Override 优先, 每次按键现取以适配分辨率; `wm size` 是自然方向尺寸不随旋转变化, 经 `_display_rotation` 判 1/3 横屏时交换 w/h (否则横屏发 y 越界坐标被系统忽略); 无快捷键的 scrcpy 官方明确拒绝手势类 shortcut, 详见下) |
-| `_watch_scrcpy_keys()` | _connect (后台 per-device 监听: 轮询 `xdotool search --all --onlyvisible --pid <scrcpy pid> --class scrcpy` 定位窗口 → `xev -id <wid>` 只收该窗口的 KeyPress/KeyRelease → 按顶部 `SCRCPY_KEYMAP` (默认 Up=下滑/Down=上滑) 匹配 xev 的 keysym 名 → `_swipe`; 窗口未聚焦时收不到事件, 故无需全局热键/手机端 App; 带 Ctrl/Alt/Super 的组合跳过 (state 掩码 `~0x13`, 让 Alt+方向 留给 scrcpy 音量); coproc `exec xev` + `read -t 2` 轮询 scrcpy pid 兜底退出; latch 抑制自动重复; pid 文件由监听自身写, 退出时仅当仍指向自己才删; `_disconnect` 按 `/tmp/scrcpy_keys_<serial>` 杀掉监听) |
+| `_swipe()` | _watch_scrcpy_keys (单指滑动注入: `adb shell input swipe`, up/down 横向居中、纵向 25%~75%, back 左边缘 x 5%→40%/y 50%, 均 200ms; `wm size` 取 Override 优先, 每次按键现取以适配分辨率; `wm size` 是自然方向尺寸不随旋转变化, 经 `_display_rotation` 判 1/3 横屏时交换 w/h (否则横屏发 y 越界坐标被系统忽略); 无快捷键的 scrcpy 官方明确拒绝手势类 shortcut, 详见下) |
+| `_watch_scrcpy_keys()` | _connect (后台 per-device 监听: 轮询 `xdotool search --all --onlyvisible --pid <scrcpy pid> --class scrcpy` 定位窗口 → `xev -id <wid>` 只收该窗口的 KeyPress/KeyRelease → 按顶部 `SCRCPY_KEYMAP` (默认 Up=下滑/Down=上滑/Left=返回) 匹配 xev 的 keysym 名 → `_swipe`; 窗口未聚焦时收不到事件, 故无需全局热键/手机端 App; 带 Ctrl/Alt/Super 的组合跳过 (state 掩码 `~0x13`, 让 Alt+方向 留给 scrcpy 音量); coproc `exec xev` + `read -t 2` 轮询 scrcpy pid 兜底退出; latch 抑制自动重复; pid 文件由监听自身写, 退出时仅当仍指向自己才删; `_disconnect` 按 `/tmp/scrcpy_keys_<serial>` 杀掉监听) |
 
-> 短视频上下切换: 起 scrcpy 后按 **Down = 下一个 / Up = 上一个** (键位在脚本顶部 `SCRCPY_KEYMAP` 映射表改, 如 `[Down]=up`)。实现要点:
+> 短视频上下切换 + 左划返回: 起 scrcpy 后按 **Down = 下一个 / Up = 上一个 / Left = 返回 (左边缘右滑)** (键位在脚本顶部 `SCRCPY_KEYMAP` 映射表改, 如 `[Down]=up`)。实现要点:
 > ① `xdotool search` 默认 `--any`(多条件 OR), 必须加 `--all` 否则 `--pid` 不生效会选到别的 scrcpy 窗口;
 > ② `xev -id` 是对目标窗口**额外**选一份事件掩码, 不抢占事件(scrcpy 照常收到按键), 也不需要 XGrabKey;
 > ③ 按键只在该窗口聚焦时送达, 天然限定作用域。scrcpy 出于可靠性拒绝把手势做成 shortcut(issue #4828), 故由启动脚本旁路 `adb input swipe` 注入。

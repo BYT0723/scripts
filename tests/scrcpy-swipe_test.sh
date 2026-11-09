@@ -163,5 +163,26 @@ reset_state
 export ADB_DUMPSYS_RAW="$ROT_ONLY_RAW"
 check "R15 无 app 段时用 override rotation (3, 且不取虚拟屏 displayId 25)" "[ \"\$(_display_rotation emulator)\" = '3' ]"
 
+# ---- B1-B4: 左边缘右滑返回 ----
+reset_state
+export ADB_ROTATION=0
+_swipe "emulator" back
+check "B1 竖屏 back 左边缘右滑 (54 1200 432 1200)" "[ \"\$(last_swipe)\" = 'swipe input swipe 54 1200 432 1200 200' ]"
+
+reset_state
+export ADB_ROTATION=1
+_swipe "emulator" back
+check "B2 横屏(1) back 交换 w/h (120 540 960 540)" "[ \"\$(last_swipe)\" = 'swipe input swipe 120 540 960 540 200' ]"
+
+reset_state
+export ADB_ROTATION=3
+_swipe "emulator" back
+check "B3 横屏(3) back 同横屏(1)" "[ \"\$(last_swipe)\" = 'swipe input swipe 120 540 960 540 200' ]"
+
+reset_state
+export ADB_OVERRIDE_SIZE="1440x2560" ADB_ROTATION=1
+_swipe "emulator" back
+check "B4 Override+横屏 back (128 720 1024 720)" "[ \"\$(last_swipe)\" = 'swipe input swipe 128 720 1024 720 200' ]"
+
 rm -rf "$TEST_DIR"
 exit $fail
