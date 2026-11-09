@@ -91,6 +91,33 @@ _lock() {
 
 lock_restored=1 # 未进入锁屏流程, _lock_after 无事可做
 
+# SIGSTOP only reaches xwallpaperd itself; page JS keeps running in WebKit's
+# child processes. Stop/continue the whole descendant tree as well. Never use
+# a process-group signal: the daemon may share its PGID with the login shell.
+_xw_signal_descendants() {
+    local sig=$1 pid=$2 child
+    for child in $(ps -o pid= --ppid "$pid" 2>/dev/null); do
+        _xw_signal_descendants "$sig" "$child"
+        kill -"$sig" "$child" 2>/dev/null
+    done
+}
+
+_xw_stop_tree() {
+    local root
+    root=$(pgrep -x xwallpaperd | head -n1)
+    [ -n "$root" ] || return 0
+    kill -STOP "$root" 2>/dev/null
+    _xw_signal_descendants STOP "$root"
+}
+
+_xw_cont_tree() {
+    local root
+    root=$(pgrep -x xwallpaperd | head -n1)
+    [ -n "$root" ] || return 0
+    _xw_signal_descendants CONT "$root"
+    kill -CONT "$root" 2>/dev/null
+}
+
 _lock_before() {
     lock_restored=0
     # 快照必须在这里取: powermenu 是先 source 本脚本、再等用户点菜单,
@@ -111,9 +138,13 @@ _lock_before() {
         pactl set-sink-mute "$sink" 1 2>/dev/null
     done < <(pactl list short sinks 2>/dev/null)
 
+    # WebKit page JS runs in a separate WebKitWebProcess; _xw_stop_tree also
+    # freezes those children. Mute the web views first (no pause: pausing
+    # would replay every one-shot sound on unlock). quiet is transient and
+    # never touches the saved mute state.
+    timeout 2 xwallpaper quiet on --all >/dev/null 2>&1
     pkill -STOP -f "mpv.*--player-operation-mode=cplayer" 2>/dev/null
-    pkill -STOP -x xwallpaperd 2>/dev/null
-    pkill -STOP -x xwallpaper 2>/dev/null
+    _xw_stop_tree
 }
 
 _lock_after() {
@@ -126,8 +157,8 @@ _lock_after() {
         pactl set-sink-mute "$sink" 0 2>/dev/null
     done
     pkill -CONT -f "mpv.*--player-operation-mode=cplayer" 2>/dev/null
-    pkill -CONT -x xwallpaperd 2>/dev/null
-    pkill -CONT -x xwallpaper 2>/dev/null
+    _xw_cont_tree
+    timeout 2 xwallpaper quiet off --all >/dev/null 2>&1
     # 解锁后收回 DPMS: 灭屏只属于锁屏期, 否则会在解除抑制/解锁后立刻熄屏
     xset dpms 0 0 0
 }
