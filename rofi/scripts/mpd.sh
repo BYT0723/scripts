@@ -65,6 +65,20 @@ if ! command -v mpc &>/dev/null; then
     exit 1
 fi
 
+# MPRIS 桥: MPD 就绪后确保其一在运行 (mpdris2-rs 优先); 已跑不重复;
+# 双缺失只通知不中断 (菜单照常打开)
+_ensure_mpris_bridge() {
+    pgrep -x mpdris2-rs >/dev/null 2>&1 && return 0
+    pgrep -x mpdris2 >/dev/null 2>&1 && return 0
+    if command -v mpdris2-rs >/dev/null 2>&1; then
+        ( mpdris2-rs </dev/null >/dev/null 2>&1 & )
+    elif command -v mpdris2 >/dev/null 2>&1; then
+        ( mpdris2 </dev/null >/dev/null 2>&1 & )
+    else
+        notify-send -c tools -i dialog-error "MPRIS" "neither mpdris2-rs nor mpdris2 found. Please install one of them"
+    fi
+}
+
 if ! mpc status &>/dev/null; then
     mpd
 
@@ -73,6 +87,8 @@ if ! mpc status &>/dev/null; then
         exit 1
     fi
 fi
+
+_ensure_mpris_bridge
 
 status=$(mpc status "%state%")
 
