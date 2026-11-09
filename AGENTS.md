@@ -265,6 +265,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `_mpd_readpicture()` | fetch_cover (单次 readpicture 请求, nc 优先 /dev/tcp fallback) |
 | `_cover_valid()`    | fetch_cover (成功校验), mpd.sh 主流程 (cache 命中校验) — 非空 + `file` MIME `image/*`; 空/损坏文件视为无效, 失败时 `rm -f` 删除避免残留空缓存 |
 | `_ensure_mpris_bridge()` | mpd.sh 主流程 (MPD 就绪后 `systemctl --user start mpdris2-rs.service` (Type=dbus 等总线名就绪, start 幂等); 未安装英文 notify 不中断; kill 侧在 `dwm-statuscmd.sh [$ST_MPD,$middle]` (`systemctl --user stop mpdris2-rs.service mpd.service`, 先桥后 MPD, 幂等)) |
+| `_have_mpris()` | _ensure_mpris_bridge, _notify_song (共用: `command -v mpdris2-rs` 检测桥是否安装) |
+| `_notify_song()` | handle_play_pause/prev/next (有桥直接返回靠 MPRIS 通知, 无桥手动 notify-send 兜底, 避免无桥时切歌静默) |
 
 > 封面注入: 用 rofi `icon` widget (`icon-cover`, `filename` + `size: 200` + `squared` 默认 true 强制 1:1 正方形) —
 > 不能用 `imagebox`: 它不是真实 widget (rofi 静默当 `box`), `height` 属性被忽略 (box_get_desired_height 只累计 children),

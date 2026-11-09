@@ -65,10 +65,14 @@ if ! command -v mpc &>/dev/null; then
     exit 1
 fi
 
+# 有桥时切歌通知由 MPRIS 客户端负责, 无需手动 notify;
+# 未安装 mpdris2-rs 时无桥接管, 回退到手动 notify (否则切歌静默)
+_have_mpris() { command -v mpdris2-rs >/dev/null 2>&1; }
+
 # MPRIS 桥: MPD 就绪后确保 mpdris2-rs 在运行 (systemd user service, start 幂等);
 # 未安装只通知不中断 (菜单照常打开)
 _ensure_mpris_bridge() {
-    if ! command -v mpdris2-rs >/dev/null 2>&1; then
+    if ! _have_mpris; then
         notify-send -c tools -i dialog-error "MPRIS" "mpdris2-rs not found. Please install mpdris2-rs"
         return 0
     fi
@@ -177,25 +181,18 @@ _handle_play_icon() {
     [[ "$status" == "playing" ]] && echo "media-playback-pause-symbolic" || echo "media-playback-start-symbolic"
 }
 
-handle_play_pause() {
-    mpc -q toggle
-    notify-send -c mpd -i "$(_handle_play_icon)" \
+# 有桥时直接返回 (MPRIS 接管通知, 避免重复); 无桥时手动 notify 兜底
+_notify_song() { # icon
+    _have_mpris && return 0
+    notify-send -c mpd -i "$1" \
         -h string:x-dunst-stack-tag:music_info \
         "$(get_current_song)"
 }
+
+handle_play_pause() { mpc -q toggle; _notify_song "$(_handle_play_icon)"; }
 handle_stop() { mpc -q stop; }
-handle_prev() {
-    mpc -q prev
-    notify-send -c mpd -i "$(_handle_play_icon)" \
-        -h string:x-dunst-stack-tag:music_info \
-        "$(get_current_song)"
-}
-handle_next() {
-    mpc -q next
-    notify-send -c mpd -i "$(_handle_play_icon)" \
-        -h string:x-dunst-stack-tag:music_info \
-        "$(get_current_song)"
-}
+handle_prev() { mpc -q prev; _notify_song "$(_handle_play_icon)"; }
+handle_next() { mpc -q next; _notify_song "$(_handle_play_icon)"; }
 handle_repeat() { mpc -q repeat; }
 handle_random() { mpc -q random; }
 handle_single() { mpc -q single; }
