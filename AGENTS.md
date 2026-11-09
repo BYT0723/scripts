@@ -283,7 +283,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `handle_lan_scan()` | scrcpy.sh (`lan-scan` 注册表行 → 二级子菜单裸 `addr` (只列 pairing 广播, connect 对未配对设备鉴权必失败) → 配对码 → 同 IP 直连/已连直起/回退手动) |
 | `main()` | 主流程 (顶层, `SCRCPY_NO_DISPATCH=1` 时跳过以便测试 source; `while` 循环持续交互, `_connect` 成功置 `_quit` 退出, ESC 退出) / tests/scrcpy-lan-scan_test.sh |
 | `_build_menu()` | main() 每轮调用 (组菜单 + 派发 handler, 状态实时重建) |
-| `_swipe()` | _watch_scrcpy_keys (单指滑动注入: `adb shell input swipe`, 横向居中、纵向 25%~75%, 200ms; `wm size` 取 Override 优先, 每次按键现取以适配旋转/分辨率; 无快捷键的 scrcpy 官方明确拒绝手势类 shortcut, 详见下) |
+| `_display_rotation()` | _swipe (只信 displayId 0 的 `mOverrideDisplayInfo` 行: `, app W x H,` 判宽高 → `rotation N` → 老格式兜底, 拿不到回 0; mBase/displayShape 是静态值不可信) |
+| `_swipe()` | _watch_scrcpy_keys (单指滑动注入: `adb shell input swipe`, 横向居中、纵向 25%~75%, 200ms; `wm size` 取 Override 优先, 每次按键现取以适配分辨率; `wm size` 是自然方向尺寸不随旋转变化, 经 `_display_rotation` 判 1/3 横屏时交换 w/h (否则横屏发 y 越界坐标被系统忽略); 无快捷键的 scrcpy 官方明确拒绝手势类 shortcut, 详见下) |
 | `_watch_scrcpy_keys()` | _connect (后台 per-device 监听: 轮询 `xdotool search --all --onlyvisible --pid <scrcpy pid> --class scrcpy` 定位窗口 → `xev -id <wid>` 只收该窗口的 KeyPress/KeyRelease → 按顶部 `SCRCPY_KEYMAP` (默认 Up=下滑/Down=上滑) 匹配 xev 的 keysym 名 → `_swipe`; 窗口未聚焦时收不到事件, 故无需全局热键/手机端 App; 带 Ctrl/Alt/Super 的组合跳过 (state 掩码 `~0x13`, 让 Alt+方向 留给 scrcpy 音量); coproc `exec xev` + `read -t 2` 轮询 scrcpy pid 兜底退出; latch 抑制自动重复; pid 文件由监听自身写, 退出时仅当仍指向自己才删; `_disconnect` 按 `/tmp/scrcpy_keys_<serial>` 杀掉监听) |
 
 > 短视频上下切换: 起 scrcpy 后按 **Down = 下一个 / Up = 上一个** (键位在脚本顶部 `SCRCPY_KEYMAP` 映射表改, 如 `[Down]=up`)。实现要点:
@@ -719,6 +720,7 @@ calendar-lunar|󰃚|Lunar Calendar|
 - **同 appid 反复 `failed (Failure)` 真因是 acf 幽灵记录 (与账号无关)**: `sw_download` 把 content 搬到扁平目录后 `appworkshop_<appid>.acf` 残留 Installed/manifest 记录, 下次同 appid 下载 steamcmd 按 acf 校验已不存在的 content 文件 (content_log 实证 `CFileReader ... errno: 2 ... Missing game files` → 整单 Failure)。证据: 中毒根下 0723wang/anonymous 同错、干净根 3 次成功、同盘新根成功 (排除文件系统)。修复: 成功搬离后删该 acf (下次全量重下; 失败保留以便续传; `sw_check_updates` 不读 acf 无影响; appid 入口已校验纯数字+路径钉死隔离根)。回归: 预置 stale acf → 成功后消失/失败保留 (旧代码 FAIL)
 - **aurelia fallback 噪声曾误删刚下载的扁平目录**: `sw_run_updates` 用 `out=$(sw_download ... 2>&1)` 合并 stderr 再与源路径比对 (`[[ $out != $path ]] && rm -rf`), aurelia 失败打到 stderr 的日志会污染 `out` 使比对恒不等 → 删掉刚落盘的扁平目录。修复: `sw_download` 内 aurelia 失败输出暂存 `aur_err`, 仅 steamcmd 也失败时才一并打出, 成功路径 stderr 保持干净。**不变量**: `sw_download` 成功时 stdout 必须恰为扁平路径、stderr 必须为空。回归测试 `tests/steam-workshop_test.sh` "run: deep source pruned after move" (旧代码 FAIL)
 - **录屏麦克风只有左声道已修复 (aux0 未上混)**: 本机 PCM2902 单声道 USB 声卡 (`s16le 1ch`) 的 PipeWire channel map 是 `aux0` 而非标准 `MONO`; `module-loopback` 把 `aux0` 混入立体声 `screencast_sink` 时只映射到 front-left, 右声道静音 (桌面 loopback 源是 `FL,FR` 故正常)。实测 `AUX0→stereo` 右声道 -91 dB, `MONO→stereo` 左右均 -21 dB; `remix=true` / `channels=2` 均无效。修复: `setup_virtual_devices` 检测默认源为 1ch 时给麦克风 loopback 追加 `channels=1 channel_map=mono`, 由 PipeWire 按 mono 上混到左右 (每声道约 -6 dB, 总能量守恒; 立体声源不降混)。测试缝 `SCREENCAST_NO_DISPATCH=1`, 回归测试 `tests/screencast-mic-mono_test.sh`
+- **scrcpy 横屏时上下划失效已修复 (wm size 不跟旋转)**: `_swipe` 每次按键都重查 `wm size`, 触发点本身是动态的; 病根是 `wm size` 返回自然方向尺寸 (真机验证: 横屏时仍 `1200x2670`), 而 `input swipe` 坐标系随旋转变化, 不交换 w/h 会发 y 越界坐标被系统静默忽略。修复: 新增 `_display_rotation()`, 只信 `displayId 0` 的 `mOverrideDisplayInfo` 行 (`, app W x H,` 判宽高 → `rotation N` 空格形式 → 老格式 `mCurrentRotation=` 兜底); 曾误命中 `displayShape{... rotation=0 ...}` 等静态段致横屏恒判 0 (第一版在真机上复现)。回归测试 `tests/scrcpy-swipe_test.sh` R12-R15 锁真机格式 (第一版 R12/R13 FAIL)
 
 ---
 

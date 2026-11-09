@@ -138,13 +138,53 @@ _is_device_connected() {
     return 1
 }
 
+_display_rotation() { # $1=serial → 0..3 当前旋转 (1/3 为横屏), 拿不到回 0
+    local serial="$1" dump override rot w h
+    dump=$(adb -s "$serial" shell dumpsys display </dev/null 2>/dev/null | tr -d '\r')
+    [ -n "$dump" ] || {
+        printf '0'
+        return
+    }
+    # 首选 displayId 0 的 mOverrideDisplayInfo 行 (当前生效值; mBase/displayShape 是静态值不可信,
+    # 曾误命中 displayShape{... rotation=0 ...} 导致横屏判 0)
+    override=$(printf '%s\n' "$dump" | grep -E 'mOverrideDisplayInfo=.*displayId 0([^0-9]|$)' | head -n1)
+    if [ -n "$override" ]; then
+        # `, app 2670 x 1200,` 即当前方向尺寸, 宽>高即横屏 (1/3 不区分, _swipe 只关心换不换)
+        if [[ "$override" =~ ,\ app\ ([0-9]+)\ x\ ([0-9]+), ]]; then
+            w=${BASH_REMATCH[1]}
+            h=${BASH_REMATCH[2]}
+            if [ "$w" -gt "$h" ]; then
+                printf '1'
+            else
+                printf '0'
+            fi
+            return
+        fi
+        rot=$(printf '%s\n' "$override" | grep -Eo 'rotation [0-3]' | head -n1 | grep -Eo '[0-3]')
+        if [[ "$rot" =~ ^[0-3]$ ]]; then
+            printf '%s' "$rot"
+            return
+        fi
+    fi
+    # 回退老格式 (部分 ROM 的 mCurrentRotation= 行)
+    rot=$(printf '%s\n' "$dump" | grep -Eo '(mCurrentRotation|rotation)=[0-3]' | head -n1 | grep -Eo '[0-3]')
+    [[ "$rot" =~ ^[0-3]$ ]] && printf '%s' "$rot" || printf '0'
+}
+
 _swipe() { # $1=serial $2=up|down: 单指滑动 (短视频上下切换用), 滑动区间 25%~75%
-    local serial="$1" dir="$2" size w h x y1 y2
+    local serial="$1" dir="$2" size w h x y1 y2 rot tmp
     size=$(adb -s "$serial" shell wm size </dev/null 2>/dev/null | tr -d '\r' |
         awk -F': ' '/Override size/ {o=$2} /Physical size/ {p=$2} END {print (o ? o : p)}')
     [[ "$size" =~ ^([0-9]+)x([0-9]+)$ ]] || return 1
     w=${BASH_REMATCH[1]}
     h=${BASH_REMATCH[2]}
+    # wm size 是自然方向尺寸, 不随旋转变化; input 坐标系随旋转变化, 横屏时交换 w/h
+    rot=$(_display_rotation "$serial")
+    if [[ "$rot" == 1 || "$rot" == 3 ]]; then
+        tmp=$w
+        w=$h
+        h=$tmp
+    fi
     x=$((w / 2))
     case "$dir" in
         up) y1=$((h * 3 / 4)); y2=$((h / 4)) ;;
