@@ -14,6 +14,8 @@
 #   I. 单 file + OK → yazi 选中 set 路径, 起始于壁纸目录
 #   J. file + 取消 → 恢复原值, 起始于当前值所在目录
 #   K. 多属性列表中 color 显示为 hex; set 时 hex 转回三元组
+#   T10. --labels 第四列优先于 project.json:text
+#   T11. 中文 label 重名时附 name, 选中不误改
 # 运行: bash tests/wallpaper-property_test.sh
 
 DWM="$HOME/.dwm"
@@ -306,11 +308,33 @@ export YAD_OUT='120
 ' YAD_RC=0
 T3_LINE=$(printf '%-36s %10s' "角色缩放 / Role Scale" "100")
 MODULE_WIDTH=500
-MONITOR="DP-1" MOCK_PICK="$T3_LINE" handle_property
+MONITOR="DP-1" MOCK_PICK="$T3_LINE" handle_property 2>"$TEST_DIR/t3.err"
+check "T3: 三列回退无 integer expected" '! grep -q "integer expected" "$TEST_DIR/t3.err"'
 check "T3: 列表显示 text 全串" 'grep -Fq "角色缩放 / Role Scale" "$TEST_DIR/rofi_in.txt"'
 check "T3: 列表不显示英文 name" '! grep -q "roleScale" "$TEST_DIR/rofi_in.txt"'
 check "T3: set 仍用英文 name" 'grep -q "set-property roleScale=120" "$XW_MOCK_LOG"'
 check "T8: 不污染全局 MODULE_WIDTH" '[ "$MODULE_WIDTH" = 500 ]'
+
+# ---- T10: --labels 第四列优先于 project.json:text ----
+reset_state
+printf 'volume\tbool\tfalse\t音量\nroleScale\tbool\tfalse\t角色缩放\n' >"$XW_MOCK_STATE/props"; export XW_PROPS_RC=0
+printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
+T10_LINE=$(printf '%-36s %10s' "角色缩放" "false")
+MONITOR="DP-1" MOCK_PICK="$T10_LINE" handle_property
+check "T10: 优先调用 --labels" 'grep -q -- "--list-properties --labels" "$XW_MOCK_LOG"'
+check "T10: 菜单显示第四列 label" 'grep -Fq "角色缩放" "$TEST_DIR/rofi_in.txt"'
+check "T10: 不显示英文 name" '! grep -q "roleScale" "$TEST_DIR/rofi_in.txt"'
+check "T10: set 仍用英文 name" 'grep -q "set-property roleScale=true" "$XW_MOCK_LOG"'
+
+# ---- T11: 中文标签重名时附 name 区分, 不误改另一项 ----
+reset_state
+printf 'a\tbool\tfalse\t亮度\nb\tbool\tfalse\t亮度\n' >"$XW_MOCK_STATE/props"; export XW_PROPS_RC=0
+printf 'DP-1\tweb\t%s\t0\n' "$XW_MOCK_STATE/wall" >"$XW_MOCK_STATE/state"
+T11_LINE=$(printf '%-36s %10s' "亮度 (b)" "false")
+MONITOR="DP-1" MOCK_PICK="$T11_LINE" handle_property
+check "T11: 重名标签附 name" 'grep -Fq "亮度 (a)" "$TEST_DIR/rofi_in.txt" && grep -Fq "亮度 (b)" "$TEST_DIR/rofi_in.txt"'
+check "T11: 选中 b 设置 b=true" 'grep -q "set-property b=true" "$XW_MOCK_LOG"'
+check "T11: 不误改 a" '! grep -q "set-property a=" "$XW_MOCK_LOG"'
 
 # ---- T3b: 浮点 slider 使用 project.json 的 step ----
 reset_state

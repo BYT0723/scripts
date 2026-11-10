@@ -318,7 +318,16 @@ handle_fps() {
 # 选中即单次 set / 取消恢复原值;
 # bool 一键翻转直接 set, 无需对话框;
 # combo 经 project.json options 用 rofi 选 label → set value (无 options 则自由输入)。
-prop_tunables() { xwallpaper --list-properties -m "$1" 2>/dev/null | awk -F'\t' '$2 ~ /^(slider|color|file|bool|combo)$/'; }
+prop_tunables() { # 优先 --labels 四列 (name/type/value/label), 旧 CLI 回退三列并补空 label
+    local out
+    out=$(xwallpaper --list-properties --labels -m "$1" 2>/dev/null) ||
+        out=$(xwallpaper --list-properties -m "$1" 2>/dev/null)
+    printf '%s\n' "$out" | awk -F'\t' 'BEGIN{OFS="\t"}
+        $2 ~ /^(slider|color|file|bool|combo)$/ {
+            if (NF < 4) $4 = ""
+            print
+        }'
+}
 prop_combo_options() { # <dir> <name> → "value\tlabel" 行; 无 options/空数组返回 1
     # options 三种变体: [{label,value}] (value 可为数字) / 纯字符串数组 (value=序号索引) / 缺失
     local dir="$1" name="$2" opts
@@ -353,7 +362,7 @@ prop_reset() { # 确认后 xwallpaper --clear-properties, 清用户覆盖回 pro
         return 1
     fi
 }
-prop_label() { # <dir> <name> → 显示标签 (project.json text 原样显示, 缺失回退 name)
+prop_label() { # <dir> <name> → 旧三列/无 label 时的回退 (project.json text 原样, 缺失回退 name)
     local dir="$1" name="$2" text=""
     if [ -n "$dir" ] && [ -f "$dir/project.json" ]; then
         text=$(jq -r --arg n "$name" '.general.properties[$n].text // empty' "$dir/project.json" 2>/dev/null)
@@ -443,15 +452,25 @@ handle_property() {
     local MODULE_WIDTH=600
     local RESET_LINE="󰜉 Reset to defaults"
     while true; do
-        # 显示 project.json text 全串 (prop_label, 无 text 回退 name), 寻址仍用英文 name:
-        # display line → name 关联映射 (label 含空格, 不能再按列切), 另保留
-        # raw-name 精确命中作兼容回退; color 值显示为 hex (纯表现层, 转换失败回退原值)。
+        # 显示 xwallpaper --labels 的第四列 (旧三列回退 prop_label), 寻址仍用英文 name:
+        # display line → name 关联映射 (label 含空格, 不能再按列切), 重名 label 附 name;
+        # color 值显示为 hex (纯表现层, 转换失败回退原值)。
         local -A _line_to_name=()
-        local menu="" chosen line label pn pt pv
-        while IFS=$'\t' read -r pn pt pv; do
+        local -A _label_count=()
+        local menu="" chosen line label pn pt pv pl _n _t _v _l
+        # 第四列是 xwallpaper --labels 的本地化标签; 旧三列时用 name 参与去重。
+        while IFS=$'\t' read -r _n _t _v _l; do
+            [ -n "$_n" ] || continue
+            _label_count["${_l:-$_n}"]=$((${_label_count["${_l:-$_n}"]:-0} + 1))
+        done <<<"$tunables"
+        while IFS=$'\t' read -r pn pt pv pl; do
             [ -n "$pn" ] || continue
             [ "$pt" = color ] && pv=$(prop_color_hex "$pv" 2>/dev/null || printf '%s' "$pv")
-            label=$(prop_label "$dir" "$pn")
+            label="$pl"
+            [ -n "$label" ] || label=$(prop_label "$dir" "$pn")
+            [ -n "$label" ] || label="$pn"
+            # 中文标签会重名 (亮度/颜色/大小...); 只在重名时附英文 name 保证映射唯一
+            [ "${_label_count[$label]:-0}" -gt 1 ] && label="$label ($pn)"
             line=$(printf '%-36s %10s' "$label" "$pv")
             _line_to_name["$line"]="$pn"
             menu+="$line"$'\n'
@@ -482,8 +501,9 @@ _apply_property() { # <name>: 按 type 调起对应编辑器 ($tunables 取自�
     cur=$(printf '%s\n' "$tunables" | awk -F'\t' -v n="$name" '$1==n {print $3; exit}')
     original="$cur"
     dir=$(prop_wall_dir)
-    # 展示用 text 全串 (prop_label), --set-property 仍用英文 $name
-    label=$(prop_label "$dir" "$name")
+    # 对话框标题优先用 --labels 第四列 (旧三列回退 prop_label), set 仍用英文 $name
+    label=$(printf '%s\n' "$tunables" | awk -F'\t' -v n="$name" '$1==n {print $4; exit}')
+    [ -n "$label" ] || label=$(prop_label "$dir" "$name")
     if [ "$type" = "bool" ]; then
         # 开关一键翻转, 无需对话框
         case "${cur,,}" in true | 1 | on) new="false" ;; *) new="true" ;; esac
