@@ -204,15 +204,16 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | 函数 | 调用者 |
 | ---- | ------ |
 | `_screensaver_start()` | daemon (启动 + 每轮 xss-lock 存活检查) — 清理残留 `xautolock`; 缺 `xss-lock` 且无存活实例 → 告警一次并返回 1; 否则 `xset s (600-预告) 预告` (预告=0 或越界退化为 `xset s 600 0`) + `xset s noblank` + `xset dpms 0 0 0` (解锁态不灭屏); 武装后 `pgrep -x i3lock \|\| xset s reset` (空闲计数归零: 否则 xss-lock 在长空闲中重生会立刻锁屏; 锁屏中绝不能 reset, 那等于强制解除 → xss-lock 杀 locker); 末尾 `_ensure_xss_lock` |
-| `_ensure_xss_lock()` | _screensaver_start — 配置指纹 (`/tmp/dwm-status/screen-arm.fp`, 可被 `SCREEN_ARM_FILE` 覆盖) 与存活实例对账: 一致且存活 → 零操作; 变化/缺失 → 写指纹并拉起 `xss-lock -n "/bin/bash <self> notifier" -- lock.sh lock`; **锁屏中 (i3lock 存活) 只写 xset 不重启**, 下一轮再对齐; 重启前 `pkill` + 轮询 ≤2s 等旧实例退出 (否则新实例 `SetAttributes` 失败直接退出) |
-| `_arm_spec()` | _ensure_xss_lock — 拼接指纹 `<预告>|<锁屏>|<gamma>|<self>|<locker>` |
+| `_ensure_xss_lock()` | _screensaver_start + **daemon 每轮** — 配置指纹 (`/tmp/dwm-status/screen-arm.fp`, 可被 `SCREEN_ARM_FILE` 覆盖) 与存活实例对账: 一致且存活 → 零操作; 变化/缺失 → 写指纹并拉起 `xss-lock -n "/bin/bash <self> notifier" -- lock.sh lock`; 重启前 `pkill` + 轮询 ≤2s 等旧实例退出 (否则新实例 `SetAttributes` 失败直接退出) |
+| `_effective_warn()` | _screensaver_start, _ensure_xss_lock — 实际生效的预告秒数: `warn_seconds` 在 `(0, screen_saver_time)` 内才返回, 否则 0 (关闭预告) |
+| `_rearm_deferred()` | _ensure_xss_lock — 不能重启 xss-lock 的两个状态: **锁屏中** (重启会让 xss-lock `exit_service` SIGTERM 掉 i3lock → 直接解锁) / **压暗中** (会杀掉 notifier, 本轮提示丢失); 推迟到状态结束后由 daemon 每轮补 |
 | `_active_outputs()` | _set_screen_gamma, _notifier — 解析 `xrandr --query` 的 ` connected ` 行, 取带几何 (`WxH+X+Y`, 位置不固定故逐字段扫) 的输出名; connected 但未启用 (如未接线的 eDP) 与 disconnected 跳过 |
 | `_set_screen_gamma()` | _notifier, _dim_stop — 对每个活动输出 `xrandr --output X --brightness <level>` (gamma 倍率, 不动硬件亮度) |
 | `_dim_stop()` | _notifier 的 HUP/INT/TERM/EXIT trap — 幂等 (`_dim_done` 守卫): kill 驻留 `sleep`, 全部输出还原 `--brightness 1.0` |
 | `_notifier()` | `screen.sh notifier` 子命令 (xss-lock -n 拉起, 独立进程) — 无 xrandr/无活动输出 → 直接返回 0 (绝不影响锁屏); 否则压暗 `dim_gamma`(0.4), `sleep 2147483647 & wait` 驻留 (前台 sleep 会把 trap 推迟到睡醒) |
 | `_has_active_audio()` | _inhibit_poke — parec 采 sink.monitor 150ms → ffmpeg volumedetect, max_volume > -78 dB 视为有声 |
 | `_inhibit_poke()` | daemon 每 `duration`(20s) — 已锁屏则跳过; 有声时 `xset s reset` 把空闲计数压回 0 (抑制不拆计时器, 解除后从 0 重新计时), 状态翻转时按 `SCREEN_DEBUG_NOTIFY` 通知 |
-| `daemon()` | 主流程 (顶层分发 `daemon`; `SCREEN_NO_DAEMON=1` 时跳过以便测试 source) / tests/screen-lock_test.sh — 每轮 `pgrep -x xss-lock \|\| _screensaver_start`; md5 变化时 `/bin/bash "$SELF" &` 自杀重启 |
+| `daemon()` | 主流程 (顶层分发 `daemon`; `SCREEN_NO_DAEMON=1` 时跳过以便测试 source) / tests/screen-lock_test.sh — 每轮: xss-lock 存活 → `_ensure_xss_lock` 对账 (补齐被推迟的重新武装), 缺失 → `_screensaver_start`; md5 变化时 `/bin/bash "$SELF" &` 自杀重启 |
 
 > 顶层分发: `[ "${BASH_SOURCE[0]}" = "$0" ]` 时按 `$1` 走 `notifier` / `daemon` (默认)，被 source (测试) 时只加载函数。
 > `xset s` 只是重设 timer (xserver `ProcSetScreenSaver` → `SetScreenSaverTimer`)，空闲判定仍基于 `LastEventTime`，故重复武装不会延长/缩短空闲时间 —— 这是“每次启动都对账”的前提。
@@ -740,7 +741,7 @@ calendar-lunar|󰃚|Lunar Calendar|
 - **scrcpy 横屏时上下划失效已修复 (wm size 不跟旋转)**: `_swipe` 每次按键都重查 `wm size`, 触发点本身是动态的; 病根是 `wm size` 返回自然方向尺寸 (真机验证: 横屏时仍 `1200x2670`), 而 `input swipe` 坐标系随旋转变化, 不交换 w/h 会发 y 越界坐标被系统静默忽略。修复: 新增 `_display_rotation()`, 只信 `displayId 0` 的 `mOverrideDisplayInfo` 行 (`, app W x H,` 判宽高 → `rotation N` 空格形式 → 老格式 `mCurrentRotation=` 兜底); 曾误命中 `displayShape{... rotation=0 ...}` 等静态段致横屏恒判 0 (第一版在真机上复现)。回归测试 `tests/scrcpy-swipe_test.sh` R12-R15 锁真机格式 (第一版 R12/R13 FAIL)
 
 - **锁屏前压暗预告 (`xset s 570 30` + `xss-lock -n`)**: 旧行为是 10 分钟直接上锁, 读文档 (无输入/无音频) 时体感突兀。现 `xset s` 的 timeout = 锁屏时刻 − 预告, cycle = 预告: Xorg `dixSaveScreens()` 在第二次 `SCREEN_SAVER_ON` (即 `what == screenIsSaved`) 时改发 `SCREEN_SAVER_CYCLE`, 而 xss-lock 在 `On` 且 `cycle > 0` 时只启动 notifier、收到 `Cycle` 才启动 locker → **570s 压暗、600s 上锁, 锁屏时刻不变**。压暗走 `xrandr --brightness` (gamma 瞬时生效, 无硬件往返); 不能用 `brightnessctl`/`ddcutil` (DDC 单次 ~200ms, restore 被 SIGTERM 打断就会停在暗屏, 且与 `theme.sh` 的亮度插值抢同一硬件)。恢复固定 1.0, 另由 `lock.sh _lock_before` 兜底一次。notifier 由 xss-lock 直接 execv (不经 shell), 故必须写成 `/bin/bash <screen.sh> notifier`; 脚本内必须 `sleep … & wait` 驻留 (`前台 sleep` 会把 trap 推迟到睡醒)。回归测试 `tests/screen-dim_test.sh` + `tests/screen-lock_test.sh` A 组
-- **改超时/参数后不生效已修复 (重新武装对账)**: 旧 `_screensaver_start` 只在 `xss-lock` 未运行时写 `xset s`, 于是改 `screen_saver_time` 后重启 daemon 也不会重新武装, notifier 参数同样锁死在旧进程里。现每次启动都写 `xset s` (幂等: X 只重设 timer, 空闲判定仍按 `LastEventTime` —— xserver `ProcSetScreenSaver` → `SetScreenSaverTimer`, 所以重复武装不会延长空闲时间), 并把 `<预告>|<锁屏>|<gamma>|<self>|<locker>` 指纹写 `/tmp/dwm-status/screen-arm.fp`; 仅指纹变化或进程缺失时重启 xss-lock, **锁屏中只写 xset、不重启** (下一轮再对齐), 重启前 `pkill` + 轮询 ≤2s 等旧实例退出 (新旧并存会让新实例 `SetAttributes` 失败直接退出)。测试用 `SCREEN_ARM_FILE` 隔离真实指纹。回归测试 `tests/screen-lock_test.sh` R/W 组
+- **改超时/参数后不生效已修复 (重新武装对账)**: 旧 `_screensaver_start` 只在 `xss-lock` 未运行时写 `xset s`, 于是改 `screen_saver_time` 后重启 daemon 也不会重新武装, notifier 参数同样锁死在旧进程里。现每次启动都写 `xset s` (幂等: X 只重设 timer, 空闲判定仍按 `LastEventTime` —— xserver `ProcSetScreenSaver` → `SetScreenSaverTimer`, 所以重复武装不会延长空闲时间), 并把 `<预告>|<锁屏>|<gamma>|<self>|<locker>` 指纹写 `/tmp/dwm-status/screen-arm.fp`; 仅指纹变化或进程缺失时重启 xss-lock, **锁屏中只写 xset、不重启** (下一轮再对齐), 重启前 `pkill` + 轮询 ≤2s 等旧实例退出 (新旧并存会让新实例 `SetAttributes` 失败直接退出)。测试用 `SCREEN_ARM_FILE` 隔离真实指纹。**推迟必须有重试**: 锁屏/压暗中不重启 xss-lock 的决策若只做一次, 解锁后会永久停在旧实例 (旧实例无 `-n`, 配合 `xset s 570 30` 会在 570s 直接上锁且不压暗) —— 真实踩到过一次; 现 daemon 每轮调 `_ensure_xss_lock` 对账, 由 `_rearm_deferred()` 判定 i3lock/notifier 两个状态。回归测试 `tests/screen-lock_test.sh` R/W 组
 
 ---
 

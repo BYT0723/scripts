@@ -17,7 +17,8 @@ mkdir -p "$BIN"
 LOG="$TEST_DIR/log"
 XSS_ALIVE="$TEST_DIR/xss.alive"
 LOCK_ALIVE="$TEST_DIR/lock.alive"
-export LOG XSS_ALIVE LOCK_ALIVE
+DIM_ALIVE="$TEST_DIR/dim.alive"
+export LOG XSS_ALIVE LOCK_ALIVE DIM_ALIVE
 export PATH="$BIN:$PATH"
 
 cat >"$BIN/_mock" <<'EOF'
@@ -29,6 +30,7 @@ case "$app" in
         case "$*" in
             *xss-lock*) [ -f "$XSS_ALIVE" ] && exit 0 || exit 1 ;;
             *i3lock*) [ -f "$LOCK_ALIVE" ] && exit 0 || exit 1 ;;
+            *notifier*) [ -f "$DIM_ALIVE" ] && exit 0 || exit 1 ;;
         esac
         exit 1
         ;;
@@ -80,7 +82,7 @@ check() { # $1=用例名 $2=断言表达式 (eval 后 0 为通过)
     fi
 }
 
-reset_log() { : >"$LOG"; rm -f "$XSS_ALIVE" "$LOCK_ALIVE" "$SCREEN_ARM_FILE"; }
+reset_log() { : >"$LOG"; rm -f "$XSS_ALIVE" "$LOCK_ALIVE" "$DIM_ALIVE" "$SCREEN_ARM_FILE"; }
 count() { grep -c "$1" "$LOG" 2>/dev/null || true; }
 
 export SCREEN_NO_DAEMON=1
@@ -237,6 +239,51 @@ rm -f "$XSS_ALIVE"
 _screensaver_start
 wait
 check "R5: 进程缺失时重新拉起" '[ "$(count "^xss-lock -n ")" -eq 1 ]'
+
+# ---- R6-R9. 推迟的重新武装必须在状态结束后补齐 (锁屏中重启 xss-lock = 直接解锁) ----
+reset_log
+rm -f "$SCREEN_ARM_FILE"
+: >"$XSS_ALIVE"
+: >"$LOCK_ALIVE"
+screen_saver_time=900
+_screensaver_start
+wait
+check "R6: 锁屏中只写 xset 不重启" 'grep -qE "^xset s 870 30$" "$LOG" && [ "$(count "^pkill -x xss-lock$")" -eq 0 ]'
+
+rm -f "$LOCK_ALIVE"
+_ensure_xss_lock
+wait
+check "R7: 解锁后补重启并写指纹" '[ "$(count "^pkill -x xss-lock$")" -eq 1 ] && [ -s "$SCREEN_ARM_FILE" ]'
+screen_saver_time=600
+
+rm -f "$SCREEN_ARM_FILE"
+: >"$DIM_ALIVE"
+screen_saver_time=900
+: >"$LOG"
+_ensure_xss_lock
+wait
+check "R8: 压暗中不重启 (会杀掉 notifier)" '[ "$(count "^pkill -x xss-lock$")" -eq 0 ]'
+rm -f "$DIM_ALIVE"
+screen_saver_time=600
+
+reset_log
+rm -f "$SCREEN_ARM_FILE"
+: >"$XSS_ALIVE"
+: >"$LOCK_ALIVE"
+screen_saver_time=900
+(
+    n=0
+    sleep() { # 每轮结束锁屏; 第二轮结束 daemon
+        rm -f "$LOCK_ALIVE"
+        n=$((n + 1))
+        [ "$n" -ge 2 ] && exit 0
+    }
+    daemon
+)
+wait
+check "R9: daemon 在解锁后自动补齐 (实际 $(count "^pkill -x xss-lock$"))" '[ "$(count "^pkill -x xss-lock$")" -ge 1 ]'
+screen_saver_time=600
+rm -f "$LOCK_ALIVE"
 
 # ---- G. 静态守卫 ----
 check "G1: lock.sh 不再有 _screen_lock_loop" '! grep -q "_screen_lock_loop" "$TOOLS_DIR/lock.sh"'

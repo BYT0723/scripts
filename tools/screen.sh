@@ -69,19 +69,35 @@ _notifier() {
     wait
 }
 
-# 重新武装的配置指纹: 任何一项变了都要重启 xss-lock (它启动后不再重读这些值)
-_arm_spec() {
-    printf '%s' "$1|$screen_saver_time|$dim_gamma|$SELF|$LOCKER"
+# 实际生效的预告秒数 (0 = 无预告); 越界/非正数一律按关闭处理
+_effective_warn() {
+    if ((warn_seconds > 0 && warn_seconds < screen_saver_time)); then
+        printf '%s' "$warn_seconds"
+    else
+        printf '0'
+    fi
 }
 
-# 保证 xss-lock 在跑且参数与当前配置一致。锁屏中不重启 (会打断事件流), 下一轮再对齐。
+# 处于"不能重启 xss-lock"的状态: 锁屏中重启会让它的 exit_service SIGTERM 掉 i3lock
+# (等于直接解锁); 压暗中重启会杀掉 notifier (亮度会还原, 但本轮提示丢失)。
+# 推迟到这两个状态结束后, 由 daemon 每轮的 _ensure_xss_lock 补齐。
+_rearm_deferred() {
+    pgrep -x i3lock >/dev/null && return 0
+    pgrep -f 'screen\.sh notifier' >/dev/null && return 0
+    return 1
+}
+
+# 保证 xss-lock 在跑且参数与当前配置一致 (daemon 启动与每轮都会调)。
+# 指纹任何一项变了都要重启 (xss-lock 启动后不再重读这些值)。
 _ensure_xss_lock() {
-    local want=$1 fps=""
+    local warn want fps=""
+    warn=$(_effective_warn)
+    printf -v want '%s|%s|%s|%s|%s' "$warn" "$screen_saver_time" "$dim_gamma" "$SELF" "$LOCKER"
     [ -f "$arm_file" ] && IFS= read -r fps <"$arm_file"
 
     if pgrep -x xss-lock >/dev/null; then
         [ "$fps" = "$want" ] && return 0
-        pgrep -x i3lock >/dev/null && return 0
+        _rearm_deferred && return 0
         # 必须等旧实例真正退出: 新实例会因 screensaver 已被占用 (SetAttributes) 直接报错退出
         pkill -x xss-lock 2>/dev/null
         for _ in {1..20}; do
@@ -112,11 +128,11 @@ _screensaver_start() {
     # 预告时段: timeout = 锁屏时刻 - 预告, cycle = 预告 (Xorg 第二次 ON 转 CYCLE → 上锁)。
     # xset s 只是重设 timer, 空闲判定仍基于 LastEventTime (xserver ProcSetScreenSaver),
     # 故重复武装不会延长/缩短空闲计时。注意 xset s 一次只接受 [timeout [cycle]] 或关键字。
-    local warn=$warn_seconds
-    if ((warn > 0 && warn < screen_saver_time)); then
+    local warn
+    warn=$(_effective_warn)
+    if [ "$warn" -gt 0 ]; then
         xset s $((screen_saver_time - warn)) "$warn"
     else
-        warn=0
         xset s "$screen_saver_time" 0
     fi
     xset s noblank
@@ -126,7 +142,7 @@ _screensaver_start() {
     # 立刻锁屏。锁屏中绝不能 reset: xss-lock 会把 reset 当成强制解除并杀掉 locker。
     pgrep -x i3lock >/dev/null || xset s reset
 
-    _ensure_xss_lock "$(_arm_spec "$warn")"
+    _ensure_xss_lock
 
     [[ $SCREEN_DEBUG_NOTIFY -eq 1 ]] && system-notify low "Screensaver" "on (xss-lock)" || true
 }
@@ -177,8 +193,13 @@ _inhibit_poke() {
 daemon() {
     _screensaver_start
     while true; do
-        # xss-lock 若异常退出, 空闲事件就再也没人接 (静默失去锁屏保护), 每轮补一次
-        pgrep -x xss-lock >/dev/null || _screensaver_start
+        # xss-lock 若异常退出, 空闲事件就再也没人接 (静默失去锁屏保护), 每轮补一次;
+        # 锁屏/压暗中被推迟的重新武装也在状态结束后由这里补齐。
+        if pgrep -x xss-lock >/dev/null; then
+            _ensure_xss_lock
+        else
+            _screensaver_start
+        fi
         _inhibit_poke
 
         if [[ "$(md5sum "$SELF" | awk '{print $1}')" != "$current_hash" ]]; then
