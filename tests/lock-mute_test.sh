@@ -48,7 +48,7 @@ EOF
 printf '#!/bin/bash\nprintf "amixer %%s\\n" "$*" >>"$LOG"\n' >"$BIN/amixer"
 chmod +x "$BIN/pactl" "$BIN/mpc" "$BIN/amixer"
 
-for n in pkill pgrep find shuf notify-send xset; do
+for n in pkill pgrep find shuf notify-send xset xrandr; do
     printf '#!/bin/bash\nprintf "%s %%s\\n" "$*" >>"$LOG"\nexit 0\n' "$n" >"$BIN/$n"
     chmod +x "$BIN/$n"
 done

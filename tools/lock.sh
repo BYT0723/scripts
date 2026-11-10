@@ -118,6 +118,18 @@ _xw_cont_tree() {
     kill -CONT "$root" 2>/dev/null
 }
 
+# gamma 兜底: screen.sh 的压暗通知器 (notifier) 若被异常终止会停在暗屏。
+# 锁屏/解锁一律以 1.0 为准 —— 本仓库不用 gamma 做亮度 (硬件亮度走 brightnessctl/ddcutil),
+# 与 theme.sh 的亮度插值互不干扰。
+_restore_gamma() {
+    local output
+    xrandr --query 2>/dev/null |
+        awk '/ connected / { for (i = 2; i <= NF; i++) if ($i ~ /^[0-9]+x[0-9]+\+/) { print $1; break } }' |
+        while read -r output; do
+            [ -n "$output" ] && xrandr --output "$output" --brightness 1.0 2>/dev/null
+        done
+}
+
 _lock_before() {
     lock_restored=0
     # 快照必须在这里取: powermenu 是先 source 本脚本、再等用户点菜单,
@@ -145,6 +157,7 @@ _lock_before() {
     timeout 2 xwallpaper quiet on --all >/dev/null 2>&1
     pkill -STOP -f "mpv.*--player-operation-mode=cplayer" 2>/dev/null
     _xw_stop_tree
+    _restore_gamma
 }
 
 _lock_after() {

@@ -19,9 +19,9 @@ tools/theme.sh ──sources──► utils/notify.sh, utils/launch.sh, tools/mo
 tools/monitor-brightness.sh ──sources──► 无外部脚本; ──sourced by── tools/theme.sh
 utils/launch.sh ──sourced by── autostart.sh, tools/theme.sh; ──requires─► flock (/tmp/dwm-status/autostart-launch-<name>.{pid,lock})
 
-tools/lock.sh ──sources──► utils/notify.sh; ──requires──► i3lock, pactl (静音/还原全部 sink), mpc, xset
+tools/lock.sh ──sources──► utils/notify.sh; ──requires──► i3lock, pactl (静音/还原全部 sink), mpc, xset, xrandr (gamma 兜底)
               ◄──sourced by── rofi/powermenu/type-{1..6}/powermenu.sh
-tools/screen.sh ──sources──► utils/notify.sh; ──requires─► xss-lock (extra); ──spawns──► xss-lock -- lock.sh lock (单一空闲权威); ──调用──► xset s <T> 0 + xset s noblank / xset s reset (音频抑制) / xset dpms 0 0 0
+tools/screen.sh ──sources──► utils/notify.sh; ──requires─► xss-lock (extra), xrandr (gamma 预告); ──spawns──► xss-lock -n "/bin/bash <screen.sh> notifier" -- lock.sh lock (单一空闲权威); ──子命令──► `screen.sh notifier` (由 xss-lock -n 拉起: 锁屏前压暗, HUP/TERM 还原); ──调用──► xset s <锁屏-预告> <预告> + xset s noblank / xset s reset (音频抑制) / xset dpms 0 0 0
 tools/wallpaper.sh ──sources──► utils/notify.sh, tools/wallpaper-lib.sh, tools/wallpaper-render.sh
 tools/screencast.sh ──sources──► utils/monitor.sh
 tools/brightness.sh ──sources──► utils/notify.sh
@@ -190,7 +190,8 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 
 | 函数                  | 调用者                                                       |
 | --------------------- | ------------------------------------------------------------ |
-| `_lock_before()`      | lock() / suspend() → 所有 powermenu 脚本 — 现取 mpd 快照并暂停; 逐 sink `pactl set-sink-mute 1` (记录 `muted_sinks`, 跳过本已静音的); STOP mpv/xwallpaper。**不能用 amixer Master**: 它只作用于 ALSA 默认控制卡 (本机卡 3), 实际 sink 可能是 Fosi USB DAC (卡 1, 只有 PCM) / HDMI (卡 2) / `easyeffects_sink` → 锁屏后仍出声 |
+| `_lock_before()`      | lock() / suspend() → 所有 powermenu 脚本 — 现取 mpd 快照并暂停; 逐 sink `pactl set-sink-mute 1` (记录 `muted_sinks`, 跳过本已静音的); STOP mpv/xwallpaper; 末尾 `_restore_gamma`。**不能用 amixer Master**: 它只作用于 ALSA 默认控制卡 (本机卡 3), 实际 sink 可能是 Fosi USB DAC (卡 1, 只有 PCM) / HDMI (卡 2) / `easyeffects_sink` → 锁屏后仍出声 |
+| `_restore_gamma()`    | _lock_before — 所有活动输出 `xrandr --brightness 1.0` (幂等兜底): 压暗通知器被异常终止时防止停在暗屏; 本仓库不用 gamma 做亮度, 与 theme.sh 的硬件亮度插值互不干扰 |
 | `_lock()`             | lock() / suspend() → 所有 powermenu 脚本 / screen.sh(LOCKER) — 先武装 `xset dpms 30 30 30` 再起 `i3lock -n` (DPMS 只在锁屏期存在, 每次输入自动重置计时, 故唤醒后 30s 再灭; 无需轮询)。**`-n` 不可删**: i3lock 默认 fork, 父进程立刻退出会让 `lock()` 的 `wait` 立即返回 → `_lock_after` 在锁屏期间执行 (静音/DPMS 被立刻还原, 表现为锁屏后照样出声) |
 | `_lock_after()`       | lock() / suspend() → 所有 powermenu 脚本 — 只还原 `muted_sinks` 里本次静音的 sink (用户原本静音的不动), 恢复 mpd/xwallpaper, 末尾 `xset dpms 0 0 0` 收回 DPMS。**幂等** (`lock_restored` 守卫): 正常解锁与信号 trap 都会调, 重复执行会把 mpd 再 toggle 一次 |
 | `lock()`              | screen.sh 的 LOCKER (经 xss-lock 调起, 阻塞到解锁) / `lock.sh lock` CLI — `_lock_before` 后挂 `trap '_lock_after' TERM INT HUP`, 正常解锁后 `trap -` 卸掉: `loginctl unlock-session`/外部 kill 不会走 `wait` 之后的还原, 靠 trap 兜底 (否则 sink 一直静音、xwallpaperd 停在 STOP) |
@@ -202,10 +203,19 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 
 | 函数 | 调用者 |
 | ---- | ------ |
-| `_screensaver_start()` | daemon (启动 + 每轮 xss-lock 存活检查) — 清理残留 `xautolock`, 幂等拉起 `xss-lock -- lock.sh lock`, `xset s 600 0` + `xset s noblank` (cycle=0 → 激活即锁, noblank → 不先黑屏), `xset dpms 0 0 0` (解锁态不灭屏); 武装后 `pgrep -x i3lock \|\| xset s reset` (空闲计数归零: 否则 xss-lock 在长空闲中重生会立刻锁屏; 锁屏中绝不能 reset, 那等于强制解除 → xss-lock 杀 locker) |
+| `_screensaver_start()` | daemon (启动 + 每轮 xss-lock 存活检查) — 清理残留 `xautolock`; 缺 `xss-lock` 且无存活实例 → 告警一次并返回 1; 否则 `xset s (600-预告) 预告` (预告=0 或越界退化为 `xset s 600 0`) + `xset s noblank` + `xset dpms 0 0 0` (解锁态不灭屏); 武装后 `pgrep -x i3lock \|\| xset s reset` (空闲计数归零: 否则 xss-lock 在长空闲中重生会立刻锁屏; 锁屏中绝不能 reset, 那等于强制解除 → xss-lock 杀 locker); 末尾 `_ensure_xss_lock` |
+| `_ensure_xss_lock()` | _screensaver_start — 配置指纹 (`/tmp/dwm-status/screen-arm.fp`, 可被 `SCREEN_ARM_FILE` 覆盖) 与存活实例对账: 一致且存活 → 零操作; 变化/缺失 → 写指纹并拉起 `xss-lock -n "/bin/bash <self> notifier" -- lock.sh lock`; **锁屏中 (i3lock 存活) 只写 xset 不重启**, 下一轮再对齐; 重启前 `pkill` + 轮询 ≤2s 等旧实例退出 (否则新实例 `SetAttributes` 失败直接退出) |
+| `_arm_spec()` | _ensure_xss_lock — 拼接指纹 `<预告>|<锁屏>|<gamma>|<self>|<locker>` |
+| `_active_outputs()` | _set_screen_gamma, _notifier — 解析 `xrandr --query` 的 ` connected ` 行, 取带几何 (`WxH+X+Y`, 位置不固定故逐字段扫) 的输出名; connected 但未启用 (如未接线的 eDP) 与 disconnected 跳过 |
+| `_set_screen_gamma()` | _notifier, _dim_stop — 对每个活动输出 `xrandr --output X --brightness <level>` (gamma 倍率, 不动硬件亮度) |
+| `_dim_stop()` | _notifier 的 HUP/INT/TERM/EXIT trap — 幂等 (`_dim_done` 守卫): kill 驻留 `sleep`, 全部输出还原 `--brightness 1.0` |
+| `_notifier()` | `screen.sh notifier` 子命令 (xss-lock -n 拉起, 独立进程) — 无 xrandr/无活动输出 → 直接返回 0 (绝不影响锁屏); 否则压暗 `dim_gamma`(0.4), `sleep 2147483647 & wait` 驻留 (前台 sleep 会把 trap 推迟到睡醒) |
 | `_has_active_audio()` | _inhibit_poke — parec 采 sink.monitor 150ms → ffmpeg volumedetect, max_volume > -78 dB 视为有声 |
 | `_inhibit_poke()` | daemon 每 `duration`(20s) — 已锁屏则跳过; 有声时 `xset s reset` 把空闲计数压回 0 (抑制不拆计时器, 解除后从 0 重新计时), 状态翻转时按 `SCREEN_DEBUG_NOTIFY` 通知 |
-| `daemon()` | 主流程 (顶层, `SCREEN_NO_DAEMON=1` 时跳过以便测试 source) / tests/screen-lock_test.sh |
+| `daemon()` | 主流程 (顶层分发 `daemon`; `SCREEN_NO_DAEMON=1` 时跳过以便测试 source) / tests/screen-lock_test.sh — 每轮 `pgrep -x xss-lock \|\| _screensaver_start`; md5 变化时 `/bin/bash "$SELF" &` 自杀重启 |
+
+> 顶层分发: `[ "${BASH_SOURCE[0]}" = "$0" ]` 时按 `$1` 走 `notifier` / `daemon` (默认)，被 source (测试) 时只加载函数。
+> `xset s` 只是重设 timer (xserver `ProcSetScreenSaver` → `SetScreenSaverTimer`)，空闲判定仍基于 `LastEventTime`，故重复武装不会延长/缩短空闲时间 —— 这是“每次启动都对账”的前提。
 
 
 ### rofi/scripts/util.sh
@@ -506,8 +516,10 @@ rofi powermenu (用户点击)
     → _lock_after()    # 恢复音乐、只还原本次静音的 sink、恢复渲染; xset dpms 0 0 0 收回 DPMS
 
 screen.sh (空闲链路, xss-lock 为唯一权威)
-  → _screensaver_start()  # pkill 残留 xautolock; xset s 600 0; xset s noblank; xset dpms 0 0 0; xss-lock -- lock.sh lock
-  → 600s 无输入 → X 屏保激活 → xss-lock → LOCKER="lock.sh lock"
+  → _screensaver_start()  # pkill 残留 xautolock; xset s 570 30; xset s noblank; xset dpms 0 0 0; _ensure_xss_lock
+  → 570s 无输入 → X 屏保 ON → xss-lock -n 拉起 notifier → screen.sh notifier 压暗 (gamma 0.4)
+  → 600s 无输入 → X 屏保 CYCLE → xss-lock 先 SIGTERM notifier (还原 1.0) 再拉起 LOCKER="lock.sh lock"
+  → 期间任意键鼠 → 屏保 OFF → xss-lock SIGHUP notifier → 立即还原亮度, 计时归零
   → logind lock-session / 挂起前 → xss-lock 同样调起 LOCKER (锁在睡眠之前)
   → _inhibit_poke() (每 20s)  # 有声且未锁屏 → xset s reset (抑制=把空闲计数压回 0, 解除后重新计时)
 ```
@@ -726,6 +738,9 @@ calendar-lunar|󰃚|Lunar Calendar|
 - **aurelia fallback 噪声曾误删刚下载的扁平目录**: `sw_run_updates` 用 `out=$(sw_download ... 2>&1)` 合并 stderr 再与源路径比对 (`[[ $out != $path ]] && rm -rf`), aurelia 失败打到 stderr 的日志会污染 `out` 使比对恒不等 → 删掉刚落盘的扁平目录。修复: `sw_download` 内 aurelia 失败输出暂存 `aur_err`, 仅 steamcmd 也失败时才一并打出, 成功路径 stderr 保持干净。**不变量**: `sw_download` 成功时 stdout 必须恰为扁平路径、stderr 必须为空。回归测试 `tests/steam-workshop_test.sh` "run: deep source pruned after move" (旧代码 FAIL)
 - **录屏麦克风只有左声道已修复 (aux0 未上混)**: 本机 PCM2902 单声道 USB 声卡 (`s16le 1ch`) 的 PipeWire channel map 是 `aux0` 而非标准 `MONO`; `module-loopback` 把 `aux0` 混入立体声 `screencast_sink` 时只映射到 front-left, 右声道静音 (桌面 loopback 源是 `FL,FR` 故正常)。实测 `AUX0→stereo` 右声道 -91 dB, `MONO→stereo` 左右均 -21 dB; `remix=true` / `channels=2` 均无效。修复: `setup_virtual_devices` 检测默认源为 1ch 时给麦克风 loopback 追加 `channels=1 channel_map=mono`, 由 PipeWire 按 mono 上混到左右 (每声道约 -6 dB, 总能量守恒; 立体声源不降混)。测试缝 `SCREENCAST_NO_DISPATCH=1`, 回归测试 `tests/screencast-mic-mono_test.sh`
 - **scrcpy 横屏时上下划失效已修复 (wm size 不跟旋转)**: `_swipe` 每次按键都重查 `wm size`, 触发点本身是动态的; 病根是 `wm size` 返回自然方向尺寸 (真机验证: 横屏时仍 `1200x2670`), 而 `input swipe` 坐标系随旋转变化, 不交换 w/h 会发 y 越界坐标被系统静默忽略。修复: 新增 `_display_rotation()`, 只信 `displayId 0` 的 `mOverrideDisplayInfo` 行 (`, app W x H,` 判宽高 → `rotation N` 空格形式 → 老格式 `mCurrentRotation=` 兜底); 曾误命中 `displayShape{... rotation=0 ...}` 等静态段致横屏恒判 0 (第一版在真机上复现)。回归测试 `tests/scrcpy-swipe_test.sh` R12-R15 锁真机格式 (第一版 R12/R13 FAIL)
+
+- **锁屏前压暗预告 (`xset s 570 30` + `xss-lock -n`)**: 旧行为是 10 分钟直接上锁, 读文档 (无输入/无音频) 时体感突兀。现 `xset s` 的 timeout = 锁屏时刻 − 预告, cycle = 预告: Xorg `dixSaveScreens()` 在第二次 `SCREEN_SAVER_ON` (即 `what == screenIsSaved`) 时改发 `SCREEN_SAVER_CYCLE`, 而 xss-lock 在 `On` 且 `cycle > 0` 时只启动 notifier、收到 `Cycle` 才启动 locker → **570s 压暗、600s 上锁, 锁屏时刻不变**。压暗走 `xrandr --brightness` (gamma 瞬时生效, 无硬件往返); 不能用 `brightnessctl`/`ddcutil` (DDC 单次 ~200ms, restore 被 SIGTERM 打断就会停在暗屏, 且与 `theme.sh` 的亮度插值抢同一硬件)。恢复固定 1.0, 另由 `lock.sh _lock_before` 兜底一次。notifier 由 xss-lock 直接 execv (不经 shell), 故必须写成 `/bin/bash <screen.sh> notifier`; 脚本内必须 `sleep … & wait` 驻留 (`前台 sleep` 会把 trap 推迟到睡醒)。回归测试 `tests/screen-dim_test.sh` + `tests/screen-lock_test.sh` A 组
+- **改超时/参数后不生效已修复 (重新武装对账)**: 旧 `_screensaver_start` 只在 `xss-lock` 未运行时写 `xset s`, 于是改 `screen_saver_time` 后重启 daemon 也不会重新武装, notifier 参数同样锁死在旧进程里。现每次启动都写 `xset s` (幂等: X 只重设 timer, 空闲判定仍按 `LastEventTime` —— xserver `ProcSetScreenSaver` → `SetScreenSaverTimer`, 所以重复武装不会延长空闲时间), 并把 `<预告>|<锁屏>|<gamma>|<self>|<locker>` 指纹写 `/tmp/dwm-status/screen-arm.fp`; 仅指纹变化或进程缺失时重启 xss-lock, **锁屏中只写 xset、不重启** (下一轮再对齐), 重启前 `pkill` + 轮询 ≤2s 等旧实例退出 (新旧并存会让新实例 `SetAttributes` 失败直接退出)。测试用 `SCREEN_ARM_FILE` 隔离真实指纹。回归测试 `tests/screen-lock_test.sh` R/W 组
 
 ---
 

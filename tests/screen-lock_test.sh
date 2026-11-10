@@ -33,6 +33,26 @@ case "$app" in
         exit 1
         ;;
     xss-lock) : >"$XSS_ALIVE"; exit 0 ;;
+    pkill)
+        case "$*" in
+            *xss-lock*) rm -f "$XSS_ALIVE" ;;
+            *i3lock*) rm -f "$LOCK_ALIVE" ;;
+        esac
+        exit 0
+        ;;
+    xrandr)
+        # 真实机器: eDP-1 未启用(无几何), DP-1 primary / HDMI-1 启用, DP-2 断开
+        case "$*" in
+            --query)
+                printf '%s\n' \
+                    'eDP-1 connected (normal left inverted right x axis y axis)' \
+                    'DP-1 connected primary 2560x1440+1080+280 (0x1) normal' \
+                    'HDMI-1 connected 1080x1920+0+0 (0xfa) left' \
+                    'DP-2 disconnected (normal left inverted right x axis y axis)'
+                ;;
+        esac
+        exit 0
+        ;;
     pactl) echo "test-sink"; exit 0 ;;
     parec) exit 0 ;;
     ffmpeg)
@@ -43,7 +63,7 @@ case "$app" in
 esac
 EOF
 chmod +x "$BIN/_mock"
-for n in xset xss-lock xautolock pgrep pkill parec pactl ffmpeg i3lock notify-send mpc amixer find shuf xprintidle xdotool; do
+for n in xset xss-lock xautolock pgrep pkill parec pactl ffmpeg i3lock notify-send mpc amixer find shuf xprintidle xdotool xrandr; do
     ln -sf _mock "$BIN/$n"
 done
 
@@ -60,10 +80,11 @@ check() { # $1=用例名 $2=断言表达式 (eval 后 0 为通过)
     fi
 }
 
-reset_log() { : >"$LOG"; rm -f "$XSS_ALIVE" "$LOCK_ALIVE"; }
+reset_log() { : >"$LOG"; rm -f "$XSS_ALIVE" "$LOCK_ALIVE" "$SCREEN_ARM_FILE"; }
 count() { grep -c "$1" "$LOG" 2>/dev/null || true; }
 
 export SCREEN_NO_DAEMON=1
+export SCREEN_ARM_FILE="$TEST_DIR/arm.fp" # 不碰真实 daemon 的武装指纹
 # shellcheck source=../tools/screen.sh
 source "$TOOLS_DIR/screen.sh"
 
@@ -71,9 +92,9 @@ source "$TOOLS_DIR/screen.sh"
 reset_log
 _screensaver_start
 wait
-check "A1: xset s 600 0 + noblank (cycle=0 → 激活即锁, 不先黑屏)" 'grep -qE "^xset s 600 0$" "$LOG" && grep -qE "^xset s noblank$" "$LOG"'
+check "A1: xset s 570 30 + noblank (570 压暗, 600 上锁)" 'grep -qE "^xset s 570 30$" "$LOG" && grep -qE "^xset s noblank$" "$LOG"'
 check "A2: 解锁态 xset dpms 0 0 0 (灭屏只在锁屏期)" 'grep -qE "^xset dpms 0 0 0$" "$LOG"'
-check "A3: 拉起 xss-lock 且 locker 为 lock.sh lock" 'grep -qE "^xss-lock -- .*lock\.sh lock$" "$LOG"'
+check "A3: 拉起 xss-lock 且带 notifier + locker lock.sh lock" 'grep -qE "^xss-lock -n /bin/bash .*screen\.sh notifier -- .*lock\.sh lock$" "$LOG"'
 check "A4: 启动时清理旧 xautolock" 'grep -qE "^pkill -x xautolock$" "$LOG"'
 check "A5: 不再自建 xautolock 计时器" '! grep -qE "^xautolock " "$LOG"'
 check "A6: 武装时归零空闲计数 (防重生即刻锁屏)" 'grep -qE "^xset s reset$" "$LOG"'
@@ -100,7 +121,7 @@ n_reset=$(count '^xset s reset$')
 export AUDIO_ON=0
 _inhibit_poke
 check "D1: 无音频不再 reset" '[ "$(count "^xset s reset$")" -eq "$n_reset" ]'
-check "D2: 解除后不重写 xset s 600 (旧实现会瞬间触发)" '[ "$(count "^xset s 600")" -eq 1 ]'
+check "D2: 解除后不重写 xset s 570 (旧实现会瞬间触发)" '[ "$(count "^xset s 570")" -eq 1 ]'
 
 # ---- E. 已锁屏时音频不参与 ----
 reset_log
@@ -115,6 +136,8 @@ sleep() { :; } # _lock 内的 sleep 1 不阻塞测试
 # shellcheck source=../tools/lock.sh
 source "$TOOLS_DIR/lock.sh"
 _lock_before # 与 lock() 的真实顺序一致 (_lock_after 依赖 _lock_before 复位幂等状态)
+check "F5: 锁屏前 gamma 兜底恢复 1.0 (活动输出)" '[ "$(count "^xrandr --output DP-1 --brightness 1.0$")" -eq 1 ] && [ "$(count "^xrandr --output HDMI-1 --brightness 1.0$")" -eq 1 ]'
+check "F6: gamma 兜底跳过未启用/disconnected 输出" '! grep -qE "xrandr --output (eDP-1|DP-2)" "$LOG"'
 _lock
 wait
 check "F1: 锁屏前武装 DPMS" 'grep -qE "^xset dpms 30 30 30$" "$LOG"'
@@ -139,13 +162,13 @@ rc=$?
 _screensaver_start # 第二轮验证不重复告警
 PATH="$old_path"
 hash -r
-check "H1: 缺包返回非 0 且不武装 xset" '[ "$rc" -ne 0 ] && ! grep -qE "^xset s 600" "$LOG"'
+check "H1: 缺包返回非 0 且不武装 xset" '[ "$rc" -ne 0 ] && ! grep -qE "^xset s " "$LOG"'
 check "H2: 缺包告警一次" '[ "$(count "^notify-send ")" -eq 1 ]'
 check "H3: 后续轮次不重复告警" '[ "$(count "^notify-send ")" -eq 1 ]'
 ln -sf "$BIN/_mock" "$BIN/xss-lock"
 _screensaver_start
 wait
-check "H4: 装上后下一轮自动拉起" 'grep -qE "^xss-lock -- " "$LOG"'
+check "H4: 装上后下一轮自动拉起" 'grep -qE "^xss-lock -n " "$LOG"'
 
 # ---- J. 锁屏中重生 xss-lock 不得 reset (会解锁) ----
 reset_log
@@ -153,7 +176,7 @@ reset_log
 _screensaver_start
 wait
 check "J1: 锁屏中不 reset 空闲计数" '! grep -qE "^xset s reset$" "$LOG"'
-check "J2: 锁屏中仍然拉起 xss-lock" 'grep -qE "^xss-lock -- " "$LOG"'
+check "J2: 锁屏中仍然拉起 xss-lock" 'grep -qE "^xss-lock -n " "$LOG"'
 rm -f "$LOCK_ALIVE"
 
 # ---- I. daemon 每轮补齐异常退出的 xss-lock ----
@@ -170,7 +193,50 @@ export AUDIO_ON=0
     daemon
 )
 wait
-check "I1: xss-lock 退出后下一轮自动拉起 (实际 $(count '^xss-lock -- '))" '[ "$(count "^xss-lock -- ")" -ge 2 ]'
+check "I1: xss-lock 退出后下一轮自动拉起 (实际 $(count "^xss-lock -n "))" '[ "$(count "^xss-lock -n ")" -ge 2 ]'
+
+# ---- W. 预告边界: 非法/越界退化为无预告 (cycle=0) ----
+reset_log
+warn_seconds=0
+_screensaver_start
+wait
+check "W1: warn=0 退化为 xset s 600 0" 'grep -qE "^xset s 600 0$" "$LOG"'
+reset_log
+warn_seconds=1000
+_screensaver_start
+wait
+check "W2: warn>=锁屏时刻退化为 xset s 600 0" 'grep -qE "^xset s 600 0$" "$LOG"'
+warn_seconds=30
+
+# ---- R. 重新武装: 配置指纹 ----
+reset_log
+_screensaver_start
+wait
+check "R1: 首次武装写指纹并启动一次" '[ "$(count "^xss-lock -n ")" -eq 1 ] && [ -s "$SCREEN_ARM_FILE" ]'
+_screensaver_start
+wait
+check "R2: 指纹未变不重启" '[ "$(count "^xss-lock -n ")" -eq 1 ] && [ "$(count "^pkill -x xss-lock$")" -eq 0 ]'
+
+screen_saver_time=900
+: >"$LOG"
+_screensaver_start
+wait
+check "R3: 指纹变化重启并重写 xset (实际 $(count '^pkill -x xss-lock$'))" \
+    '[ "$(count "^pkill -x xss-lock$")" -eq 1 ] && [ "$(count "^xss-lock -n ")" -eq 1 ] && grep -qE "^xset s 870 30$" "$LOG"'
+
+: >"$LOCK_ALIVE"
+screen_saver_time=600
+: >"$LOG"
+_screensaver_start
+wait
+check "R4: 锁屏中只写 xset 不重启" 'grep -qE "^xset s 570 30$" "$LOG" && [ "$(count "^pkill -x xss-lock$")" -eq 0 ]'
+rm -f "$LOCK_ALIVE"
+
+: >"$LOG"
+rm -f "$XSS_ALIVE"
+_screensaver_start
+wait
+check "R5: 进程缺失时重新拉起" '[ "$(count "^xss-lock -n ")" -eq 1 ]'
 
 # ---- G. 静态守卫 ----
 check "G1: lock.sh 不再有 _screen_lock_loop" '! grep -q "_screen_lock_loop" "$TOOLS_DIR/lock.sh"'
