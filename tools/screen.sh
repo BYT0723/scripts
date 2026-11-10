@@ -12,12 +12,13 @@
 # 子命令 (仅供 xss-lock -n 使用, 不在 daemon 里跑):
 #   screen.sh notifier  → 压暗屏幕作为锁屏预告; SIGHUP(用户活动)/SIGTERM(上锁前) 还原
 
-source "$(dirname "$0")/../utils/notify.sh"
+# BASH_SOURCE[0] 而非 $0: 被 source (测试) 时 $0 是调用者, 路径会算错
+source "$(dirname "${BASH_SOURCE[0]}")/../utils/notify.sh"
 
 screen_saver_time=600 # 空闲多少秒锁屏
 warn_seconds=30       # 锁屏前多少秒压暗提示 (= xset cycle; 0 或 >= 锁屏时刻则关闭)
 dim_gamma=0.4         # 预告时的 gamma 亮度乘数 (1.0 = 不压暗)
-duration=20           # 音频抑制轮询间隔 (秒)
+duration=${SCREEN_TICK:-20} # 音频抑制轮询间隔 (秒); SCREEN_TICK 仅供测试缩短
 SCREEN_DEBUG_NOTIFY=0
 SELF="${BASH_SOURCE[0]}"
 case "$SELF" in /*) ;; *) SELF="$PWD/$SELF" ;; esac
@@ -190,7 +191,40 @@ _inhibit_poke() {
     return 0
 }
 
+# /proc/<pid>/stat 的 comm 可含空格, 先切掉 "pid (comm) " 再取 starttime
+# (去掉前两字段后 state 是第 1 个, starttime 是第 20 个)
+_proc_start_time() {
+    sed 's/^.*) //' "/proc/$1/stat" 2>/dev/null | awk '{print $20}'
+}
+
+# argv 恰为 [/bin/bash, <本文件>] 的进程才是 daemon; `... screen.sh notifier` 是子命令, 不能误杀
+_is_self_daemon() {
+    local -a argv
+    # 2>/dev/null 必须写在输入重定向之前: pgrep 到读取之间进程可能已退出
+    mapfile -d '' -t argv 2>/dev/null <"/proc/$1/cmdline" || return 1
+    [ "${#argv[@]}" -eq 2 ] && [ "${argv[1]}" = "$SELF" ]
+}
+
+# 单实例接管: 热重启时 launch 用的是它记录的 pid, 而自重启 (旧实现 fork 新 pid) 会让该记录失真,
+# 于是新旧实例并存。这里由"后启动者"清理更早的实例, 保证全局只有一个 daemon。
+# 只杀比自己早启动的 (starttime 相同则比 pid), 避免两个新实例互杀导致一个都不剩。
+_takeover() {
+    local p mine theirs
+    mine=$(_proc_start_time "$$")
+    [ -n "$mine" ] || return 0
+    for p in $(pgrep -f "$SELF" 2>/dev/null); do
+        [ "$p" = "$$" ] && continue
+        _is_self_daemon "$p" || continue
+        theirs=$(_proc_start_time "$p")
+        [ -n "$theirs" ] || continue
+        if [ "$theirs" -lt "$mine" ] || { [ "$theirs" -eq "$mine" ] && [ "$p" -lt "$$" ]; }; then
+            kill "$p" 2>/dev/null
+        fi
+    done
+}
+
 daemon() {
+    _takeover
     _screensaver_start
     while true; do
         # xss-lock 若异常退出, 空闲事件就再也没人接 (静默失去锁屏保护), 每轮补一次;
@@ -203,8 +237,9 @@ daemon() {
         _inhibit_poke
 
         if [[ "$(md5sum "$SELF" | awk '{print $1}')" != "$current_hash" ]]; then
-            /bin/bash "$SELF" &
-            exit 0
+            # exec 保持 pid: 旧实现 fork 新进程会换 pid, launch 记录的 autostart-launch-screen.pid
+            # 随即失真 → 下次热重启 kill 不中, 新旧实例并存。
+            exec /bin/bash "$SELF" daemon
         fi
 
         sleep $duration
