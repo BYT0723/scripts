@@ -13,6 +13,7 @@ source "$(dirname "${BASH_SOURCE[0]}")"/util.sh
 source "$(dirname "${BASH_SOURCE[0]}")"/lib-module.sh
 source "$WORK_DIR/utils/notify.sh"
 
+# --mouse-bind 默认 bhsn:++++, 首位改 - 禁用右键→BACK (右键忽略, Shift+点击仍直通设备)
 SCRCPY_FLAGS=" \
 --video-codec=h265 \
 --video-bit-rate=8M \
@@ -21,6 +22,7 @@ SCRCPY_FLAGS=" \
 --audio-buffer=200 \
 --shortcut-mod=lalt \
 --keyboard=uhid \
+--mouse-bind=-hsn:++++ \
 --turn-screen-off \
 --power-off-on-close \
 "
