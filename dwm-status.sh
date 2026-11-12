@@ -3,33 +3,53 @@
 source "$(dirname "$0")/dwm-status-tools.sh"
 source "$(dirname "$0")/status-ids.sh" # ST_* block ids, derived from status-ids.def
 
-# Every block carries its status id (${ST_*_BYTE}); dwm's config owns the
-# draw order, pill grouping and rounded caps (bar_left/bar_right in its
-# config.h), so the order here is only for reading. The pane background is
-# NOT sent: dwm's SchemeStatus colours come from the same xrdb keys via
-# loadxrdb(), so a ^b here would just repeat them.
+# Register one status block per line, each tagged with its status id
+# (${ST_*_BYTE}). dwm looks a block up by that id and draws it wherever its own
+# config says, so the order here carries no meaning for the bar -- the lines
+# are grouped by what they report, for reading. The pane background is NOT
+# sent: dwm's SchemeStatus colours come from the same xrdb keys via loadxrdb(),
+# so a ^b here would just repeat them.
+#
+# An empty block keeps its bare id byte, which dwm drops (no visible text);
+# weather is the exception, as its colour code alone counts as visible text,
+# hence the [ -n ] guard. A block that dwm's config does not list (volume at
+# the moment) is registered but not drawn.
 panes() {
     local panes
-    local weather_str=$(print_weather)
-    local rss_str=$(print_rss)
-    local mail_str=$(print_mail)
-    local notification_str=$(print_notification)
-    local mpd_str=$(print_mpd)
 
+    # system load: cpu / memory / root disk usage
+    panes+="${ST_CPU_BYTE}$(print_cpu)"
+    panes+="${ST_MEM_BYTE}$(print_mem)"
+    panes+="${ST_DISK_BYTE}$(print_disk /)"
+
+    # unread counters: rss / mail / desktop notifications
+    panes+="${ST_RSS_BYTE}$(print_rss)"
+    panes+="${ST_MAIL_BYTE}$(print_mail)"
+    panes+="${ST_NOTIFY_BYTE}$(print_notification)"
+
+    # network throughput (tx / rx)
+    panes+="${ST_NET_BYTE}^c$white^$(print_speed)"
+
+    # current conditions, only when a reading is cached
+    local weather_str=$(print_weather)
     [ -n "$weather_str" ] && panes+="${ST_WEATHER_BYTE}^c$blue^$weather_str"
 
-    # net traffic monitor pane
-    panes+="${ST_NET_BYTE}^c$white^$(print_speed)"
-    # system monitor pane
-    panes+="${ST_CPU_BYTE}$(print_cpu)${ST_MEM_BYTE}$(print_mem)${ST_DISK_BYTE}$(print_disk /)"
+    # docker containers: running / total
+    panes+="${ST_DOCKER_BYTE}$(print_docker)"
 
-    # notification pane
-    if [[ -n $rss_str || -n $mail_str || -n $notification_str ]]; then
-        panes+="${ST_RSS_BYTE}$rss_str${ST_MAIL_BYTE}$mail_str${ST_NOTIFY_BYTE}$notification_str"
-    fi
+    # screen recording in progress
+    panes+="${ST_SCREENCAST_BYTE}$(print_screencast)"
 
-    panes+="${ST_SCREENCAST_BYTE}$(print_screencast)${ST_DOCKER_BYTE}$(print_docker)${ST_DAE_BYTE}$(print_dae)${ST_SINGBOX_BYTE}$(print_singbox)${ST_MPD_BYTE}$mpd_str${ST_VOLUME_BYTE}$(print_volume)${ST_BATTERY_BYTE}$(print_battery)"
-    # datetime pane
+    # proxy daemons
+    panes+="${ST_DAE_BYTE}$(print_dae)"
+    panes+="${ST_SINGBOX_BYTE}$(print_singbox)"
+
+    # audio: mpd play state, output volume
+    panes+="${ST_MPD_BYTE}$(print_mpd)"
+    panes+="${ST_VOLUME_BYTE}$(print_volume)"
+
+    # power and clock
+    panes+="${ST_BATTERY_BYTE}$(print_battery)"
     panes+="${ST_DATE_BYTE}^c$cyan^$(print_date)"
 
     printf "%b\n" "$panes"
