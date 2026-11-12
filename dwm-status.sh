@@ -28,7 +28,7 @@ panes() {
         panes+="${ST_RSS_BYTE}$rss_str${ST_MAIL_BYTE}$mail_str${ST_NOTIFY_BYTE}$notification_str"
     fi
 
-    panes+="${ST_SCREENCAST_BYTE}$(print_screencast)${ST_DOCKER_BYTE}$(print_docker)${ST_SINGBOX_BYTE}$(print_singbox)${ST_MPD_BYTE}$mpd_str${ST_VOLUME_BYTE}$(print_volume)${ST_BATTERY_BYTE}$(print_battery)"
+    panes+="${ST_SCREENCAST_BYTE}$(print_screencast)${ST_DOCKER_BYTE}$(print_docker)${ST_DAE_BYTE}$(print_dae)${ST_SINGBOX_BYTE}$(print_singbox)${ST_MPD_BYTE}$mpd_str${ST_VOLUME_BYTE}$(print_volume)${ST_BATTERY_BYTE}$(print_battery)"
     # datetime pane
     panes+="${ST_DATE_BYTE}^c$cyan^$(print_date)"
 

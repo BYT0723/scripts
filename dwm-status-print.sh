@@ -9,6 +9,7 @@ icons["mpd"]=""
 icons["notification"]=""
 icons["rss"]=""
 icons["sing-box"]=""
+icons["dae"]="󰇥"
 icons["docker"]=""
 icons["volume"]=""
 icons["volume_off"]=""
@@ -276,7 +277,11 @@ print_rss() {
 }
 
 print_singbox() {
-    pgrep sing-box >/dev/null && printf "^c$white^${icons["sing-box"]}"
+    pgrep -x sing-box >/dev/null && printf "^c$white^${icons["sing-box"]}"
+}
+
+print_dae() {
+    pgrep -x dae >/dev/null && printf "^c$white^${icons["dae"]}"
 }
 
 print_docker() {
