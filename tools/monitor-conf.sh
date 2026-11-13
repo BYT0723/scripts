@@ -27,7 +27,7 @@ fi
 cmd=(xrandr)
 
 while read -r monitor; do
-    [[ "$monitor" == "eDP-1" ]] && continue
+    # [[ "$monitor" == "eDP-1" ]] && continue
     cmd+=(--output "$monitor")
 
     if ((SINGLE_MONITOR_ENABLE > 0)) && [[ -n $SINGLE_MONITOR_NAME ]] && [[ "$monitor" != "$SINGLE_MONITOR_NAME" ]]; then

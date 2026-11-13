@@ -25,8 +25,8 @@ desktop_setting() {
     launch check snixembed "snixembed"
     # 启动通知
     launch check dunst "dunst"
-    # polkit (require lxsession or lxsession-gtk3) 鉴权
-    launch check lxpolkit "lxpolkit"
+    # polkit (polkit-gnome)鉴权
+    launch check polkit-gnome "/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1"
     # batsignal
     launch check batsignal "batsignal -I battery"
     # XSETTINGS 守护 (GTK 主题/字体广播, Firefox 亮暗跟随依赖)
