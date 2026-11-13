@@ -204,11 +204,16 @@ DWM 启动 → autostart.sh ─┬─ picom / dunst / xsettingsd / snixembed / l
 
 ## 配置文件
 
-- `~/.config/dwm/quicklinks.json` — 书签 `links[]`（`id`/`name`/`url`，icon 字段已废弃）；`searcher[]`（`{name, url}`，name 唯一键，`{key}` 占位搜索词，可省略→追加末尾；默认 `searcher[0]`，`@<name>` 指定引擎）
-- `~/.config/dwm/wallpaper.json` — `monitors`（按屏/组名键）+ `groups`（成员名单 + enabled）；可选 `video-render{volume, fps}`（`volume>0` 传 `--volume`，`0`/缺省 `--mute`，`fps>0` 传 `--fps`）；`random_image_dir[_dark]` / `random_video_dir[_dark]`（dark 空 fallback light）
-- `~/.config/dwm/theme.json` — `auto{enabled, sun_rise/set_offset, dawn/dusk_minutes(默认60, 0=关闭渐变), transition_anchor(after/center/before)}`；`cursor{theme,size}`；`dpi`；`light/dark.colorscheme`（引用 `~/.config/dwm/colorschemes/`）；`brightness.<monitor>`（per-monitor 端点亮度）
-- `~/.xsettingsd` — `set_gtk_theme()` 维护 `Net/ThemeName` 行并 `HUP xsettingsd` 广播
-- `~/.local/state/dwm/current-theme`、`cache/sun-times`（日出日落缓存）、`~/.local/state/xwallpaper/state`（壁纸持久化，`keep` 区分当前/last）
+运行时配置都在 `~/.config/dwm/`，各字段语义与默认值见 [AGENTS.md §配置文件](./AGENTS.md#配置文件)：
+
+| 文件 | 内容 |
+| ---- | ---- |
+| `quicklinks.json` | 书签 `links[]` + 搜索引擎 `searcher[]` |
+| `wallpaper.json` | 每屏/组参数（目录、随机类型与深度、`video-render{volume,fps}`）+ `groups` |
+| `theme.json` | 亮暗主题、自动切换（日出日落偏移、过渡分钟数、锚点）、光标、DPI、每屏端点亮度 |
+| `colorschemes/` | `theme.json` 的 `light/dark.colorscheme` 引用的配色方案 |
+
+状态文件由脚本自动维护，不是配置：`~/.local/state/dwm/`（`current-theme`、`cache/sun-times`、`wallpaper-last.json`）、`~/.local/state/xwallpaper/state`（壁纸持久化，`keep` 区分当前/last）、`~/.xsettingsd`（XSETTINGS 广播）。
 
 ## 测试
 
@@ -233,11 +238,9 @@ bash tests/lock-mute_test.sh                    # 锁屏静音: 快照时机 / �
 
 > Tips
 >
-> - 壁纸渲染已统一迁移至 `xwallpaper`，图片/视频/网页分别映射 `--image`/`--video`/`--web`，不再依赖 feh/xwinwrap/surf/tabbed；视频旋转预览仍用 mpv (`preview_rotation`)。`xwallpaperd` 常驻由 `wallpaper.sh -r` 启动。
 > - `i3lock-color` 需要配合 `archlinux-wallpaper` AUR 包提供锁屏壁纸源 (`/usr/share/backgrounds/archlinux/`)。
-> - 截图已从 maim 迁移至 flameshot (`tools/screenshot.sh`)，预览查看器为 nsxiv。
-> - rofi script mode 多属性必须用 `\x1f` 连接（仅行尾一个 `\0`），第二个 `\0` 会截断 `ROFI_INFO`。
-> - 锁屏 standby 后外屏亮起：视频壁纸持续 present 触发 amdgpu unblank，`lock.sh` 已 `STOP xwallpaperd`，勿改回仅匹配 `xwallpaper`。
+> - 截图使用 flameshot (`tools/screenshot.sh`)，预览查看器为 nsxiv。
+> - 常见坑（rofi script mode 属性分隔、锁屏 standby 后亮屏、主题/壁纸闪烁等）的根因与修法见 [AGENTS.md §已知问题](./AGENTS.md#已知问题)。
 
 ## Firefox hide tab button
 

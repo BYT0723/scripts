@@ -3,6 +3,16 @@
 > 此文件记录所有脚本间的 source 依赖、函数调用关系和调用链。
 > 每次修改脚本后需同步更新 (见下方 §编码准则.5)。
 
+## 目录
+
+- [Source 依赖图](#source-依赖图)
+- [函数定义与调用关系](#函数定义与调用关系)
+- [调用链 (Call Chain)](#调用链-call-chain)
+- [配置文件](#配置文件)
+- [Rofi 模块注册表规范](#rofi-模块注册表规范)
+- [已知问题](#已知问题)
+- [编码准则](#编码准则)
+
 ## Source 依赖图
 
 ```
@@ -308,7 +318,7 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 > ② `xev -id` 是对目标窗口**额外**选一份事件掩码, 不抢占事件(scrcpy 照常收到按键), 也不需要 XGrabKey;
 > ③ 按键只在该窗口聚焦时送达, 天然限定作用域。scrcpy 出于可靠性拒绝把手势做成 shortcut(issue #4828), 故由启动脚本旁路 `adb input swipe` 注入。
 
-### theme.sh (tools/)
+### tools/theme.sh
 
 | 函数                      | 调用者                                                                                                                                           |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -663,7 +673,7 @@ wallpaper.sh → source utils/monitor.sh, utils/notify.sh
 - `~/.config/dwm/quicklinks.json` — quicklinks 书签, `links` 数组元素含 `id`(uuid)、`name`、`url` (icon 字段已废弃移除); 顶层 `searcher` 数组存搜索引擎 `{name, url}`(name 为唯一键, url 用 `{key}` 占位搜索词, 可省略 → 追加 url 末尾), 自定义输入搜索默认用 `searcher[0]`, 支持 `@<name>` 首 token 指定引擎
 - `~/.config/dwm/wallpaper.json` — 壁纸配置, 含 `monitors`(按屏/组名键)、`groups`(成员名单 + enabled 启停) + 可选顶层/`.defaults.random_depth` (全局搜索深度, 缺省 3, `find -maxdepth`); 每个 monitor/组可带可选 `video-render` 对象 `{volume, fps}`: `volume>0` 传 `--volume N` 播放音频, `volume=0`/缺省时传 `--mute` 静音 (0 与 mute 等价), `fps>0` 传 `--fps`; 随机类型 `random_type` ∈ image/video/web (rofi Type 三选一); web 随机池 `random_web_dir`/`random_web_dir_dark` (缺省 `~/.local/share/Steam/steamapps/workshop/content/431960`，池为其下所有 `index.html` 的上层目录); 主题色调目录: light 用 `random_image_dir`/`random_video_dir`, dark 用 `random_image_dir_dark`/`random_video_dir_dark` (缺失/空串 fallback light, rofi Wallpaper 菜单 Images Dark/Videos Dark 配置); 目录路径可写 `~`/`$HOME` 可移植形式 (读侧 `expand_path` 展开, rofi 选择存盘经 `shrink_path` 自动压缩 `$HOME` 为 `~`)
 - `~/.local/state/dwm/wallpaper-last.json` — 壁纸主题记忆 (状态, 非配置): `{"<target>":{"light":"/path","dark":"/path"}}`, target = monitor 名/组名/Screen; 主题切换优先恢复记忆 (文件不存在回退 random), 手动 `next/select` 与 daemon 轮换按 `current-theme` 回写
-- `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置，`"auto"` 含 `enabled`(默认 false)、`sun_rise_offset`(日出延迟分钟数)、`sun_set_offset`(日落延迟分钟数)、`dawn_minutes`/`dusk_minutes`(亮度过渡分钟数，默认 60，0=关闭渐变)、`transition_anchor`(过渡锚点 `after`(默认，事件后窗口) / `center`(对称窗口) / `before`(事件前窗口))，`"cursor"` 含 `theme`/`size`，`"dpi"` 为 Xft.dpi 值，`light`/`dark` 的 `colorscheme` 引用 `~/.config/dwm/colorschemes/` 下的颜色方案文件，`qt` 为 Kvantum 主题名 (light `Orchis-solid` / dark `Orchis-solidDark`)
+- `~/.config/dwm/theme.json` — `tools/theme.sh` 的外部化主题配置，`"auto"` 含 `enabled`(默认 false)、`sun_rise_offset`(日出延迟分钟数)、`sun_set_offset`(日落延迟分钟数)、`dawn_minutes`/`dusk_minutes`(亮度过渡分钟数，默认 60，0=关闭渐变)、`transition_anchor`(过渡锚点 `after`(默认，事件后窗口) / `center`(对称窗口) / `before`(事件前窗口))，`"cursor"` 含 `theme`/`size`，`"dpi"` 为 Xft.dpi 值，`light`/`dark` 各自含 `colorscheme`(引用 `~/.config/dwm/colorschemes/` 下的颜色方案文件) 与可选 `brightness.<monitor>`(该模式的端点亮度，键为 xrandr 输出名，缺失/非数字/>100 fallback 50)，`qt` 为 Kvantum 主题名 (light `Orchis-solid` / dark `Orchis-solidDark`)
 - `~/.xsettingsd` — `set_gtk_theme()` 维护 `Net/ThemeName`(当前 GTK 主题) + `Gtk/CursorThemeName/Size`(源 `theme.json:cursor`, 与 `Xcursor` 对齐, 缺失时 Firefox 回退到 `settings.ini/gsettings` 的 36), 保留其他 XSETTINGS 键, `pkill -HUP xsettingsd` 触发重载广播
 
 ## Rofi 模块注册表规范
@@ -696,16 +706,33 @@ calendar-lunar|󰃚|Lunar Calendar|
 
 ## 已知问题
 
+按模块分组；每条记录现象、根因与修法，有回归测试的注明用例。新增条目前先找对应分组，不另起平铺列表。
+
+### 状态栏（dwm-status*）
+
 - **status writer 不再注入 pill 底色 (`^b`)**: `panes()` 原用 `new_pane()` 给每个 pane 组首 block 加 `^b$black^`, 理由是"让 pane 颜色跟随 xrdb 主题"。但 dwm 的 `SchemeStatus` bg = `col_black`, `loadxrdb()` 已用 `strncpy` **原地覆盖**为 xrdb 的 `dwm.col_black` (dwm.c), 且 SIGHUP restart 时 `autostart.sh` 会跑 `dwm-status.sh reboot` 让 writer 重读同一份 xrdb —— 两边同源同值, `^b` 纯属重复写入。现 `new_pane` 已删除, `panes()` 直接拼接 `${ST_*_BYTE}<text>` 且每块独占一行、按语义分组注释 (系统负载/未读/网络/天气/容器/录屏/代理/音频/电源时钟), 行序与 dwm 绘制顺序无关, 纯为阅读; 空 block 只留 id 字节, 由 dwm 的 `bar_blocks` 丢弃 (无可见文本)。绘制顺序/分组/圆角全由 dwm `config.h` 决定, 注册了但 config 未列的块 (如当前 volume) 直接不绘制。**注意** writer 侧若给空 block 加颜色码 (如 `^c...^`) 会使其"有可见文本"而不被丢弃, 故 `weather` 仍保留 `[ -n ]` 判断。回归测试 `tests/status-panes_test.sh`
 - `tools/calendar.sh:3` source 路径已修复为 `$(dirname "$0")/../utils/notify.sh`
+
+### MPD / MPRIS
+
 - **mpd.sh fetch_cover 慢已修复**: 根因不是 MPD 网络往返而是客户端每 chunk 固定开销。① `nc -q1` 在 stdin EOF 后须等 1s 才退出，而 MPD 收 `close` 不主动断连 → 每块白白等 1s，readpicture chunk 上限 8192B，N 块 ≈ N 秒（实测 30KB 封面 4 块整函数 4102ms，改 `-q0` 后 88ms；1MB 封面 128 块会到 ~128s）。② `dd bs=1 skip=...` 逐字节跳过+拷贝，块内 skip 从文件头重来，累计 O(n²) 字节级 syscall（1MB 封面 128 块 ~6700 万次单字节 read），改 `iflag=skip_bytes,count_bytes bs=4096`（精确 seek + 块拷贝）。**单连接方案评估后放弃**: bash 无法可靠"恰好读 N 字节且把后续保留在流中"（read 缓冲与 fd 不同步、dd over-read 会吞掉下一响应 header、binary 块无长度外分隔标记），需 python/复杂协议解析，与仓库纯 bash 风格冲突，且 fetch 为低频场景（cache 按 uri 命中后不再拉），`-q0`+iflag 已把 4.1s→48ms，额外收益不足以抵风险。回归测试 `tests/mpd-cover_test.sh`
 - **source 含 `exit` 的脚本时 mock 缺工具会静默杀掉测试 shell**: `tests/mpris-bridge_test.sh` 初版只 mock 了桥相关命令，`mpc/systemctl` 等 mock 依赖的 `touch` 不在 PATH → mock 失败 → 被测脚本走 `exit 1` → 整个测试进程退出且零输出（`2>/dev/null` 把真错误也吞了）。修法：被测脚本外加窄 PATH 的场景 bin 时，把 mock/harness 间接依赖（`touch/rm/mkdir/dirname/head`）一并 link；且 `command -v` 会穿透到 `/usr/bin` 真二进制（如本机 `mpdris2-rs`），`chmod -x` 盖不住，必须用窄 PATH 隔离（`PATH="$SCEN_BIN" source ...`），kill 类 action 的 `eval` 同理用 mock 优先 PATH（防真 `systemctl` 动用户服务）。通知模板 drop-in 写入 `XDG_CONFIG_HOME`，测试须隔离该变量；`mpd-cover_test.sh` 亦 mock `systemctl/mpdris2-rs`，避免 source 时触碰真实用户服务。回归测试 `tests/mpris-bridge_test.sh`
+
+### 锁屏 / 空闲（lock.sh, screen.sh）
+
 - `tools/screen.sh:16` LOCKER 路径已改为 `$(dirname "$0")/lock.sh lock`，不再依赖 `$TOOLS_DIR`
 - `tools/screen.sh` 的 `_has_active_audio()` 现改为**录默认输出判响度**（原 pw-dump 按 media.role/tlength 过滤流的方案已丢弃，总会遗漏播放流致误锁屏；`EXCLUDE_APPS`/`SCREEN_AUDIO_MODE`/`_jq_exclude_apps()`/pw-dump 双后端均已删除）：`parec --device "$(pactl get-default-sink).monitor"` 定长采 150ms (head -c 截断触发 SIGPIPE) → ffmpeg volumedetect → max_volume 超阈值即认为有活动音频。注意 **raw `pw-record` 解析不到本机 `*.monitor` 节点会静默回落到默认麦克风（录到输入而非输出），必须用走 pulse 层的 `parec`**；且 sink monitor 采的是 sink 音量衰减后的信号（本机 Fosi 30% 音量衰减约 25dB+），阈值取 -78 dB（真静音底约 -91 dB，静音时返回 none）
 - **锁屏进程被 SIGTERM 时不还原已修复**: `lock()` 原来是 `_lock_before; _lock; wait; _lock_after`, 被 `loginctl unlock-session` 或外部 kill 掐掉时 `wait` 之后的还原不会执行 → sink 一直静音、`xwallpaperd` 停在 SIGSTOP (壁纸冻结)、DPMS 停在 30/30/30。现 `_lock_before` 后挂 `trap '_lock_after' TERM INT HUP`, 用 `lock_restored` 守卫保证幂等 (trap + 正常路径各调一次也只还原一遍, 不会重复 toggle mpd)。回归测试 `tests/lock-mute_test.sh` 场景 F (旧代码 F2/F3/F4/F5 FAIL)
 - **锁屏后仍出声的第二个根因 (`wait` 被 i3lock fork 骗过)**: `lock()` 用 `_lock_before; _lock; wait; _lock_after` 表达"解锁后还原", 但 i3lock 默认 **fork** (父进程立即退出), 后台任务对应的进程瞬间结束 → `wait` 立即返回 → `_lock_after` 在**锁屏仍在进行时**就跑完: sink 静音被还原、DPMS 归零、mpd 恢复, 于是锁着屏照样出声。旧代码能工作纯粹是因为 `_screen_lock_loop` 轮询 `pgrep -x i3lock` 顺带把脚本拖到解锁; 该循环删除后回归暴露。修复: i3lock 加 `-n` (nofork), `wait` 才真正等到解锁 (副作用也符合 xss-lock "locker 不得 fork" 的要求)。实测: 锁屏 3s 后 4 个 sink 全 muted、DPMS 30/30/30、mpd paused; 解锁后恢复。回归测试 `tests/lock-mute_test.sh` 场景 E (模拟 i3lock fork, 旧代码 E1/E2/E3 FAIL)
 - **锁屏后仍有声音已修复 (静音打错声卡)**: `_lock_before` 原用 `amixer set Master off`, 而 `amixer` 只作用于 ALSA 默认控制卡 (本机卡 3 内屏); 实际出声的 sink 由 module.sh 切换, 可能是 Fosi USB DAC (卡 1, **只有 PCM 控制, 没有 Master**)、HDMI (卡 2) 或 `easyeffects_sink` (虚拟) → 静音命令打空, 锁屏后照常出声。现改为 pulse 层逐 sink 静音 (`pactl list short sinks` + `pactl set-sink-mute <sink> 1`), 覆盖虚拟 sink 与任意硬件 sink; 记录 `muted_sinks` 只还原本次改过的。同时把 `mpd_status`/`volume_status` 快照从**脚本加载时**挪进 `_lock_before` —— powermenu 是先 source 再等用户点菜单, 顶层取值会拿到几分钟前的状态 (期间开始的播放暂停/静音不了)。回归测试 `tests/lock-mute_test.sh`
 - **锁屏链路迁移到 xss-lock (单一空闲权威)**: 旧实现同时跑 3 个计时器 (X 屏保 `xset s 600 600`、X DPMS `900/1200/1800`、xautolock 自己的 10min 私有计数), 且**媒体抑制靠拆表** (`pkill xautolock` + `xset s off -dpms`, 恢复时重新 `xset s 600` + 重启 xautolock)。X 服务端的超时基于 `lastDeviceEventTime`, 重新武装时若已空闲超过超时就会**立即**激活 → 放视频/听歌一停就瞬间黑屏; 而 xautolock 重启后是全新 600s 计数, 于是黑屏但**未锁屏**长达 10 分钟 (安全漏洞)。现改为: `xset s 600 0` + `xset s noblank` + `xss-lock -- lock.sh lock` 作唯一权威 (顺带接管 logind `lock-session`/挂起前锁屏), 抑制改为周期性 `xset s reset` —— X 处理 `ScreenSaverReset` 时会把 `lastDeviceEventTime` 置为当前时间 (xorg `ProcForceScreenSaver`), 等价"抑制期间冻结、解除后从 0 重新计时", 与 GNOME mutter (idle inhibitor 视为 active) / KDE 2025 "inhibited/uninhibited 时重建 idle timeout" 的修复语义一致。灭屏与空闲解耦: 解锁态 `xset dpms 0 0 0`, 只由 `lock.sh _lock` 在锁屏时武装 `dpms 30 30 30` (i3lock(1) 推荐的 DPMS wrapper 形态), `_lock_after` 收回; `_screen_lock_loop`/`xprintidle`/`xdotool key Escape` 随之删除 (DPMS 自身会因输入重置计时)。音频轮询从 600s 降到 20s (旧值意味着视频开始后最多 10 分钟才抑制)。回归测试 `tests/screen-lock_test.sh`
+- **锁屏 standby 后物理屏 1-2s 亮起（xwallpaper 视频壁纸持续 present 触发驱动 unblank）**：根因是 `xwallpaper --daemon` 的 libmpv（`vo=gpu`+`wid` 直绘）在 X DPMS off 后**持续 present 帧** → amdgpu 驱动把输出 dpms 恢复 On（sysfs 实测 2-3s 回弹，X 层 `xset q` 标志保持 Off/Standby 不变，eDP→HDMI→DP 依次亮）。与键盘幽灵输入、amdgpu REG_WAIT（7.x 回归，lts 6.18.46 无此）、TLP/GPU runtime PM（`control=on` 全程 active）均无关。修复双层：① xwallpaper（源码 `~/Workspace/Github/xwallpaper`）backend 层加 `set_paused` 回调（video → mpv pause），`xw_app_dpms_poll()`（`DPMSInfo` 查询，500ms 节流）在主循环检测电源模式，非 On 即暂停渲染；② `lock.sh _lock_before/_lock_after` 对 `xwallpaperd`（兼容保留 `xwallpaper` 单进程时代）进程 `pkill -STOP/-CONT` 双保险。验证：standby 12s sysfs dpms 全程 Off 不回弹。**注意**: client+daemon 拆分后常驻渲染进程名为 `xwallpaperd`，`-x xwallpaper` 精确匹配打不到 daemon，必须 STOP `xwallpaperd`，否则锁屏 `_screen_lock_loop` 会因 X 层 `xset q` 标志 stale（物理已亮、X 仍 Off）卡在 `! Monitor is On` 等待里，表现为灭一次→亮→再也不灭。
+- **锁屏前压暗预告 (`xset s 570 30` + `xss-lock -n`)**: 旧行为是 10 分钟直接上锁, 读文档 (无输入/无音频) 时体感突兀。现 `xset s` 的 timeout = 锁屏时刻 − 预告, cycle = 预告: Xorg `dixSaveScreens()` 在第二次 `SCREEN_SAVER_ON` (即 `what == screenIsSaved`) 时改发 `SCREEN_SAVER_CYCLE`, 而 xss-lock 在 `On` 且 `cycle > 0` 时只启动 notifier、收到 `Cycle` 才启动 locker → **570s 压暗、600s 上锁, 锁屏时刻不变**。压暗走 `xrandr --brightness` (gamma 瞬时生效, 无硬件往返); 不能用 `brightnessctl`/`ddcutil` (DDC 单次 ~200ms, restore 被 SIGTERM 打断就会停在暗屏, 且与 `theme.sh` 的亮度插值抢同一硬件)。恢复固定 1.0, 另由 `lock.sh _lock_before` 兜底一次。notifier 由 xss-lock 直接 execv (不经 shell), 故必须写成 `/bin/bash <screen.sh> notifier`; 脚本内必须 `sleep … & wait` 驻留 (`前台 sleep` 会把 trap 推迟到睡醒)。回归测试 `tests/screen-dim_test.sh` + `tests/screen-lock_test.sh` A 组
+- **改超时/参数后不生效已修复 (重新武装对账)**: 旧 `_screensaver_start` 只在 `xss-lock` 未运行时写 `xset s`, 于是改 `screen_saver_time` 后重启 daemon 也不会重新武装, notifier 参数同样锁死在旧进程里。现每次启动都写 `xset s` (幂等: X 只重设 timer, 空闲判定仍按 `LastEventTime` —— xserver `ProcSetScreenSaver` → `SetScreenSaverTimer`, 所以重复武装不会延长空闲时间), 并把 `<预告>|<锁屏>|<gamma>|<self>|<locker>` 指纹写 `/tmp/dwm-status/screen-arm.fp`; 仅指纹变化或进程缺失时重启 xss-lock, **锁屏中只写 xset、不重启** (下一轮再对齐), 重启前 `pkill` + 轮询 ≤2s 等旧实例退出 (新旧并存会让新实例 `SetAttributes` 失败直接退出)。测试用 `SCREEN_ARM_FILE` 隔离真实指纹。**推迟必须有重试**: 锁屏/压暗中不重启 xss-lock 的决策若只做一次, 解锁后会永久停在旧实例 (旧实例无 `-n`, 配合 `xset s 570 30` 会在 570s 直接上锁且不压暗) —— 真实踩到过一次; 现 daemon 每轮调 `_ensure_xss_lock` 对账, 由 `_rearm_deferred()` 判定 i3lock/notifier 两个状态。回归测试 `tests/screen-lock_test.sh` R/W 组
+- **热重启后旧 screen.sh 没被 kill (双 daemon) 已修复**: `launch restart` 杀的是 `autostart-launch-screen.pid` 里的 pid, 而旧 `daemon()` 的 md5 自重启是 `/bin/bash "$SELF" &; exit 0` —— **换了 pid**, pid 文件随即指向死进程; 下次热重启 kill 空操作后拉起新实例, 旧实例继续跑 (实测 3535685 与 3553535 并存)。修复两层: ① 自重启改 `exec /bin/bash "$SELF" daemon` (pid 不变, launch 的记录始终有效); ② daemon 启动时 `_takeover` 杀掉更早启动的同 argv 实例 (`/proc/<pid>/cmdline` 过滤排除 `screen.sh notifier`; starttime 相同则比 pid, 避免互杀)。另修 `source "$(dirname "$0")/…"` → `$(dirname "${BASH_SOURCE[0]}")` (被 source 时 `$0` 是调用者, 路径会算错)。回归测试 `tests/screen-single-instance_test.sh`
+
+### 主题 / 亮度 / 托盘（theme.sh, monitor-brightness.sh）
+
 - `tools/theme.sh` 旧 Firefox 切换方案（`set_firefox_theme` + `_get_darkreader_shortcut`，xdotool 模拟 Dark Reader 快捷键）已删除：Dark Reader 的 `extension-settings.json` 快捷键实际为空串，jq 的 `//` 不兜底空串 → `xdotool key ""` 从未生效；且依赖 Firefox 窗口存在、/tmp 状态文件易漂移。现由 `set_gtk_theme()` 双通道替代
 - **Firefox content 亮暗由 portal 决定而非 GTK**：Firefox 的 `prefers-color-scheme` 走 `nsLookAndFeel::ComputeColorSchemeSetting()` → xdg-desktop-portal 的 `color-scheme`（gsettings `org.gnome.desktop.interface color-scheme`），且 Firefox 将 portal 返回的 `0 (default)` 硬映射为 light（nsLookAndFeel.cpp case 0）。因此 `set_gtk_theme()` 必须同时写 gsettings（prefer-dark/prefer-light），仅广播 GTK 主题名不足以切换 Firefox content scheme
 - `tools/theme.sh apply` 的退出码已修复：auto 关闭时末尾 `[ ... ]` 返回 1 导致 apply 成功但 exit 1，现显式 `exit 0`
@@ -714,44 +741,49 @@ calendar-lunar|󰃚|Lunar Calendar|
 - `tests/theme_test.sh` 必须 mock `xrandr/brightnessctl/ddcutil`：daemon 每轮调 `apply_transition_brightness` → 真 `xrandr --listactivemonitors` 在无显示环境可能枚举出幽灵 monitor（如 `DisplayPort-0`），进而 `read_brightness` 走 `ddcutil detect` 长时间 hang 住导致用例全挂；mock 后 loop 零 monitor 直接 no-op。另须 `export THEME_LOCK` 指向临时路径：flock 单实例守卫下测试 daemon 会与用户 live daemon 争锁秒退，全挂；回归测试 `tests/theme-brightness_test.sh`（纯函数单测 + mock xrandr/读写函数的 `apply_transition_brightness` 集成）
 - `tests/theme_test.sh` 场景边界（B/C）必须先停旧 daemon、布好状态、清 log 后再起新实例：mock sleep 瞬时返回使 daemon 热循环，旧实例的在途迭代（持旧缓存/旧状态）会在清 log 后落盘 `theme_change`，误杀"…不切换"断言（负载高时必现；生产代码按读到的有效数据切换是正确的，属测试同步问题）。已修：`stop_daemon`/`start_daemon` 包场景 setup
 - **theme auto daemon 死锁致整早未切 light 已修复 (三处)**: ① 长 sleep 继承 flock 锁 (FD 9)：开机 daemon 缓存缺失进 `sleep 1800`，期间 `auto off` 的 `pkill -f 'theme\.sh auto$'` 只杀父进程，孤儿 sleep 被 init 接管继续占锁 → 后续 daemon `_auto_lock` 永远失败秒退、主题永不切换。现 auto_daemon 内所有 `sleep` 及 `get_sun_times` 后台拉取子 shell 均 `9>&-` 关闭锁 FD。② 缓存缺失睡 1800：后台异步拉取几秒即写好缓存，daemon 却睡半小时才重算 → 改为 `sleep 30` 短轮询（`.fetching` 1 分钟锁防刷）。③ 拉取失败沿用上轮残留时间：`read sunrise...` 只在 `if times=$(...)` 成功分支执行，失败时循环外 `local` 变量保留旧值 → `[ -n ... ]` 照过、短重试成死代码（跨零点缓存过期后还会拿昨天日出时间 tight-loop 空转烧 CPU）→ 失败分支显式清空。回归测试场景 C（删缓存 → 断言 `sleep 30` 且无 `sleep 1800` → 手写缓存恢复切换）+ auto_daemon 内 sleep 全带 `9>&-` 静态守卫；另修 `auto on` 分支顶层 `local pid`（非函数内，每次报错，改 `pid=""`）
-- `module.sh handle_network` 已改用 `nmcli -t -f BARS,BAND,BSSID,SSID` 解析 WiFi 列表（条目形如 `▂▄▆█ [2.4 GHz] SSID`，无 SSID 的隐藏网络以 BSSID 兜底）：nmcli ≥1.58 在表格输出新增 BAND 列（且 RATE 两 token），旧 `substr+$8` 列位解析会把 RATE 的 "Mbit/s" 当信号条显示
-- 隐藏网络无法仅凭 BSSID 连接（802.11 关联握手必须携带真实 SSID，NM 会报 `A 'wireless' setting with a valid SSID is required for hidden access points`）：`handle_network` 检测到选中项为 MAC 时弹 `module_input` 让用户输入真实 SSID，再 `nmcli device wifi connect <ssid> hidden yes bssid <BSSID>`
-- **rofi script mode 多属性必须用 `\x1f` 连接**：正确格式 `text\0icon\x1f<v>\x1finfo\x1f<id>`（仅行文本后一个 `\0`）。曾错误写成 `text\0icon\x1f<v>\0info\x1f<id>`（两个 `\0`）导致选中无反应：rofi 按 C 字符串语义解析属性块（`dmenuscript_parse_entry_extras` 的 `g_strsplit` 遇 `\0` 截断），第二个 `\0` 之后的内容（含 info）不可见 → `ROFI_INFO` 不设置 → 静默返回。测试断言注意：`grep -a` 对含 NUL 文件匹配不可靠、`$'\x00'` bash 展开的字面 NUL 会截断 grep -P 模式，须用单引号模式 `'\x00info'` + `grep -P`
+- **auto_daemon 脏数据防护已加固**: ① sun-times 读后数字校验 (非数字曾坍缩 epoch 0 → remain 恒负无 sleep 热循环 + desired 恒 dark → SIGHUP 风暴，现 sleep 30 跳过)。② fetch 落盘前校验 (坐标正则 + 三时间非空 + date 成功 + epoch 数字 + `ss>sr、sr2>ss` 时序；`date -d ""` 会静默返回当前时间，脏响应直接丢弃、不写缓存、不删 throttle 锁)。③ offset `^-?[0-9]+$` 校验 (非法→0；旧 `$((...))` 对 "abc" 静默 0、对 "08" 直接报错)。④ `auto.enabled` 三态：false/未知非空→退出，空 (瞬时不可读/缺 key)→sleep 10 重试不退出 (编辑器非原子写曾永久杀死 daemon)。⑤ i3lock 等待 loop 内重查 enabled (锁屏期间 auto off 生效，不补 stale 翻转)。⑥ SIGHUP 前校验 `current-theme == desired` (`_do_theme_change ""` early-return 时不重启)。回归测试 `tests/theme-autofix_test.sh` (D 脏缓存 / E enabled 缺失自愈 / F 脏 API / H 锁被占不 spawn；旧代码下 D1/D4/E1-3/F1-2/H2 均 FAIL)
+- **auto_daemon 窗口外翻转不补亮度已修复**: `nobright` 翻转假设"亮度由插值负责"，但插值只在窗口内写——夜间启动 daemon / 挂起跨过窗口 / 锁屏延迟翻转等一切窗口外翻转，之后永久无人写亮度 (实测：dark 配 light 亮度整晚)。现翻转时复用 `_should_apply_at` 分流：窗口内 `nobright` (防闪端点)，窗口外带端点一次性写入。回归 `tests/theme-autofix_test.sh` I1 (窗口外带端点，旧代码 FAIL) / I2 (窗口内保持 nobright 防过度修正)
+- **后台任务 flock FD 继承已全覆盖**: `_auto_lock` 注释的 `9>&-` 不变量此前只守了 auto_daemon 内 sleep，`_do_theme_change` 链的 `set_kitty_theme &` / wallpaper `( ... & )` / `fcitx5 -r &` / `xsettingsd &` 全继承 FD 9 —— 开机首次切换拉起的常驻 xsettingsd 会永久占锁致后续 daemon 秒退 (auto 假死)。现四处均加 `9>&-`，静态守卫 `tests/theme-autofix_test.sh` G1 (旧代码 FAIL)
+- **托盘图标不跟随主题切换已修复（两处根因）**: ① **nm-applet / pasystray / udiskie**：图标色由 **icon 主题**决定（`Tela-manjaro-light` 深色图标 / `dark` 浅色图标），而 `set_gtk_theme` 只写 gtk settings.ini 的 `gtk-icon-theme-name`、**运行时没广播 `Net/IconThemeName`**；X11 下 GTK 以 XSETTINGS 优先于 settings.ini，故所有已启动 GTK 应用（含重启后）都卡在旧图标主题 → 亮主题下仍是浅色图标、看起来"不跟随"。修复：`set_gtk_theme` 增写 `~/.xsettingsd` 的 `Net/IconThemeName`（HUP xsettingsd 广播）+ `gsettings icon-theme` 同步；GTK 收到 XSETTINGS 变化后**即时重载图标，无需重启进程**（实测 nm-applet pid 不变，purest `#dfdfdf` ↔ `#505050`）。② **EasyEffects（snixembed 代理）**：EasyEffects 8.2.9 起发 `IconName`（`com.github.wwmm.easyeffects-symbolic`）而非 `IconPixmap`，snixembed 自 2020 起 IconName 优先（`set_icon_name`），靠 `GtkStatusIcon` 默认着色在轻量 X11 会话取到错误前景色 → 深底配深图标不可见。修复在 snixembed 自身：`set_icon_name` 用当前主题 style context 经 `IconInfo.load_symbolic_for_context` 自渲染（保留 SNI 规范鼓励的 IconName 优先），另修 `pixbuf_from_data` 的 `i += 3`→`i += 4`，`size_changed` 改连 `set_icon` 恢复尺寸自适应；代码在 `~/Workspace/Github/snixembed`。snixembed 前景色只在 `set_icon` 时取一次 → 切主题时由 `_do_theme_change` → `restart_snixembed`（`launch restart snixembed`）重启重绘；`launch()` 抽出 `utils/launch.sh` 供 autostart 与 theme.sh 共用。端到端 dark `#a5a6a9` ↔ light `#535355`。回归测试 `tests/theme-tray_test.sh`（restart_snixembed）+ `tests/autostart_test.sh`（改为 source `utils/launch.sh`）
+- **rofi/scripts/theme.sh handle_monitor_brightness 保存值/退出码失效已修复**: 原实现 `coproc YAD` + `wait "$YAD_PID"` 取 yad 退出码区分 OK/取消, 但 bash 读完全部 coproc 输出后可能清理 `YAD_PID`（实测 wait 时已空 → 报错 status≠0 → 误走恢复分支）; 且 `while read` 最后一次 read 读到 EOF 时会把 `$value` **清空**, 循环外 `$value` 必空（OK 也空）。重构为 **FIFO + 后台 pid (`$!`, 稳定)**, 循环内用 `$last` 记录最终值; OK 后从硬件读取实际亮度（eDP brightnessctl / DDC getvcp）作为保存值, 读取失败回退 `$last`。回归测试 `tests/rofi-theme-monitor-brightness_test.sh`（awk 提取函数 + mock yad/xrandr/brightnessctl; 因脚本顶层 `module_loop` 阻塞无法整体 source）
+- **DP 显示器 DDC 亮度控制失效已修复**: `get_ddc_bus()` 只接受 `ddcutil detect --brief` 中 `Display N` 有效条目, 丢弃 `Invalid display` 条目。但 DP 经 aux 总线时 detect 常误报 `This monitor does not support DDC/CI. (I2C slave address x37 is unresponsive.)`, 而同 bus 的 `getvcp/setvcp 10` 实际可用 (TRG JQ24F260L 实测) → bus 解析为空, 读写静默失败。现两遍取值: 优先有效条目, 无命中时回退同 `drm_connector_id` 的 Invalid 条目总线 (eDP 不受影响, 其读写短路走 brightnessctl)。回归测试 `tests/monitor-brightness_test.sh` 场景 D (旧代码 FAIL, 新代码 PASS)
+- **DDC 显示器滑块拖动滞后已优化**：yad `--print-partial` 拖动时逐像素输出值, 原实现每个值都调 `ddcutil setvcp`（~200ms/次）, 大幅拖动会积压上百次调用排队, 松手后仍持续处理（实测 100 值 → ~20s）; eDP 的 `brightnessctl set` 即时无此问题。现循环按显示器类型分流: eDP 逐值即时应用, DDC 用内层 `read -t 0.03` 丢弃积压值、滑动暂停后只应用最新值（实测 100 值 → 1 次 setvcp, ~1s）。回归测试场景 C（mock ddcutil detect/setvcp + DisplayPort-0 monitor, 断言 setvcp 只调 1 次且为最新值）
+
+### 壁纸（wallpaper*.sh, xwallpaper）
+
 - **视频 rotation 元数据**：手机竖拍视频编码常为横屏 1920x1080 但带 display matrix rotation=-90/90 元数据（`ffprobe -show_entries stream_side_data=rotation`），实际显示为竖屏 1080x1920。`get_video_dim()` 必须读取该元数据并交换宽高，否则竖屏视频被误判为横屏——应用到竖屏 monitor（xrandr rotate left，如 `HDMI-A-0` 报告 `1080x1920`）时方向误判触发无谓的旋转预览。`preview_rotation()` 初始 `--video-rotate` 由硬编码 `90` 改为 `0`：mpv 的 `video-rotate` 是**叠加**在文件元数据之上的额外旋转（默认 `auto` 自动应用元数据，lavc 实测默认输出 1080x1920、`--video-rotate=90` 叠加后输出 1920x1080），硬编码 `90` 让带元数据旋转的视频初始画面变横屏，且 watch-later 无该行（`video-rotate=0` 为默认值 mpv 不写入）时 fallback 错误回到 `90`。xwallpaper 本机为 libmpv 内嵌版，`--rotate N` 直接映射 mpv `video-rotate`，与预览同引擎同语义，空 rotation 时不传 `--rotate` 由 mpv 自动旋转
 - **壁纸 latest 状态已迁移至 xwallpaper**: 脚本侧 `wallpaper_latest_*` / `wallpaper_full_latest` 缓存文件
   删除, 由 xwallpaper 按 name 持久化 (`$XDG_STATE_HOME/xwallpaper/state`, `keep` 标志区分当前窗口/last)。
   脚本侧查询当前壁纸走 `xwallpaper --state`。`clear --keep` + `restore` 替代原 screen 清场保留/回退逻辑。
   **行为变化**: `clean_group` 后若铺 screen 再切回, 之前被普通 clear 的 target 仍可能被 restore 拉回
   (原实现会删缓存, 现普通 clear 删状态、仅 `--keep` 保留; 实际场景中 clean 后再铺 screen 极罕见, 可接受)。
-- **auto_daemon 脏数据防护已加固**: ① sun-times 读后数字校验 (非数字曾坍缩 epoch 0 → remain 恒负无 sleep 热循环 + desired 恒 dark → SIGHUP 风暴，现 sleep 30 跳过)。② fetch 落盘前校验 (坐标正则 + 三时间非空 + date 成功 + epoch 数字 + `ss>sr、sr2>ss` 时序；`date -d ""` 会静默返回当前时间，脏响应直接丢弃、不写缓存、不删 throttle 锁)。③ offset `^-?[0-9]+$` 校验 (非法→0；旧 `$((...))` 对 "abc" 静默 0、对 "08" 直接报错)。④ `auto.enabled` 三态：false/未知非空→退出，空 (瞬时不可读/缺 key)→sleep 10 重试不退出 (编辑器非原子写曾永久杀死 daemon)。⑤ i3lock 等待 loop 内重查 enabled (锁屏期间 auto off 生效，不补 stale 翻转)。⑥ SIGHUP 前校验 `current-theme == desired` (`_do_theme_change ""` early-return 时不重启)。回归测试 `tests/theme-autofix_test.sh` (D 脏缓存 / E enabled 缺失自愈 / F 脏 API / H 锁被占不 spawn；旧代码下 D1/D4/E1-3/F1-2/H2 均 FAIL)
-- **auto_daemon 窗口外翻转不补亮度已修复**: `nobright` 翻转假设"亮度由插值负责"，但插值只在窗口内写——夜间启动 daemon / 挂起跨过窗口 / 锁屏延迟翻转等一切窗口外翻转，之后永久无人写亮度 (实测：dark 配 light 亮度整晚)。现翻转时复用 `_should_apply_at` 分流：窗口内 `nobright` (防闪端点)，窗口外带端点一次性写入。回归 `tests/theme-autofix_test.sh` I1 (窗口外带端点，旧代码 FAIL) / I2 (窗口内保持 nobright 防过度修正)
-- **后台任务 flock FD 继承已全覆盖**: `_auto_lock` 注释的 `9>&-` 不变量此前只守了 auto_daemon 内 sleep，`_do_theme_change` 链的 `set_kitty_theme &` / wallpaper `( ... & )` / `fcitx5 -r &` / `xsettingsd &` 全继承 FD 9 —— 开机首次切换拉起的常驻 xsettingsd 会永久占锁致后续 daemon 秒退 (auto 假死)。现四处均加 `9>&-`，静态守卫 `tests/theme-autofix_test.sh` G1 (旧代码 FAIL)
 - **rofi `next` 卡顿已修复**: 原 `xwallpaper` CLI 为单进程架构, 每次裸调用约 0.2s (X 连接+库加载), 一次 `next` 链路需串行 4-6 次 clear/restore/set (~1.5s)。原 `handle_next` 同步执行导致 rofi 要等 next 跑完才重开 (点 Next 后空白 1.5s)。修复两层: ① 脚本层 `handle_next` 改 `( tools/wallpaper.sh -m ... next & )` 后台执行, rofi 立即重开; ② xwallpaper 改为 **client+daemon 架构** (`xwallpaperd` 常驻, CLI 经 IPC 通信, 实测 `--list`/`--state`/`clear` 从 ~0.2s 降至 ~0.001s, group next 从 0.97s 降至 0.4s, 大图 set 从 0.6-1s 降至 0.16s)。另修复 `xwallpaper state` → `--state` 拼写 (3 处), 此前排除当前壁纸逻辑一直失效会重复抽同一张。
-- **锁屏 standby 后物理屏 1-2s 亮起（xwallpaper 视频壁纸持续 present 触发驱动 unblank）**：根因是 `xwallpaper --daemon` 的 libmpv（`vo=gpu`+`wid` 直绘）在 X DPMS off 后**持续 present 帧** → amdgpu 驱动把输出 dpms 恢复 On（sysfs 实测 2-3s 回弹，X 层 `xset q` 标志保持 Off/Standby 不变，eDP→HDMI→DP 依次亮）。与键盘幽灵输入、amdgpu REG_WAIT（7.x 回归，lts 6.18.46 无此）、TLP/GPU runtime PM（`control=on` 全程 active）均无关。修复双层：① xwallpaper（源码 `~/Workspace/Github/xwallpaper`）backend 层加 `set_paused` 回调（video → mpv pause），`xw_app_dpms_poll()`（`DPMSInfo` 查询，500ms 节流）在主循环检测电源模式，非 On 即暂停渲染；② `lock.sh _lock_before/_lock_after` 对 `xwallpaperd`（兼容保留 `xwallpaper` 单进程时代）进程 `pkill -STOP/-CONT` 双保险。验证：standby 12s sysfs dpms 全程 Off 不回弹。**注意**: client+daemon 拆分后常驻渲染进程名为 `xwallpaperd`，`-x xwallpaper` 精确匹配打不到 daemon，必须 STOP `xwallpaperd`，否则锁屏 `_screen_lock_loop` 会因 X 层 `xset q` 标志 stale（物理已亮、X 仍 Off）卡在 `! Monitor is On` 等待里，表现为灭一次→亮→再也不灭。
 - **首次开机 HDMI 视频壁纸黑屏（swapchain 创建失败 → mpv 丢 video track）**：开机早期 GPU/GL（RADV/amdgpu Vulkan 栈）未就绪时，`vo=gpu` 的 swapchain 创建失败（`VK_ERROR_INITIALIZATION_FAILED`），mpv `write_video` 里 `vo_reconfig2<0` → `error_on_track` **禁用视频 track**（日志 `deselect track 0`/`Video: no video`）——窗口在、restore 显示 `ok`、只有音频在播、画面黑。**restore_pending 重试对此无效**（窗口 active 不算 pending）；**mpv 自身不重试**（reconfig 失败即禁 track）。为何 xwinwrap+mpv 无此问题：独立 mpv 进程启动晚（fork/exec/加载），建 swapchain 时 GPU 已就绪。修复（xwallpaper 已提交）：backend 加 `retry()` 回调（video 查 mpv `video` 属性，无视频则重新 `loadfile` 重建渲染路径），daemon 启动后 2 分钟窗口内 **0.5s 节拍**轮询，reload 间 **1.5s 防堆积**（`load_file` 统一记 `last_load_ms`，含首次 loadfile 防竞态），GPU 就绪后 ≤1.5s 出视频。诊断方法（临时）：`XW_DEBUG_DAEMON=1 xwallpaper --daemon` 手动启动，restore/自愈日志打 stderr，mpv 日志写 `/tmp/xw-mpv-<winid>.log` + IPC socket `/tmp/xw-mpv-<winid>.sock`（`get_property video` 查有无视频 track）
-- **托盘图标不跟随主题切换已修复（两处根因）**: ① **nm-applet / pasystray / udiskie**：图标色由 **icon 主题**决定（`Tela-manjaro-light` 深色图标 / `dark` 浅色图标），而 `set_gtk_theme` 只写 gtk settings.ini 的 `gtk-icon-theme-name`、**运行时没广播 `Net/IconThemeName`**；X11 下 GTK 以 XSETTINGS 优先于 settings.ini，故所有已启动 GTK 应用（含重启后）都卡在旧图标主题 → 亮主题下仍是浅色图标、看起来"不跟随"。修复：`set_gtk_theme` 增写 `~/.xsettingsd` 的 `Net/IconThemeName`（HUP xsettingsd 广播）+ `gsettings icon-theme` 同步；GTK 收到 XSETTINGS 变化后**即时重载图标，无需重启进程**（实测 nm-applet pid 不变，purest `#dfdfdf` ↔ `#505050`）。② **EasyEffects（snixembed 代理）**：EasyEffects 8.2.9 起发 `IconName`（`com.github.wwmm.easyeffects-symbolic`）而非 `IconPixmap`，snixembed 自 2020 起 IconName 优先（`set_icon_name`），靠 `GtkStatusIcon` 默认着色在轻量 X11 会话取到错误前景色 → 深底配深图标不可见。修复在 snixembed 自身：`set_icon_name` 用当前主题 style context 经 `IconInfo.load_symbolic_for_context` 自渲染（保留 SNI 规范鼓励的 IconName 优先），另修 `pixbuf_from_data` 的 `i += 3`→`i += 4`，`size_changed` 改连 `set_icon` 恢复尺寸自适应；代码在 `~/Workspace/Github/snixembed`。snixembed 前景色只在 `set_icon` 时取一次 → 切主题时由 `_do_theme_change` → `restart_snixembed`（`launch restart snixembed`）重启重绘；`launch()` 抽出 `utils/launch.sh` 供 autostart 与 theme.sh 共用。端到端 dark `#a5a6a9` ↔ light `#535355`。回归测试 `tests/theme-tray_test.sh`（restart_snixembed）+ `tests/autostart_test.sh`（改为 source `utils/launch.sh`）
-- **rofi/scripts/theme.sh handle_monitor_brightness 保存值/退出码失效已修复**: 原实现 `coproc YAD` + `wait "$YAD_PID"` 取 yad 退出码区分 OK/取消, 但 bash 读完全部 coproc 输出后可能清理 `YAD_PID`（实测 wait 时已空 → 报错 status≠0 → 误走恢复分支）; 且 `while read` 最后一次 read 读到 EOF 时会把 `$value` **清空**, 循环外 `$value` 必空（OK 也空）。重构为 **FIFO + 后台 pid (`$!`, 稳定)**, 循环内用 `$last` 记录最终值; OK 后从硬件读取实际亮度（eDP brightnessctl / DDC getvcp）作为保存值, 读取失败回退 `$last`。回归测试 `tests/rofi-theme-monitor-brightness_test.sh`（awk 提取函数 + mock yad/xrandr/brightnessctl; 因脚本顶层 `module_loop` 阻塞无法整体 source）
-- **DP 显示器 DDC 亮度控制失效已修复**: `get_ddc_bus()` 只接受 `ddcutil detect --brief` 中 `Display N` 有效条目, 丢弃 `Invalid display` 条目。但 DP 经 aux 总线时 detect 常误报 `This monitor does not support DDC/CI. (I2C slave address x37 is unresponsive.)`, 而同 bus 的 `getvcp/setvcp 10` 实际可用 (TRG JQ24F260L 实测) → bus 解析为空, 读写静默失败。现两遍取值: 优先有效条目, 无命中时回退同 `drm_connector_id` 的 Invalid 条目总线 (eDP 不受影响, 其读写短路走 brightnessctl)。回归测试 `tests/monitor-brightness_test.sh` 场景 D (旧代码 FAIL, 新代码 PASS)
-- **DDC 显示器滑块拖动滞后已优化**：yad `--print-partial` 拖动时逐像素输出值, 原实现每个值都调 `ddcutil setvcp`（~200ms/次）, 大幅拖动会积压上百次调用排队, 松手后仍持续处理（实测 100 值 → ~20s）; eDP 的 `brightnessctl set` 即时无此问题。现循环按显示器类型分流: eDP 逐值即时应用, DDC 用内层 `read -t 0.03` 丢弃积压值、滑动暂停后只应用最新值（实测 100 值 → 1 次 setvcp, ~1s）。回归测试场景 C（mock ddcutil detect/setvcp + DisplayPort-0 monitor, 断言 setvcp 只调 1 次且为最新值）
 - **热重启后 autostart 重跑杀掉 xwallpaperd 多闪一次已修复**: dwm SIGHUP 重启会重跑 `autostart.sh` → `wallpaper.sh -r` 的 `launch_wallpaper` 曾无条件 `pkill xwallpaperd` 再起新实例 (窗口销毁重建闪一次, 叠加主题切换自身的 set 共两次)。现抽取 `ensure_xwallpaperd()`: `pgrep` 存活直接复用零操作, 仅死亡/缺失才清理拉起; bash 轮换实例仍按旧逻辑去重重启 (只重置计时器, 不碰窗口)。回归测试 `tests/wallpaper-restart_test.sh` (存活零 pkill/零启动 + 死亡拉起 + launch 体内无裸 pkill 静态守卫, 旧代码 FAIL)
 - **主题切换壁纸闪两次已修复 (两处)**: ① `theme_wallpaper` 无幂等 — 当前已是目标仍同名 set (xwallpaper 同名即 reload) 白闪一次, 现以 `--state` path 比对, 相等跳过 (random 分支本就排除当前, 主要命中记忆恢复路径)。② `_do_theme_change` 壁纸 job 后台 `&` + 固定 `sleep 0.3` 后 SIGHUP, set (find+ffprobe+set 约 0.4-1s) 落在 dwm 重启之后成第二次闪烁, 现改前台同步 SIGHUP 前落盘 (恒返回 0, 失败不影响切换; 与端点亮度同步化同类修复)。回归测试 `tests/wallpaper-last_test.sh` 场景 6 (旧代码 FAIL) + `tests/wallpaper-theme_test.sh` hook 前台断言 (`&)` 静态守卫)
+
+### rofi 菜单（module.sh, script mode）
+
+- `module.sh handle_network` 已改用 `nmcli -t -f BARS,BAND,BSSID,SSID` 解析 WiFi 列表（条目形如 `▂▄▆█ [2.4 GHz] SSID`，无 SSID 的隐藏网络以 BSSID 兜底）：nmcli ≥1.58 在表格输出新增 BAND 列（且 RATE 两 token），旧 `substr+$8` 列位解析会把 RATE 的 "Mbit/s" 当信号条显示
+- 隐藏网络无法仅凭 BSSID 连接（802.11 关联握手必须携带真实 SSID，NM 会报 `A 'wireless' setting with a valid SSID is required for hidden access points`）：`handle_network` 检测到选中项为 MAC 时弹 `module_input` 让用户输入真实 SSID，再 `nmcli device wifi connect <ssid> hidden yes bssid <BSSID>`
+- **rofi script mode 多属性必须用 `\x1f` 连接**：正确格式 `text\0icon\x1f<v>\x1finfo\x1f<id>`（仅行文本后一个 `\0`）。曾错误写成 `text\0icon\x1f<v>\0info\x1f<id>`（两个 `\0`）导致选中无反应：rofi 按 C 字符串语义解析属性块（`dmenuscript_parse_entry_extras` 的 `g_strsplit` 遇 `\0` 截断），第二个 `\0` 之后的内容（含 info）不可见 → `ROFI_INFO` 不设置 → 静默返回。测试断言注意：`grep -a` 对含 NUL 文件匹配不可靠、`$'\x00'` bash 展开的字面 NUL 会截断 grep -P 模式，须用单引号模式 `'\x00info'` + `grep -P`
+
+### Steam Workshop
+
 - **`sw_fetch_page` 同行 `local` 赋值恒空已修复**: `local in="$1" url="$in"` 中 bash 同行多赋值不按序可见, `url` 恒为空 → `curl ''` 恒返回空, 页面 AppID 解析全灭 (全靠 `sw_api_info` 兜底才没全崩; mock curl 忽略参数故单测从未抓住)。现改单行 `local url="$1"`; mock 记 curl 参数 + 断言 URL 透传/纯数字拼 URL (旧代码 FAIL)。另注意成熟内容条目 (如 3649839464) 匿名页面是内容门 (无 `data-appid`, 亦非登录门), 页面链天然失败, 走 API 兜底
 - **同 appid 反复 `failed (Failure)` 真因是 acf 幽灵记录 (与账号无关)**: `sw_download` 把 content 搬到扁平目录后 `appworkshop_<appid>.acf` 残留 Installed/manifest 记录, 下次同 appid 下载 steamcmd 按 acf 校验已不存在的 content 文件 (content_log 实证 `CFileReader ... errno: 2 ... Missing game files` → 整单 Failure)。证据: 中毒根下 0723wang/anonymous 同错、干净根 3 次成功、同盘新根成功 (排除文件系统)。修复: 成功搬离后删该 acf (下次全量重下; 失败保留以便续传; `sw_check_updates` 不读 acf 无影响; appid 入口已校验纯数字+路径钉死隔离根)。回归: 预置 stale acf → 成功后消失/失败保留 (旧代码 FAIL)
 - **aurelia fallback 噪声曾误删刚下载的扁平目录**: `sw_run_updates` 用 `out=$(sw_download ... 2>&1)` 合并 stderr 再与源路径比对 (`[[ $out != $path ]] && rm -rf`), aurelia 失败打到 stderr 的日志会污染 `out` 使比对恒不等 → 删掉刚落盘的扁平目录。修复: `sw_download` 内 aurelia 失败输出暂存 `aur_err`, 仅 steamcmd 也失败时才一并打出, 成功路径 stderr 保持干净。**不变量**: `sw_download` 成功时 stdout 必须恰为扁平路径、stderr 必须为空。回归测试 `tests/steam-workshop_test.sh` "run: deep source pruned after move" (旧代码 FAIL)
+
+### 录屏 / 投屏（screencast.sh, scrcpy.sh）
+
 - **录屏麦克风只有左声道已修复 (aux0 未上混)**: 本机 PCM2902 单声道 USB 声卡 (`s16le 1ch`) 的 PipeWire channel map 是 `aux0` 而非标准 `MONO`; `module-loopback` 把 `aux0` 混入立体声 `screencast_sink` 时只映射到 front-left, 右声道静音 (桌面 loopback 源是 `FL,FR` 故正常)。实测 `AUX0→stereo` 右声道 -91 dB, `MONO→stereo` 左右均 -21 dB; `remix=true` / `channels=2` 均无效。修复: `setup_virtual_devices` 检测默认源为 1ch 时给麦克风 loopback 追加 `channels=1 channel_map=mono`, 由 PipeWire 按 mono 上混到左右 (每声道约 -6 dB, 总能量守恒; 立体声源不降混)。测试缝 `SCREENCAST_NO_DISPATCH=1`, 回归测试 `tests/screencast-mic-mono_test.sh`
 - **scrcpy 横屏时上下划失效已修复 (wm size 不跟旋转)**: `_swipe` 每次按键都重查 `wm size`, 触发点本身是动态的; 病根是 `wm size` 返回自然方向尺寸 (真机验证: 横屏时仍 `1200x2670`), 而 `input swipe` 坐标系随旋转变化, 不交换 w/h 会发 y 越界坐标被系统静默忽略。修复: 新增 `_display_rotation()`, 只信 `displayId 0` 的 `mOverrideDisplayInfo` 行 (`, app W x H,` 判宽高 → `rotation N` 空格形式 → 老格式 `mCurrentRotation=` 兜底); 曾误命中 `displayShape{... rotation=0 ...}` 等静态段致横屏恒判 0 (第一版在真机上复现)。回归测试 `tests/scrcpy-swipe_test.sh` R12-R15 锁真机格式 (第一版 R12/R13 FAIL)
 
-- **锁屏前压暗预告 (`xset s 570 30` + `xss-lock -n`)**: 旧行为是 10 分钟直接上锁, 读文档 (无输入/无音频) 时体感突兀。现 `xset s` 的 timeout = 锁屏时刻 − 预告, cycle = 预告: Xorg `dixSaveScreens()` 在第二次 `SCREEN_SAVER_ON` (即 `what == screenIsSaved`) 时改发 `SCREEN_SAVER_CYCLE`, 而 xss-lock 在 `On` 且 `cycle > 0` 时只启动 notifier、收到 `Cycle` 才启动 locker → **570s 压暗、600s 上锁, 锁屏时刻不变**。压暗走 `xrandr --brightness` (gamma 瞬时生效, 无硬件往返); 不能用 `brightnessctl`/`ddcutil` (DDC 单次 ~200ms, restore 被 SIGTERM 打断就会停在暗屏, 且与 `theme.sh` 的亮度插值抢同一硬件)。恢复固定 1.0, 另由 `lock.sh _lock_before` 兜底一次。notifier 由 xss-lock 直接 execv (不经 shell), 故必须写成 `/bin/bash <screen.sh> notifier`; 脚本内必须 `sleep … & wait` 驻留 (`前台 sleep` 会把 trap 推迟到睡醒)。回归测试 `tests/screen-dim_test.sh` + `tests/screen-lock_test.sh` A 组
-- **改超时/参数后不生效已修复 (重新武装对账)**: 旧 `_screensaver_start` 只在 `xss-lock` 未运行时写 `xset s`, 于是改 `screen_saver_time` 后重启 daemon 也不会重新武装, notifier 参数同样锁死在旧进程里。现每次启动都写 `xset s` (幂等: X 只重设 timer, 空闲判定仍按 `LastEventTime` —— xserver `ProcSetScreenSaver` → `SetScreenSaverTimer`, 所以重复武装不会延长空闲时间), 并把 `<预告>|<锁屏>|<gamma>|<self>|<locker>` 指纹写 `/tmp/dwm-status/screen-arm.fp`; 仅指纹变化或进程缺失时重启 xss-lock, **锁屏中只写 xset、不重启** (下一轮再对齐), 重启前 `pkill` + 轮询 ≤2s 等旧实例退出 (新旧并存会让新实例 `SetAttributes` 失败直接退出)。测试用 `SCREEN_ARM_FILE` 隔离真实指纹。**推迟必须有重试**: 锁屏/压暗中不重启 xss-lock 的决策若只做一次, 解锁后会永久停在旧实例 (旧实例无 `-n`, 配合 `xset s 570 30` 会在 570s 直接上锁且不压暗) —— 真实踩到过一次; 现 daemon 每轮调 `_ensure_xss_lock` 对账, 由 `_rearm_deferred()` 判定 i3lock/notifier 两个状态。回归测试 `tests/screen-lock_test.sh` R/W 组
-- **热重启后旧 screen.sh 没被 kill (双 daemon) 已修复**: `launch restart` 杀的是 `autostart-launch-screen.pid` 里的 pid, 而旧 `daemon()` 的 md5 自重启是 `/bin/bash "$SELF" &; exit 0` —— **换了 pid**, pid 文件随即指向死进程; 下次热重启 kill 空操作后拉起新实例, 旧实例继续跑 (实测 3535685 与 3553535 并存)。修复两层: ① 自重启改 `exec /bin/bash "$SELF" daemon` (pid 不变, launch 的记录始终有效); ② daemon 启动时 `_takeover` 杀掉更早启动的同 argv 实例 (`/proc/<pid>/cmdline` 过滤排除 `screen.sh notifier`; starttime 相同则比 pid, 避免互杀)。另修 `source "$(dirname "$0")/…"` → `$(dirname "${BASH_SOURCE[0]}")` (被 source 时 `$0` 是调用者, 路径会算错)。回归测试 `tests/screen-single-instance_test.sh`
-
----
-
-# 编码准则
+## 编码准则
 
 > 以下准则偏向谨慎，非关键任务可灵活判断。
 
-## 1. 先想后写
+### 1. 先想后写
 
 **不要假设，不要隐藏困惑，给出取舍。**
 
@@ -762,7 +794,7 @@ calendar-lunar|󰃚|Lunar Calendar|
 - 如果有更简单的方案，直接说。该推翻就推翻。
 - 如果某处不清楚，停下来，说清困惑点，问。
 
-## 2. 简洁至上
+### 2. 简洁至上
 
 **最小化代码解决问题，不写推测性代码。**
 
@@ -774,7 +806,7 @@ calendar-lunar|󰃚|Lunar Calendar|
 
 自问："高级工程师会觉得这过度设计了吗？" 是的话就简化。
 
-## 3. 精准修改
+### 3. 精准修改
 
 **只动必须动的，只清理自己弄乱的。**
 
@@ -792,7 +824,7 @@ calendar-lunar|󰃚|Lunar Calendar|
 
 测试标准: 每一行改动都应该能追溯到用户的需求。
 
-## 4. 目标驱动
+### 4. 目标驱动
 
 **定义成功标准，循环直到验证通过。**
 
@@ -810,7 +842,7 @@ calendar-lunar|󰃚|Lunar Calendar|
 3. [步骤] → 验证: [检查项]
 ```
 
-## 5. 依赖完整性
+### 5. 依赖完整性
 
 **每次修改脚本后，检查并更新本文档中的调用链和依赖关系。**
 
