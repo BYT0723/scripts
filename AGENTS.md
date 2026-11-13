@@ -62,7 +62,7 @@ rofi/scripts/notification.sh──sources──► rofi/scripts/util.sh, rofi/sc
 rofi/scripts/sddm.sh       ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/screenshot.sh  ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/screencast.sh  ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/monitor.sh
-rofi/scripts/media-scraping.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
+rofi/scripts/media-scraping.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh; ──manages──► docker.service (+ docker.socket) 生命周期 (Toggle 时自启/空闲自停)
 rofi/scripts/mpd.sh         ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh; ──requires─► MPD `readpicture` 协议 (nc / bash /dev/tcp, 环境变量 MPD_HOST/MPD_PORT 默认 localhost:6600); 封面缓存 `~/.cache/dwm/mpd-cover/mpd-cover-<uri-hash>.jpg` (按歌曲 uri cksum 绑定, 命中复用); ──generates──► `~/.config/systemd/user/mpdris2-rs.service.d/override.conf` (通知模板, 内容变了才 daemon-reload + restart)
 rofi/scripts/sing-box.sh    ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh
 rofi/scripts/scrcpy.sh    ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh
@@ -272,12 +272,15 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `module_multi_rofi()` | wallpaper.sh (handle_group 组成员多选)                                                                                                                                                                                                                                                               |
 | `module_confirm()`   | quicklinks-mode.sh (_delete_link Alt+2 删除确认) |
 
-### rofi/scripts/media-scraping.sh
+### rofi/scripts/media-scraping.sh (顶层 `while module_loop` + `MEDIA_SCRAPING_NO_DISPATCH=1` 测试缝)
 
 | 函数            | 调用者                                                       |
 | --------------- | ------------------------------------------------------------ |
-| `_toggle()`     | media-scraping.sh (启停 docker compose 服务)                 |
-| `_is_running()` | media-scraping.sh (Open 前检查容器状态, Toggle 图标状态检查) |
+| `_docker_service_active()` | _toggle / _docker_start / _docker_stop_if_idle / _is_running (`systemctl is-active --quiet docker.service`, daemon 存活的唯一判据) |
+| `_docker_start()` | _toggle up 分支 (未运行 → `systemctl start docker.service`, Type=notify 返回即就绪无需轮询; 失败 critical 通知并中止, 不调 `launch.sh up`; 成功 normal 通知; 授权走 polkit/lxpolkit 弹窗) |
+| `_docker_stop_if_idle()` | _toggle down 分支 (`launch.sh down` 之后: service 仍 active 且**全局** `docker ps -q` 计数为 0 → `systemctl stop docker.service docker.socket`; 必须连带停 socket, 否则菜单构建里的 `docker compose ps` 会经 socket 激活把 daemon 拉回来) |
+| `_toggle()`     | media-scraping.sh (daemon 未运行时跳过 probe 直接走 up 分支; any running → down + `_docker_stop_if_idle`, 否则 `_docker_start` + up) |
+| `_is_running()` | media-scraping.sh (Open 前检查容器状态, Toggle 图标状态检查) — 先 `_docker_service_active` 门禁: daemon 停着直接 rc=1 且不 spawn docker (不唤醒 socket, 也省掉每个菜单构建 ~10 次必然失败的调用) |
 
 ### rofi/scripts/mpd.sh
 
@@ -767,6 +770,7 @@ calendar-lunar|󰃚|Lunar Calendar|
 - `module.sh handle_network` 已改用 `nmcli -t -f BARS,BAND,BSSID,SSID` 解析 WiFi 列表（条目形如 `▂▄▆█ [2.4 GHz] SSID`，无 SSID 的隐藏网络以 BSSID 兜底）：nmcli ≥1.58 在表格输出新增 BAND 列（且 RATE 两 token），旧 `substr+$8` 列位解析会把 RATE 的 "Mbit/s" 当信号条显示
 - 隐藏网络无法仅凭 BSSID 连接（802.11 关联握手必须携带真实 SSID，NM 会报 `A 'wireless' setting with a valid SSID is required for hidden access points`）：`handle_network` 检测到选中项为 MAC 时弹 `module_input` 让用户输入真实 SSID，再 `nmcli device wifi connect <ssid> hidden yes bssid <BSSID>`
 - **rofi script mode 多属性必须用 `\x1f` 连接**：正确格式 `text\0icon\x1f<v>\x1finfo\x1f<id>`（仅行文本后一个 `\0`）。曾错误写成 `text\0icon\x1f<v>\0info\x1f<id>`（两个 `\0`）导致选中无反应：rofi 按 C 字符串语义解析属性块（`dmenuscript_parse_entry_extras` 的 `g_strsplit` 遇 `\0` 截断），第二个 `\0` 之后的内容（含 info）不可见 → `ROFI_INFO` 不设置 → 静默返回。测试断言注意：`grep -a` 对含 NUL 文件匹配不可靠、`$'\x00'` bash 展开的字面 NUL 会截断 grep -P 模式，须用单引号模式 `'\x00info'` + `grep -P`
+- **Media Scraping Toggle 不管 daemon 已修复 (两处失效 + socket 激活陷阱)**: ① daemon 没起时 `docker compose up` 直接失败, 菜单看起来"点了没反应"; ② 关完最后一个容器后 daemon 继续常驻。现 Toggle 联动 `docker.service`: up 分支未运行则先 `systemctl start`, down 分支全局无活动容器则 `stop`。**关键坑**: `docker.socket` 是 `ListenStream=/run/docker.sock` + `Triggers=docker.service`, 只 `stop docker.service` 时本脚本菜单构建里的 `docker compose ps` (`_is_running` 每个 Toggle 行一次, 一轮最多 10 次) 会经 socket 把 daemon **立刻**拉起来等于没停 → 必须 `stop docker.service docker.socket`, 且 `_is_running` 先过 `_docker_service_active` 门禁 (daemon 停着直接 rc=1 不 spawn docker)。停止口径是**全局** `docker ps -q` 为 0 (其他 compose 项目还有容器在跑就不停 daemon); start/stop 需 polkit 授权 (lxpolkit 弹窗), 失败 critical 通知。回归测试 `tests/media-scraping-docker_test.sh` (A-G/S 组)
 
 ### Steam Workshop
 
