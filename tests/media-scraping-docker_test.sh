@@ -57,15 +57,49 @@ cat >"$BIN/systemctl" <<'EOF'
 #!/usr/bin/env bash
 echo "systemctl $*" >>"$MOCK_LOG"
 case "$1" in
-is-active) [ "$(cat "$TEST_DIR/svc_active" 2>/dev/null)" = "1" ] && exit 0 || exit 3 ;;
-start)
-    [ -f "$TEST_DIR/start_fail" ] && exit 1
-    echo 1 >"$TEST_DIR/svc_active"
-    exit 0
+is-active)
+    case "${!#}" in
+    docker.socket) active=$(cat "$TEST_DIR/sock_active" 2>/dev/null) ;;
+    *) active=$(cat "$TEST_DIR/svc_active" 2>/dev/null) ;;
+    esac
+    [ "$active" = "1" ] && exit 0 || exit 3
     ;;
-stop)
-    [ -f "$TEST_DIR/stop_fail" ] && exit 1
-    echo 0 >"$TEST_DIR/svc_active"
+start | stop)
+    verb="$1"
+    shift
+    # 本机实测: 一次 systemctl 带多个 unit 会被 polkit 直接拒绝 (无 challenge)
+    if [ "$#" -gt 1 ]; then
+        echo "Failed to enqueue jobs: Access denied" >&2
+        exit 4
+    fi
+    unit="$1"
+    case "$verb $unit" in
+    "start docker.service")
+        if [ -f "$TEST_DIR/start_fail" ]; then
+            echo "${START_FAIL_MSG:-boom}" >&2
+            exit 4
+        fi
+        echo 1 >"$TEST_DIR/svc_active"
+        echo 1 >"$TEST_DIR/sock_active" # Requires= 连带拉起 socket
+        ;;
+    "start docker.socket") echo 1 >"$TEST_DIR/sock_active" ;;
+    "stop docker.socket")
+        if [ -f "$TEST_DIR/stop_fail" ]; then
+            echo "${STOP_FAIL_MSG:-boom}" >&2
+            exit 4
+        fi
+        echo 0 >"$TEST_DIR/sock_active"
+        # Requires= 传播: 停 socket 连带停 service (no_propagation 关掉以测兜底)
+        [ -f "$TEST_DIR/no_propagation" ] || echo 0 >"$TEST_DIR/svc_active"
+        ;;
+    "stop docker.service")
+        if [ -f "$TEST_DIR/stop_fail" ]; then
+            echo "${STOP_FAIL_MSG:-boom}" >&2
+            exit 4
+        fi
+        echo 0 >"$TEST_DIR/svc_active"
+        ;;
+    esac
     exit 0
     ;;
 esac
@@ -106,8 +140,9 @@ chmod +x "$BIN"/*
 reset_state() {
     : >"$MOCK_LOG"
     echo 0 >"$TEST_DIR/svc_active"
+    echo 0 >"$TEST_DIR/sock_active"
     : >"$TEST_DIR/running_containers"
-    rm -f "$TEST_DIR"/compose_state_* "$TEST_DIR/start_fail" "$TEST_DIR/stop_fail"
+    rm -f "$TEST_DIR"/compose_state_* "$TEST_DIR/start_fail" "$TEST_DIR/stop_fail" "$TEST_DIR/no_propagation"
 }
 set_compose() { # svc state
     echo "$2" >"$TEST_DIR/compose_state_$1"
@@ -144,15 +179,27 @@ _toggle hub jellyfin metatube >/dev/null 2>&1
 check "C1 start 失败 → 不调 launch" '! grep -q "^launch " "$MOCK_LOG"'
 check "C2 发 critical 通知" 'grep -q "^notify -u critical" "$MOCK_LOG"'
 
-# ---------------- D: down 后 0 容器 → stop service + socket ----------------
+# ---------------- D: down 后 0 容器 → 单 unit 停 socket (连带停 service) ----------------
 reset_state
 echo 1 >"$TEST_DIR/svc_active"
+echo 1 >"$TEST_DIR/sock_active"
 set_compose jellyfin running
 _toggle hub jellyfin metatube
 check "D1 走了 down" 'grep -q "^launch down hub$" "$MOCK_LOG"'
-check "D2 停 daemon 连带停 socket" 'grep -q "^systemctl stop docker.service docker.socket$" "$MOCK_LOG"'
-check "D3 down 之后才 stop" '[ "$(grep -n "^launch down hub" "$MOCK_LOG" | cut -d: -f1)" -lt "$(grep -n "^systemctl stop" "$MOCK_LOG" | cut -d: -f1)" ]'
-check "D4 停止发通知" 'grep -q "^notify -u normal" "$MOCK_LOG"'
+check "D2 停 socket 用单 unit 调用" 'grep -q "^systemctl stop docker.socket$" "$MOCK_LOG"'
+check "D3 不发多 unit 调用" '! grep -q "^systemctl stop docker.service docker.socket$" "$MOCK_LOG"'
+check "D4 down 之后才 stop" '[ "$(grep -n "^launch down hub" "$MOCK_LOG" | cut -d: -f1)" -lt "$(grep -n "^systemctl stop" "$MOCK_LOG" | cut -d: -f1)" ]'
+check "D5 Requires 传播已停 service → 不再单独 stop" '! grep -q "^systemctl stop docker.service$" "$MOCK_LOG"'
+check "D6 成功停止不打扰 (不发通知)" '! grep -q "^notify " "$MOCK_LOG"'
+
+# 兜底: socket 停了但 service 还在 (unit 关系变化) → 再单独停 service
+reset_state
+echo 1 >"$TEST_DIR/svc_active"
+echo 1 >"$TEST_DIR/sock_active"
+set_compose jellyfin running
+touch "$TEST_DIR/no_propagation"
+_toggle hub jellyfin metatube
+check "D7 service 仍在 → 兜底单独停 service" 'grep -q "^systemctl stop docker.service$" "$MOCK_LOG"'
 
 # ---------------- E: 仍有其他容器 → 不停 daemon ----------------
 reset_state
@@ -161,6 +208,23 @@ set_compose jellyfin running
 printf 'aaa\nbbb\n' >"$TEST_DIR/running_containers"
 _toggle hub jellyfin metatube
 check "E1 有活动容器 → 不停 daemon" '! grep -q "systemctl stop" "$MOCK_LOG"'
+
+# ---------------- F: 失败原因透出到通知 (不再只有笼统文案) ----------------
+reset_state
+echo 1 >"$TEST_DIR/svc_active"
+echo 1 >"$TEST_DIR/sock_active"
+set_compose jellyfin running
+touch "$TEST_DIR/stop_fail"
+export STOP_FAIL_MSG="Failed to enqueue jobs: Access denied"
+_toggle hub jellyfin metatube
+check "F1 stop 失败 → critical" 'grep -q "^notify -u critical" "$MOCK_LOG"'
+check "F2 stop 失败 → 通知带真实原因" 'grep -q "Access denied" "$MOCK_LOG"'
+
+reset_state
+touch "$TEST_DIR/start_fail"
+export START_FAIL_MSG="Interactive authentication required."
+_toggle hub jellyfin metatube >/dev/null 2>&1
+check "F3 start 失败 → 通知带真实原因" 'grep -q "Interactive authentication required" "$MOCK_LOG"'
 
 # ---------------- G: _is_running 门禁 ----------------
 reset_state
@@ -190,5 +254,6 @@ check "S1 source 用 BASH_SOURCE 取路径" 'grep -q "BASH_SOURCE\[0\]" "$SCRIPT
 check "S2 MEDIA_SCRAPING_NO_DISPATCH 测试缝" 'grep -q "MEDIA_SCRAPING_NO_DISPATCH" "$SCRIPT"'
 check "S3 source utils/notify.sh" 'grep -q "utils/notify.sh" "$SCRIPT"'
 check "S4 MEDIA_DIR 可环境变量覆盖" 'grep -qF "MEDIA_DIR=\"\${MEDIA_DIR:-" "$SCRIPT"'
+check "S5 不再有多 unit systemctl 调用" '! grep -qE "systemctl (start|stop) docker\.[a-z]+ docker\.[a-z]+" "$SCRIPT"'
 
 exit "$fail"

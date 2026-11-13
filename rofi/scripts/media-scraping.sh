@@ -17,18 +17,20 @@ HUB=("jellyfin" "metatube")
 SCRAPER=("sonarr" "radarr" "prowlarr" "bazarr" "qbittorrent")
 
 # Toggle 顺带管 docker.service 生命周期: daemon 没起时 up 必失败, 关完最后一个
-# 容器后 daemon 也没必要常驻。stop 必须连带 docker.socket —— 它是
-# ListenStream=/run/docker.sock + Triggers=docker.service, 只停 service 的话
-# 本脚本每次菜单构建的 `docker compose ps` 都会经 socket 把 daemon 立刻拉回来。
+# 容器后 daemon 也没必要常驻。**一条 systemctl 只能带一个 unit**: 本机一次传多个
+# unit 会被 polkit 直接 "Failed to enqueue jobs: Access denied" (连认证弹窗都不发起,
+# 实测 `systemctl start getty@tty9 getty@tty11` 同样被拒), 单 unit 才会正常弹窗。
 _docker_service_active() { systemctl is-active --quiet docker.service 2>/dev/null; }
 
+# 失败原因要能看见: 原先 2>/dev/null 把 polkit/systemd 的错误全吞了, 只能看到笼统文案
 _docker_start() {
     _docker_service_active && return 0
-    if systemctl start docker.service >/dev/null 2>&1; then
+    local err
+    if err=$(systemctl start docker.service 2>&1); then
         system-notify normal "Docker" "docker.service 未运行, 已启动"
         return 0
     fi
-    system-notify critical "Docker" "启动 docker.service 失败 (需要 polkit 授权)"
+    system-notify critical "Docker" "启动 docker.service 失败: ${err:-未知错误}"
     return 1
 }
 
@@ -38,11 +40,16 @@ _docker_stop_if_idle() {
     local n
     n=$(docker ps -q 2>/dev/null | wc -l)
     [[ "$n" -eq 0 ]] || return 0
-    if systemctl stop docker.service docker.socket >/dev/null 2>&1; then
-        system-notify normal "Docker" "无活动容器, 已停止 docker.service"
-    else
-        system-notify critical "Docker" "停止 docker.service 失败 (需要 polkit 授权)"
+    # 停 socket 一条就够: docker.service Requires=docker.socket, 停 socket 会连带停
+    # service; 反过来只停 service 时 socket 还活着, 会被下一次连接重新触发 daemon。
+    local err
+    if ! err=$(systemctl stop docker.socket 2>&1); then
+        system-notify critical "Docker" "停止 docker.socket 失败: ${err:-未知错误}"
+        return 0
     fi
+    # 兜底: 若 unit 关系变成不依赖 socket, service 还会活着, 再单独收一次
+    _docker_service_active && systemctl stop docker.service >/dev/null 2>&1
+    return 0
 }
 
 _toggle() {
