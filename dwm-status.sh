@@ -41,8 +41,7 @@ panes() {
     panes+="${ST_SCREENCAST_BYTE}$(print_screencast)"
 
     # proxy daemons
-    panes+="${ST_DAE_BYTE}$(print_dae)"
-    panes+="${ST_SINGBOX_BYTE}$(print_singbox)"
+    panes+="${ST_PROXY_BYTE}$(print_proxy)"
 
     # audio: mpd play state, output volume
     panes+="${ST_MPD_BYTE}$(print_mpd)"
