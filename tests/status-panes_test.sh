@@ -57,8 +57,7 @@ set_all() {
     print_notification() { printf 'N'; }
     print_screencast() { printf 'T'; }
     print_docker() { printf 'K'; }
-    print_dae() { printf 'Y'; }
-    print_singbox() { printf 'B'; }
+    print_proxy() { printf 'X'; }
     print_mpd() { printf 'P'; }
     print_volume() { printf 'V'; }
     print_battery() { printf 'A'; }
@@ -76,7 +75,7 @@ expect=(
     "${ST_NET_BYTE}^cWHITE^S"
     "${ST_WEATHER_BYTE}^cBLUE^W"
     "${ST_DOCKER_BYTE}K"
-    "${ST_SCREENCAST_BYTE}T" "${ST_DAE_BYTE}Y" "${ST_SINGBOX_BYTE}B"
+    "${ST_SCREENCAST_BYTE}T" "${ST_PROXY_BYTE}X"
     "${ST_MPD_BYTE}P" "${ST_VOLUME_BYTE}V"
     "${ST_BATTERY_BYTE}A"
     "${ST_DATE_BYTE}^cCYAN^Z"
@@ -102,7 +101,7 @@ expect=(
     "${ST_RSS_BYTE}" "${ST_MAIL_BYTE}" "${ST_NOTIFY_BYTE}"
     "${ST_NET_BYTE}^cWHITE^S"
     "${ST_DOCKER_BYTE}"
-    "${ST_SCREENCAST_BYTE}" "${ST_DAE_BYTE}Y" "${ST_SINGBOX_BYTE}B"
+    "${ST_SCREENCAST_BYTE}" "${ST_PROXY_BYTE}X"
     "${ST_MPD_BYTE}P" "${ST_VOLUME_BYTE}V"
     "${ST_BATTERY_BYTE}A"
     "${ST_DATE_BYTE}^cCYAN^Z"
