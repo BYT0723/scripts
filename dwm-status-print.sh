@@ -266,13 +266,13 @@ print_speed() {
 
 print_mail() {
     read unread <"$mail_unread_path"
-    (($unread > 0)) && printf "^c$yellow^${icons[mail]} $unread"
+    (($unread > 0)) && printf "^c$yellow^${icons[mail]}"
 }
 
 print_rss() {
     read unread <"$rss_unread_path"
     [ -z "$unread" ] && return
-    (($unread > 0)) && printf "^c$yellow^${icons[rss]} $unread"
+    (($unread > 0)) && printf "^c$yellow^${icons[rss]}"
 }
 
 print_proxy() {
@@ -299,7 +299,7 @@ print_docker() {
 
 print_notification() {
     unread=$(dunstctl count history)
-    ((unread > 0)) && printf "^c$yellow^${icons[notification]} $unread"
+    ((unread > 0)) && printf "^c$yellow^${icons[notification]}"
 }
 
 print_screencast() {
