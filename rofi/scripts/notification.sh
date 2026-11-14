@@ -12,10 +12,6 @@ source "$(dirname "$0")"/lib-module.sh
 
 read_all_entry="Mark all as read"
 
-unread_count() {
-    echo $(dunstctl count history)
-}
-
 build_menu() {
     mapfile -t DATA < <(
         dunstctl history | jq -r '
@@ -71,8 +67,4 @@ pop() {
     dunstctl history-pop $id && sleep $timeout && dunstctl close $id && dunstctl history-rm $id &
 }
 
-case "$1" in
-"unread") unread_count ;;
-"pop-latest") pop "$(dunstctl history | jq -r '.data[0][0].id.data')" ;;
-*) run ;;
-esac
+run
