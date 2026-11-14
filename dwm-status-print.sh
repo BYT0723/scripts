@@ -94,7 +94,11 @@ print_battery() {
 print_volume() {
     [ -z "$(command -v amixer)" ] && system-notify critical "Tool Not Found" "please install alsa-utils" && return
 
-    read volume status < <(amixer get Master | awk -F'[][]' 'END{gsub(/%/,"",$2); print $2, $4}')
+    # amixer 走 ALSA default (本机是 pipewire-pulse 插件). 音频服务卡住时单次
+    # 调用会阻塞 ~30s, 而 refresh 是串行循环, 一个慢 block 就会冻结整条状态栏.
+    read volume status < <(timeout 1 amixer get Master 2>/dev/null | awk -F'[][]' 'END{gsub(/%/,"",$2); print $2, $4}')
+
+    [ -n "$volume" ] || return
 
     if [ "$status" == "off" ]; then
         fg="$red"

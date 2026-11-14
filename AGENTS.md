@@ -730,6 +730,7 @@ calendar-lunar|󰃚|Lunar Calendar|
 
 ### 状态栏（dwm-status*）
 
+- **音频服务卡死会拖停整条状态栏, 已加超时兜底**: `print_volume` 调 `amixer get Master`, 本机 ALSA default 是 pipewire-pulse 插件 (`amixer info` → `Card default 'pulse'`)。USB DAC (Fosi DS2) 卡在控制传输 (`dmesg` 的 `err -110`, wireplumber 停在 `usb_start_wait_urb` D 态) 时 pipewire-pulse 不响应, 单次 amixer 要阻塞 ~30s; 而 `launch_refresh` 是串行 `panes(); sleep 1`, 一个慢 block 让状态栏每 ~31s 才刷新一次 (表现为“数据没有更新”, 期间各 daemon 仍在正常写缓存)。现给 amixer 加 `timeout 1` + 空值 guard (无 Master 时不再对空串做 `-eq`)。回归测试 `tests/status-volume-hang_test.sh` (场景 C/D 旧代码 FAIL)
 - **status writer 不再注入 pill 底色 (`^b`)**: `panes()` 原用 `new_pane()` 给每个 pane 组首 block 加 `^b$black^`, 理由是"让 pane 颜色跟随 xrdb 主题"。但 dwm 的 `SchemeStatus` bg = `col_black`, `loadxrdb()` 已用 `strncpy` **原地覆盖**为 xrdb 的 `dwm.col_black` (dwm.c), 且 SIGHUP restart 时 `autostart.sh` 会跑 `dwm-status.sh reboot` 让 writer 重读同一份 xrdb —— 两边同源同值, `^b` 纯属重复写入。现 `new_pane` 已删除, `panes()` 直接拼接 `${ST_*_BYTE}<text>` 且每块独占一行、按语义分组注释 (系统负载/未读/网络/天气/容器/录屏/代理/音频/电源时钟), 行序与 dwm 绘制顺序无关, 纯为阅读; 空 block 只留 id 字节, 由 dwm 的 `bar_blocks` 丢弃 (无可见文本)。绘制顺序/分组/圆角全由 dwm `config.h` 决定, 注册了但 config 未列的块 (如当前 volume) 直接不绘制。**注意** writer 侧若给空 block 加颜色码 (如 `^c...^`) 会使其"有可见文本"而不被丢弃, 故 `weather` 仍保留 `[ -n ]` 判断。回归测试 `tests/status-panes_test.sh`
 - `tools/calendar.sh:3` source 路径已修复为 `$(dirname "$0")/../utils/notify.sh`
 
