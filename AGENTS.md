@@ -63,7 +63,7 @@ rofi/scripts/sddm.sh       ──sources──► rofi/scripts/lib-module.sh, ro
 rofi/scripts/screenshot.sh  ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh
 rofi/scripts/screencast.sh  ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/monitor.sh
 rofi/scripts/media-scraping.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh; ──manages──► docker.service (+ docker.socket) 生命周期 (Toggle 时自启/空闲自停)
-rofi/scripts/mpd.sh         ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh; ──requires─► MPD `readpicture` 协议 (nc / bash /dev/tcp, 环境变量 MPD_HOST/MPD_PORT 默认 localhost:6600); 封面缓存 `~/.cache/dwm/mpd-cover/mpd-cover-<uri-hash>.jpg` (按歌曲 uri cksum 绑定, 命中复用); ──generates──► `~/.config/systemd/user/mpdris2-rs.service.d/override.conf` (通知模板, 内容变了才 daemon-reload + restart)
+rofi/scripts/mpd.sh         ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh; ──requires─► MPD `readpicture` 协议 (nc / bash /dev/tcp, 环境变量 MPD_HOST/MPD_PORT 默认 localhost:6600), osdlyrics + busctl + setsid + pgrep (OSD 歌词开关: `org.osdlyrics.Config` 的 `General/display-mode-osd`); 封面缓存 `~/.cache/dwm/mpd-cover/mpd-cover-<uri-hash>.jpg` (按歌曲 uri cksum 绑定, 命中复用); ──generates──► `~/.config/systemd/user/mpdris2-rs.service.d/override.conf` (通知模板, 内容变了才 daemon-reload + restart)
 rofi/scripts/sing-box.sh    ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh
 rofi/scripts/scrcpy.sh    ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh
 rofi/scripts/theme.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, tools/theme.sh
@@ -293,6 +293,11 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 | `_mpris_override_action()` | _ensure_mpris_bridge (通知模板 `MPDRIS2_NOTIFY_ARGS` 为 repo 源 → 生成 `$XDG_CONFIG_HOME/systemd/user/mpdris2-rs.service.d/override.conf`: `ExecStart=` 重置 + 完整 argv, `%` 转义为 `%%`、真实换行转 `\n`; 内容未变输出 `start` 零写入, 变化才写 + `daemon-reload` 并输出 `restart`; 写失败按未变处理不挡菜单) |
 | `_have_mpris()` | _ensure_mpris_bridge, _notify_song (共用: `command -v mpdris2-rs` 检测桥是否安装) |
 | `_notify_song()` | handle_play_pause/prev/next (有桥直接返回靠 MPRIS 通知, 无桥手动 notify-send 兜底, 避免无桥时切歌静默) |
+| `_osd_running()` | _osd_on, handle_osd_lyrics (`pgrep -x osdlyrics`) |
+| `_osd_on()` | mpd.sh 主流程 (菜单高亮索引 7), handle_osd_lyrics — 经 `busctl --user` 读 `General/display-mode-osd` (`b true`); 进程未运行直接返回 1, 不触发 Config 服务自动激活 |
+| `_osd_set()` | handle_osd_lyrics — `busctl --user ... SetBool` 写 `General/display-mode-osd` (`true`/`false`) |
+| `_osd_wait_daemon()` | handle_osd_lyrics 冷启动分支 — 轮询 `busctl --user status org.osdlyrics.Daemon` (100ms × ≤50, 实测 ~300ms), 等 Daemon 就绪后再写配置 |
+| `handle_osd_lyrics()` | mpd.sh 注册表 `osd-lyrics` — 运行中翻转 OSD (应用留在托盘); 未运行先 `setsid -f osdlyrics`, 等 Daemon 就绪后再置 `true` (顺序不可反, 见已知问题); 未安装/调用失败走 notify |
 
 > 封面注入: 用 rofi `icon` widget (`icon-cover`, `filename` + `size: 200` + `squared` 默认 true 强制 1:1 正方形) —
 > 不能用 `imagebox`: 它不是真实 widget (rofi 静默当 `box`), `height` 属性被忽略 (box_get_desired_height 只累计 children),
@@ -719,6 +724,7 @@ calendar-lunar|󰃚|Lunar Calendar|
 ### MPD / MPRIS
 
 - **mpd.sh fetch_cover 慢已修复**: 根因不是 MPD 网络往返而是客户端每 chunk 固定开销。① `nc -q1` 在 stdin EOF 后须等 1s 才退出，而 MPD 收 `close` 不主动断连 → 每块白白等 1s，readpicture chunk 上限 8192B，N 块 ≈ N 秒（实测 30KB 封面 4 块整函数 4102ms，改 `-q0` 后 88ms；1MB 封面 128 块会到 ~128s）。② `dd bs=1 skip=...` 逐字节跳过+拷贝，块内 skip 从文件头重来，累计 O(n²) 字节级 syscall（1MB 封面 128 块 ~6700 万次单字节 read），改 `iflag=skip_bytes,count_bytes bs=4096`（精确 seek + 块拷贝）。**单连接方案评估后放弃**: bash 无法可靠"恰好读 N 字节且把后续保留在流中"（read 缓冲与 fd 不同步、dd over-read 会吞掉下一响应 header、binary 块无长度外分隔标记），需 python/复杂协议解析，与仓库纯 bash 风格冲突，且 fetch 为低频场景（cache 按 uri 命中后不再拉），`-q0`+iflag 已把 4.1s→48ms，额外收益不足以抵风险。回归测试 `tests/mpd-cover_test.sh`
+- **OSD Lyrics 开关 (mpd 菜单)**: osdlyrics 无 CLI, OSD 显隐由 Config D-Bus 服务 `org.osdlyrics.Config` 的 `General/display-mode-osd` 控制 (与托盘「桌面歌词模式」同一状态, 改后应用即时隐藏/重建窗口)。直接改 `~/.config/osdlyrics/osdlyrics.conf` 运行中不生效 (应用不监听文件); 菜单读状态先 `pgrep -x osdlyrics` 门禁, 避免查询时自动激活 Config daemon。关 OSD 只销毁窗口, 应用留在托盘。**冷启动顺序不可反**: 未运行时若先 `SetBool true` 再启动, 单独激活的 `ini_config.py` 会监听 `org.osdlyrics.Daemon`, Daemon 不存在时进程在 1s 保存定时器触发前退出 → `SetBool` 返回成功但值丢失, 表现为第一次 toggle 只启动应用、不显示歌词; 现改为先 `setsid -f osdlyrics`, 经 `_osd_wait_daemon` 等 Daemon 就绪 (~300ms) 后再写 true。回归测试 `tests/mpd-osd_test.sh` (mock busctl 按次数模拟 Daemon 就绪, 断言 SetBool 在启动之后)
 - **source 含 `exit` 的脚本时 mock 缺工具会静默杀掉测试 shell**: `tests/mpris-bridge_test.sh` 初版只 mock 了桥相关命令，`mpc/systemctl` 等 mock 依赖的 `touch` 不在 PATH → mock 失败 → 被测脚本走 `exit 1` → 整个测试进程退出且零输出（`2>/dev/null` 把真错误也吞了）。修法：被测脚本外加窄 PATH 的场景 bin 时，把 mock/harness 间接依赖（`touch/rm/mkdir/dirname/head`）一并 link；且 `command -v` 会穿透到 `/usr/bin` 真二进制（如本机 `mpdris2-rs`），`chmod -x` 盖不住，必须用窄 PATH 隔离（`PATH="$SCEN_BIN" source ...`），kill 类 action 的 `eval` 同理用 mock 优先 PATH（防真 `systemctl` 动用户服务）。通知模板 drop-in 写入 `XDG_CONFIG_HOME`，测试须隔离该变量；`mpd-cover_test.sh` 亦 mock `systemctl/mpdris2-rs`，避免 source 时触碰真实用户服务。回归测试 `tests/mpris-bridge_test.sh`
 
 ### 锁屏 / 空闲（lock.sh, screen.sh）

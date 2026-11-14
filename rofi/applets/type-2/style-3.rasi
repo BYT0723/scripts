@@ -99,7 +99,7 @@ textbox {
 /*****----- Listview -----*****/
 listview {
     enabled:                     true;
-    columns:                     6;
+    columns:                     8;
     lines:                       1;
     cycle:                       true;
     scrollbar:                   false;

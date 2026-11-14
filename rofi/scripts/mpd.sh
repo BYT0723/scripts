@@ -69,6 +69,42 @@ fi
 # 未安装 mpdris2-rs 时无桥接管, 回退到手动 notify (否则切歌静默)
 _have_mpris() { command -v mpdris2-rs >/dev/null 2>&1; }
 
+# OSD Lyrics 开关: 走公开的 Config D-Bus 服务 (无 CLI);
+# General/display-mode-osd 与托盘「桌面歌词模式」同源, 应用会即时隐藏/重建 OSD 窗口
+OSD_CONFIG_SERVICE=org.osdlyrics.Config
+OSD_CONFIG_PATH=/org/osdlyrics/Config
+OSD_CONFIG_IFACE=org.osdlyrics.Config
+OSD_CONFIG_KEY=General/display-mode-osd
+
+_osd_running() { pgrep -x osdlyrics >/dev/null 2>&1; }
+
+_osd_on() {
+    _osd_running || return 1
+    local state
+    state=$(busctl --user call --timeout=1 \
+        "$OSD_CONFIG_SERVICE" "$OSD_CONFIG_PATH" "$OSD_CONFIG_IFACE" \
+        GetBool s "$OSD_CONFIG_KEY" 2>/dev/null)
+    [[ "$state" == "b true" ]]
+}
+
+_osd_set() { # true|false
+    busctl --user call --timeout=1 \
+        "$OSD_CONFIG_SERVICE" "$OSD_CONFIG_PATH" "$OSD_CONFIG_IFACE" \
+        SetBool sb "$OSD_CONFIG_KEY" "$1" >/dev/null 2>&1
+}
+
+# 单独启动的 Config 服务会随 Daemon bus name 消失而退出: 冷启动时若先 SetBool,
+# 方法返回成功, 但 1s 保存定时器触发前进程已退出 → 值丢失 (第一次 toggle 只启动应用)。
+# 所以拉起 osdlyrics 后先等 Daemon 就绪再写 (实测 ~300ms, 上限 5s)。
+_osd_wait_daemon() {
+    local i
+    for ((i = 0; i < 50; i++)); do
+        busctl --user --timeout=1 status org.osdlyrics.Daemon >/dev/null 2>&1 && return 0
+        sleep 0.1
+    done
+    return 1
+}
+
 # mpdris2-rs 通知模板 — repo 即配置源, 由 _mpris_override_action 生成 systemd drop-in
 # (service 本身不含参数, ~/.config/systemd 也不在备份范围; 生成物由本脚本重建)。
 # 占位符: %state% %title% %artist% %album% %album_artist% %elapsed% %duration% %empty% 等;
@@ -206,6 +242,8 @@ active_idx="" urgent_idx=""
 [[ "$random_state" == "off" ]] && urgent_idx="${urgent_idx}${urgent_idx:+,}5"
 [[ "$single_state" == "on" ]] && active_idx="${active_idx}${active_idx:+,}6"
 [[ "$single_state" == "off" ]] && urgent_idx="${urgent_idx}${urgent_idx:+,}6"
+# OSD 开=高亮; 关保持普通态 (用户主动隐藏歌词, 不标红)
+_osd_on && active_idx="${active_idx}${active_idx:+,}7"
 MODULE_ACTIVE="$active_idx"
 MODULE_URGENT="$urgent_idx"
 
@@ -217,6 +255,7 @@ next|󰒭|Next|
 repeat||Repeat|
 random||Random|
 single|󰬺|Single|
+osd-lyrics|󰨖|OSD Lyrics|
 MODULES
 
 _handle_play_icon() {
@@ -238,5 +277,22 @@ handle_next() { mpc -q next; _notify_song "$(_handle_play_icon)"; }
 handle_repeat() { mpc -q repeat; }
 handle_random() { mpc -q random; }
 handle_single() { mpc -q single; }
+
+# 运行中 → 翻转 config, 应用自行隐藏/重建 OSD 窗口 (应用留在托盘);
+# 未运行 → 先拉起, 等 Daemon 就绪后再开启 OSD (冷启动先写配置会丢, 见 _osd_wait_daemon)
+handle_osd_lyrics() {
+    if ! _osd_running; then
+        if ! command -v osdlyrics >/dev/null 2>&1; then
+            notify-send -c tools -i dialog-error "OSD Lyrics" "osdlyrics not found. Please install osdlyrics"
+            return
+        fi
+        setsid -f osdlyrics >/dev/null 2>&1
+        _osd_wait_daemon && _osd_set true
+        return
+    fi
+    local want=true
+    _osd_on && want=false
+    _osd_set "$want" || notify-send -c tools -i dialog-error "OSD Lyrics" "Failed to toggle OSD lyrics"
+}
 
 module_loop
