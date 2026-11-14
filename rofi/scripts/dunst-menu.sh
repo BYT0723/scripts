@@ -10,7 +10,7 @@
 # 丢弃通知 summary, 用 -format i 的 0 基序号回映射原始行。
 
 ROFI_DIR="$(dirname "$(dirname "$0")")"
-THEME="$ROFI_DIR/applets/type-1/style-2.rasi"
+THEME="$ROFI_DIR/applets/type-2/style-2.rasi"
 
 # 兼容 dmenu 的 -p <prompt>; dunst 默认不追加参数, 此时用 Actions
 prompt="Actions"
@@ -74,8 +74,10 @@ done
 # type-1 文本列表 (与 notification.sh 一致); type-2 图标网格会压扁 action 文本
 sel=$(printf '%s\n' "${show[@]}" | rofi -dmenu -i -no-custom -format i -p "$prompt" \
     -theme "$THEME" \
-    -theme-str 'window {width: 600px;}' \
-    -theme-str 'inputbar {children: [ "textbox-prompt-colon", "entry"];}' \
+    -theme-str 'window {width: 800px;}' \
+    -theme-str "element {padding: 20px 5px;}" \
+    -theme-str "element-text {font: \"JetBrains Mono Nerd Font 12\";}" \
+    -theme-str 'inputbar {children: [ "textbox-prompt-colon"];}' \
     -theme-str 'entry {padding: 8px; background-color: inherit; text-color: inherit;}' \
     -theme-str 'textbox-prompt-colon {str: "'"$prompt"'";}' \
     -hover-select -me-select-entry '' -me-accept-entry MousePrimary 2>/dev/null)
