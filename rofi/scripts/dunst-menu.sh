@@ -71,7 +71,7 @@ for i in "${!show[@]}"; do
     show[$i]+=" ${id_sfx[$i]}"
 done
 
-# type-1 文本列表 (与 notification.sh 一致); type-2 图标网格会压扁 action 文本
+# type-2/style-2 + theme-str: 800px / 行高 padding / 等宽字体 / inputbar 只留 prompt
 sel=$(printf '%s\n' "${show[@]}" | rofi -dmenu -i -no-custom -format i -p "$prompt" \
     -theme "$THEME" \
     -theme-str 'window {width: 800px;}' \

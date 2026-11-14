@@ -67,7 +67,7 @@ rofi/scripts/mpd.sh         ──sources──► rofi/scripts/lib-module.sh, r
 rofi/scripts/sing-box.sh    ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh
 rofi/scripts/scrcpy.sh    ──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, utils/notify.sh
 rofi/scripts/theme.sh──sources──► rofi/scripts/lib-module.sh, rofi/scripts/util.sh, tools/theme.sh
-rofi/scripts/dunst-menu.sh──sources──► 无外部脚本 (dunst 的 dmenu 实现: stdin action/URL 行 → rofi applets/type-1/style-2 → stdout 原始行, `-format i` 序号回映射); ──invoked by── dunst (dunstrc `dmenu = ~/.dwm/rofi/scripts/dunst-menu.sh`)
+rofi/scripts/dunst-menu.sh──sources──► 无外部脚本 (dunst 的 dmenu 实现: stdin action/URL 行 → rofi applets/type-2/style-2 → stdout 原始行, `-format i` 序号回映射); ──invoked by── dunst (dunstrc `dmenu = ~/.dwm/rofi/scripts/dunst-menu.sh`)
 
 # 死代码 (未被任何脚本 source)
 utils/print.sh   — number2icon() 无人调用
@@ -280,8 +280,9 @@ utils/shell-lib.sh — echo_note / is_float_term / init_tmux_cursor 无人调用
 > 显示为 `<label> <key>`: label 保留 (常是图标字形/动作名), key 裸跟在后面
 > (不加括号), summary 丢弃; 空 label 只显示 key; 跨通知完全同名时补 ` #<id>`。
 > 经 `rofi -dmenu -format i -no-custom` 的 0 基序号回映射; 空 stdin / ESC 均
-> 静默退出 0。主题 `applets/type-1/style-2.rasi` (文本列表; type-2 图标网格
-> 会压扁文本)。回归测试 `tests/dunst-menu_test.sh`。
+> 静默退出 0。主题 `applets/type-2/style-2.rasi`, 运行时 theme-str 覆盖为
+> 窗口 800px / `element{padding:20px 5px}` / `element-text{JetBrains Mono 12}`
+> / inputbar 只留 `textbox-prompt-colon` (隐藏 entry)。回归测试 `tests/dunst-menu_test.sh`。
 
 ### rofi/scripts/media-scraping.sh (顶层 `while module_loop` + `MEDIA_SCRAPING_NO_DISPATCH=1` 测试缝)
 

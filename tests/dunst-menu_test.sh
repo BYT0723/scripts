@@ -7,7 +7,7 @@
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT="$ROOT/rofi/scripts/dunst-menu.sh"
-THEME="$ROOT/rofi/applets/type-1/style-2.rasi"
+THEME="$ROOT/rofi/applets/type-2/style-2.rasi"
 TEST_DIR=$(mktemp -d)
 trap 'rm -rf "$TEST_DIR"' EXIT
 
@@ -61,16 +61,19 @@ assert_eq "empty stdin rc" 0 "$rc"
 assert_cond "empty stdin -> rofi not spawned" '[[ ! -s "$ROFI_LOG" ]]'
 assert_cond "empty stdin -> no stderr" '[[ ! -s "$TEST_DIR/stderr" ]]'
 
-# ---- 2. 主题/参数: type-1/style-2 + dmenu/format i/no-custom ----
+# ---- 2. 主题/参数: type-2/style-2 + dmenu/format i/no-custom ----
 reset_mock
 export ROFI_FAKE_CHOICE=0
 printf '%s\n' '#Open (Title) [3,default]' | "$SCRIPT" >/dev/null 2>&1
-assert_cond "theme is applets/type-1/style-2.rasi" 'arg_logged "$THEME"'
+assert_cond "theme is applets/type-2/style-2.rasi" 'arg_logged "$THEME"'
 assert_cond "uses -dmenu" 'arg_logged -dmenu'
 assert_cond "uses -format" 'arg_logged -format'
 assert_cond "format outputs index" 'arg_logged i'
 assert_cond "uses -no-custom" 'arg_logged -no-custom'
-assert_cond "menu width 600px" 'grep -qxF "window {width: 600px;}" "$ROFI_LOG"'
+assert_cond "menu width 800px" 'grep -qxF "window {width: 800px;}" "$ROFI_LOG"'
+assert_cond "element padding 20px 5px" 'grep -qxF "element {padding: 20px 5px;}" "$ROFI_LOG"'
+assert_cond "element-text mono font 12" 'grep -qxF "element-text {font: \"JetBrains Mono Nerd Font 12\";}" "$ROFI_LOG"'
+assert_cond "inputbar has prompt only (no entry)" 'grep -qxF "inputbar {children: [ \"textbox-prompt-colon\"];}" "$ROFI_LOG"'
 
 # ---- 3. 显示: label + 裸 key (无括号), 丢弃通知 summary ----
 reset_mock
