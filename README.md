@@ -183,6 +183,7 @@ DWM 启动 → autostart.sh ─┬─ picom / dunst / xsettingsd / snixembed / l
 | `theme.sh` | 主题控制菜单 (light/dark/auto/偏移量/亮度滑块/过渡锚点) | tools/theme.sh |
 | `wallpaper.sh` | 壁纸配置 UI (monitor/组/随机参数/深色目录) | tools/wallpaper-lib.sh |
 | `notification.sh` | dunst 通知历史 | dunst / jq |
+| `dunst-menu.sh` | dunst 通知 action 选择菜单 (dmenu 实现, type-1/style-2, 显示 label + key) | rofi |
 | `sddm.sh` | SDDM 主题管理 UI | tools/sddm.sh |
 | `media-scraping.sh` | 媒体刮削 docker 服务启停 | docker / jq |
 | `quicklinks-mode.sh` | 书签/搜索引擎 (rofi script mode) | jq / curl / file / utils/form.sh / yad |
